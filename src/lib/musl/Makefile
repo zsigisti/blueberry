@@ -20,7 +20,6 @@ $(SYSROOT)/lib/libc.so: $(MUSL_SRC)/Makefile
 	    --prefix=$(SYSROOT)/usr \
 	    --libdir=$(SYSROOT)/usr/lib \
 	    --syslibdir=$(SYSROOT)/lib \
-	    --enable-wrapper=all \
 	    ARCH=$(ARCH) \
 	    CC="$(CC)" \
 	    CFLAGS="$(CFLAGS)"
@@ -32,7 +31,10 @@ $(SYSROOT)/lib/libc.so: $(MUSL_SRC)/Makefile
 	@mkdir -p $(SYSROOT)/lib
 	@ln -sf $(SYSROOT)/usr/lib/libc.so $(SYSROOT)/lib/libc.musl-$(ARCH).so.1 2>/dev/null || true
 	@ln -sf $(SYSROOT)/usr/lib/libc.so $(SYSROOT)/lib/ld-musl-$(ARCH).so.1   2>/dev/null || true
-	@# Convenience symlink: $(SYSROOT)/bin/musl-gcc → usr/bin/musl-gcc
-	@mkdir -p $(SYSROOT)/bin
-	@ln -sf $(SYSROOT)/usr/bin/musl-gcc $(SYSROOT)/bin/musl-gcc 2>/dev/null || true
+	@# Create musl-gcc wrapper explicitly — don't rely on --enable-wrapper=all
+	@mkdir -p $(SYSROOT)/bin $(SYSROOT)/usr/bin
+	@printf '#!/bin/sh\nexec "$${CC:-gcc}" --sysroot="$(SYSROOT)/usr" -isystem "$(SYSROOT)/usr/include" -L "$(SYSROOT)/usr/lib" "$$@"\n' \
+	    > $(SYSROOT)/bin/musl-gcc
+	@chmod +x $(SYSROOT)/bin/musl-gcc
+	@cp $(SYSROOT)/bin/musl-gcc $(SYSROOT)/usr/bin/musl-gcc
 	@echo "[musl] sysroot ready at $(SYSROOT)"
