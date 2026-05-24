@@ -18,13 +18,10 @@ all: $(STAGEDIR)/bin/busybox
 
 $(STAGEDIR)/bin/busybox: $(BUSYBOX_SRC)/Makefile
 	@echo "[busybox] generating config"
-	@# Build a fragment from our config with the cross-compiler prefix cleared
-	@sed 's|^CONFIG_CROSS_COMPILER_PREFIX=.*|CONFIG_CROSS_COMPILER_PREFIX=""|' \
-	    $(BB_CONFIG) > /tmp/busybox-fragment.config
-	@# alldefconfig sets all symbols to Kconfig defaults; KCONFIG_ALLCONFIG
-	@# overrides any symbol present in our fragment — no interactive prompts.
-	@KCONFIG_ALLCONFIG=/tmp/busybox-fragment.config \
-	    $(MAKE) -C $(BUSYBOX_SRC) CC="$(MUSL_GCC)" alldefconfig
+	@# Copy our fragment as the starting .config; silentoldconfig then fills in
+	@# Kconfig defaults for every symbol not present in the fragment — no prompts.
+	@cp $(BB_CONFIG) $(BUSYBOX_SRC)/.config
+	@$(MAKE) -C $(BUSYBOX_SRC) CC="$(MUSL_GCC)" silentoldconfig
 	@echo "[busybox] building"
 	@$(MAKE) -C $(BUSYBOX_SRC) \
 	    CC="$(MUSL_GCC)" \
