@@ -240,7 +240,8 @@ _do_install:
 	@install -Dm755 $(BPM_BIN) $(STAGEDIR)/usr/bin/bpm
 	@# Create FHS directories
 	@for d in proc sys dev dev/pts dev/shm run tmp var/log var/empty \
-	          var/spool/cron/crontabs root home mnt srv boot usr/local/{bin,sbin,lib}; do \
+	          var/spool/cron/crontabs root home mnt srv boot \
+	          usr/local/bin usr/local/sbin usr/local/lib; do \
 	    mkdir -p $(STAGEDIR)/$$d; \
 	done
 	@chmod 1777 $(STAGEDIR)/tmp
