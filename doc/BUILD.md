@@ -51,7 +51,7 @@ dnf install -y gcc musl-gcc golang wget xz bzip2 zstd cpio bc \
 ## Quick Build
 
 ```sh
-git clone https://git.blueberry.linux/blueberry/blueberry.git
+git clone https://github.com/mmzsigmond/blueberry.git
 cd blueberry
 make world           # build everything → ../blueberry-build/
 make install         # install into ../blueberry-build/rootfs/

@@ -4,6 +4,10 @@ Source code lives on **GitHub**. CI/CD runs on **GitHub Actions**. The only
 server you need to run yourself is an **Nginx** instance to serve the `.bb`
 package files that `bpm` downloads.
 
+TLS is handled by a **Cloudflare Tunnel** — Cloudflare terminates HTTPS
+publicly and forwards plain HTTP to Nginx on your local machine. No certs,
+no open ports required.
+
 ---
 
 ## 1. Architecture Overview
@@ -15,10 +19,11 @@ GitHub (source code + CI)
   │                 lint → test → build bpm
   │                 (main only) → build world → build packages
   │                             → sign with minisign
-  │                             → rsync to repo server
+  │                             → rsync to repo server (via Tailscale)
   │
-  └─ repo server (your NAS / VPS running Nginx)
-       repo.blueberry.linux  ── .bb files + BBINDEX.zst
+  └─ repo server (NAS running Nginx, no open ports)
+       Cloudflare Tunnel → Nginx (HTTP) → .bb files + BBINDEX.zst
+       public URL: https://repo.bb.mmzsigmond.me
 ```
 
 ---
@@ -47,6 +52,8 @@ The repo server is a single Nginx container. No Forgejo, no Woodpecker.
 
 ### docker-compose.yml
 
+Nginx only listens on HTTP — Cloudflare Tunnel handles TLS publicly.
+
 ```yaml
 # /srv/blueberry/docker-compose.yml
 services:
@@ -54,27 +61,27 @@ services:
     image: nginx:1.27-alpine
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - "127.0.0.1:8080:80"   # bind to localhost only — Cloudflare connects here
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ./repo:/srv/repo:ro
-      - ./certbot/conf:/etc/letsencrypt:ro
-      - ./certbot/webroot:/var/www/certbot:ro
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - nginx
 ```
 
 ### nginx/conf.d/repo.conf
 
 ```nginx
 server {
-    listen 443 ssl http2;
-    server_name repo.blueberry.linux;
-
-    ssl_certificate     /etc/letsencrypt/live/repo.blueberry.linux/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/repo.blueberry.linux/privkey.pem;
-    ssl_protocols       TLSv1.3 TLSv1.2;
-    ssl_ciphers         HIGH:!aNULL:!MD5;
-    ssl_session_cache   shared:SSL:10m;
+    listen 80;
+    server_name repo.bb.mmzsigmond.me;
 
     root /srv/repo;
     autoindex on;
@@ -96,18 +103,23 @@ server {
     access_log /var/log/nginx/repo.access.log;
     error_log  /var/log/nginx/repo.error.log;
 }
-
-server {
-    listen 80;
-    server_name repo.blueberry.linux;
-    location /.well-known/acme-challenge/ {
-        root /var/www/certbot;
-    }
-    location / {
-        return 301 https://$host$request_uri;
-    }
-}
 ```
+
+### .env file (next to docker-compose.yml)
+
+```sh
+CLOUDFLARE_TUNNEL_TOKEN=your-token-here
+```
+
+### Cloudflare Tunnel setup
+
+1. Go to Cloudflare Zero Trust → Networks → Tunnels → Create a tunnel
+2. Name it `blueberry-repo`
+3. Copy the tunnel token → put it in `.env` as `CLOUDFLARE_TUNNEL_TOKEN`
+4. In the tunnel's Public Hostnames tab:
+   - Subdomain: `repo`, Domain: `bb.mmzsigmond.me`
+   - Service: `http://nginx:80`
+5. Save
 
 ### Start it
 
@@ -117,25 +129,19 @@ docker compose up -d
 docker compose ps
 ```
 
----
-
-## 3. TLS Certificate
+### Verify
 
 ```sh
-# Get a cert before starting Nginx (standalone mode — nothing on port 80 yet)
-docker run --rm -it \
-    -v /srv/blueberry/certbot/conf:/etc/letsencrypt \
-    -v /srv/blueberry/certbot/webroot:/var/www/certbot \
-    -p 80:80 \
-    certbot/certbot certonly --standalone \
-    -d repo.blueberry.linux \
-    --agree-tos --email admin@blueberry.linux
-
-# Auto-renew (add to crontab):
-# 0 3 * * * docker run --rm certbot/certbot renew --webroot \
-#   -w /srv/blueberry/certbot/webroot && \
-#   docker exec blueberry-nginx-1 nginx -s reload
+curl https://repo.bb.mmzsigmond.me/
+# Should return an HTML directory listing
 ```
+
+---
+
+## 3. TLS
+
+No action needed. Cloudflare terminates TLS for `repo.bb.mmzsigmond.me`
+automatically. The certificate renews itself via Cloudflare.
 
 ---
 

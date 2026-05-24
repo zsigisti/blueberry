@@ -5,14 +5,14 @@
 - **Package recipes** — Write a `BBUILD` for software not yet in `pkgs/`
 - **Core system improvements** — Fix bugs or add features in the build system, init scripts, or bpm
 - **Documentation** — Improve or extend `doc/`
-- **Bug reports** — Open an issue on Forgejo
+- **Bug reports** — Open an issue on GitHub
 
 ---
 
 ## 2. Development Setup
 
 ```sh
-git clone https://git.blueberry.linux/blueberry/blueberry.git
+git clone https://github.com/mmzsigmond/blueberry.git
 cd blueberry
 
 # Check build prerequisites
@@ -106,7 +106,7 @@ git checkout -b add-mypackage
 git add pkgs/extra/mypackage/
 git commit -m "feat(pkgs): add mypackage 1.0.0"
 git push origin add-mypackage
-# Open a Pull Request on Forgejo
+# Open a Pull Request on GitHub
 ```
 
 ---
@@ -205,12 +205,12 @@ go test -race ./...
 
 ## 8. Pull Request Process
 
-1. Fork the repository on Forgejo.
+1. Fork the repository on GitHub.
 2. Create a branch with a descriptive name: `add-nginx`, `fix-solver-cycle`, etc.
 3. Make your changes following the commit format above.
 4. Ensure `make bpm` and `bpm build <your-BBUILD>` succeed.
 5. Open a Pull Request. Describe what you changed and why.
-6. Address review feedback. Woodpecker CI must pass.
+6. Address review feedback. GitHub Actions CI must pass.
 7. A maintainer merges when CI passes and the change is approved.
 
 ---

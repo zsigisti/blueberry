@@ -13,7 +13,7 @@ Linux 7.0 kernel · musl libc · busybox · runit init · bpm package manager
 
 ```sh
 # 1. Clone
-git clone https://git.blueberry.linux/blueberry/blueberry.git
+git clone https://github.com/mmzsigmond/blueberry.git
 cd blueberry
 
 # 2. Check prerequisites
@@ -114,9 +114,9 @@ Nginx-backed repository at `https://repo.blueberry.linux/`.
 See [doc/CONTRIBUTING.md](doc/CONTRIBUTING.md).
 
 TL;DR:
-1. Fork on Forgejo
+1. Fork on GitHub
 2. Write a `BBUILD` in `pkgs/extra/<name>/`
-3. `make bpm && obj/bpm build pkgs/extra/<name>/BBUILD`
+3. `make bpm && ../blueberry-build/bpm build pkgs/extra/<name>/BBUILD`
 4. Open a Pull Request
 
 ---
