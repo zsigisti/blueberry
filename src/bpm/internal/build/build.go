@@ -148,9 +148,9 @@ func Build(recipe *Recipe, opts BuildOptions) (string, error) {
 		}
 	}
 
-	// Execute build() and package() via sh
+	// Execute build() and package() via bash — BBUILD files use bash syntax (arrays etc.)
 	script := buildScript(recipe, srcDir, pkgDir, opts.Jobs)
-	cmd := exec.Command("sh", "-e", "-")
+	cmd := exec.Command("bash", "-e", "-")
 	cmd.Stdin = strings.NewReader(script)
 	cmd.Dir = srcDir
 	cmd.Env = buildEnv(recipe, srcDir, pkgDir, opts)
