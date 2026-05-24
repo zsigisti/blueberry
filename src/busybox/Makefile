@@ -22,6 +22,8 @@ $(STAGEDIR)/bin/busybox: $(BUSYBOX_SRC)/Makefile
 	@# Inject musl-gcc as the compiler
 	@sed -i "s|^CONFIG_CROSS_COMPILER_PREFIX=.*|CONFIG_CROSS_COMPILER_PREFIX=\"\"|" \
 	    $(BUSYBOX_SRC)/.config
+	@# Accept defaults for any new/unknown symbols — avoids interactive prompts in CI
+	@$(MAKE) -C $(BUSYBOX_SRC) CC="$(MUSL_GCC)" olddefconfig
 	@echo "[busybox] building"
 	@$(MAKE) -C $(BUSYBOX_SRC) \
 	    CC="$(MUSL_GCC)" \
