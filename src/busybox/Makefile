@@ -17,13 +17,14 @@ MUSL_GCC := $(SYSROOT)/bin/musl-gcc
 all: $(STAGEDIR)/bin/busybox
 
 $(STAGEDIR)/bin/busybox: $(BUSYBOX_SRC)/Makefile
-	@echo "[busybox] installing config"
-	@cp $(BB_CONFIG) $(BUSYBOX_SRC)/.config
-	@# Inject musl-gcc as the compiler
-	@sed -i "s|^CONFIG_CROSS_COMPILER_PREFIX=.*|CONFIG_CROSS_COMPILER_PREFIX=\"\"|" \
-	    $(BUSYBOX_SRC)/.config
-	@# Accept defaults for all new symbols without prompting
-	@$(MAKE) -C $(BUSYBOX_SRC) CC="$(MUSL_GCC)" oldconfig < /dev/null
+	@echo "[busybox] generating config"
+	@# Build a fragment from our config with the cross-compiler prefix cleared
+	@sed 's|^CONFIG_CROSS_COMPILER_PREFIX=.*|CONFIG_CROSS_COMPILER_PREFIX=""|' \
+	    $(BB_CONFIG) > /tmp/busybox-fragment.config
+	@# alldefconfig sets all symbols to Kconfig defaults; KCONFIG_ALLCONFIG
+	@# overrides any symbol present in our fragment — no interactive prompts.
+	@KCONFIG_ALLCONFIG=/tmp/busybox-fragment.config \
+	    $(MAKE) -C $(BUSYBOX_SRC) CC="$(MUSL_GCC)" alldefconfig
 	@echo "[busybox] building"
 	@$(MAKE) -C $(BUSYBOX_SRC) \
 	    CC="$(MUSL_GCC)" \
