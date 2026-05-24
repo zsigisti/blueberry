@@ -21,9 +21,9 @@ GitHub (source code + CI)
   │                             → sign with minisign
   │                             → rsync to repo server (via Tailscale)
   │
-  └─ repo server (NAS running Nginx, no open ports)
-       Cloudflare Tunnel → Nginx (HTTP) → .bb files + BBINDEX.zst
-       public URL: https://repo.bb.mmzsigmond.me
+  └─ NAS (192.168.0.79) running Nginx, no open ports
+       Cloudflare Tunnel → bb.mmzsigmond.me      → .bb files + BBINDEX.zst
+       Cloudflare Tunnel → blueberry.mmzsigmond.me → project site
 ```
 
 ---
@@ -76,12 +76,12 @@ services:
       - nginx
 ```
 
-### nginx/conf.d/repo.conf
+### nginx/conf.d/repo.conf — package repository
 
 ```nginx
 server {
     listen 80;
-    server_name repo.bb.mmzsigmond.me;
+    server_name bb.mmzsigmond.me;
 
     root /srv/repo;
     autoindex on;
@@ -105,6 +105,38 @@ server {
 }
 ```
 
+### nginx/conf.d/site.conf — project website
+
+```nginx
+server {
+    listen 80;
+    server_name blueberry.mmzsigmond.me;
+
+    root /srv/site;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    access_log /var/log/nginx/site.access.log;
+    error_log  /var/log/nginx/site.error.log;
+}
+```
+
+Add a `site/` volume to docker-compose.yml alongside `repo/`:
+```yaml
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./repo:/srv/repo:ro
+      - ./site:/srv/site:ro
+```
+
+Drop your static HTML into `/srv/blueberry/site/` and it'll be live at
+`https://blueberry.mmzsigmond.me`.
+
+---
+
 ### .env file (next to docker-compose.yml)
 
 ```sh
@@ -114,11 +146,15 @@ CLOUDFLARE_TUNNEL_TOKEN=your-token-here
 ### Cloudflare Tunnel setup
 
 1. Go to Cloudflare Zero Trust → Networks → Tunnels → Create a tunnel
-2. Name it `blueberry-repo`
+2. Name it `blueberry`
 3. Copy the tunnel token → put it in `.env` as `CLOUDFLARE_TUNNEL_TOKEN`
-4. In the tunnel's Public Hostnames tab:
-   - Subdomain: `repo`, Domain: `bb.mmzsigmond.me`
-   - Service: `http://nginx:80`
+4. In the tunnel's **Public Hostnames** tab, add two routes:
+
+   | Subdomain | Domain | Service |
+   |-----------|--------|---------|
+   | _(empty)_ | `bb.mmzsigmond.me` | `http://nginx:80` |
+   | _(empty)_ | `blueberry.mmzsigmond.me` | `http://nginx:80` |
+
 5. Save
 
 ### Start it
@@ -132,7 +168,7 @@ docker compose ps
 ### Verify
 
 ```sh
-curl https://repo.bb.mmzsigmond.me/
+curl https://bb.mmzsigmond.me/
 # Should return an HTML directory listing
 ```
 
@@ -140,7 +176,7 @@ curl https://repo.bb.mmzsigmond.me/
 
 ## 3. TLS
 
-No action needed. Cloudflare terminates TLS for `repo.bb.mmzsigmond.me`
+No action needed. Cloudflare terminates TLS for `bb.mmzsigmond.me`
 automatically. The certificate renews itself via Cloudflare.
 
 ---
@@ -230,7 +266,7 @@ minisign -G -s blueberry-repo.key -p blueberry-repo.pub \
 ```sh
 mkdir -p /etc/bpm/trusted-keys
 wget -O /etc/bpm/trusted-keys/blueberry-repo.pub \
-    https://repo.blueberry.linux/keys/blueberry-repo.pub
+    https://bb.mmzsigmond.me/keys/blueberry-repo.pub
 ```
 
 ---

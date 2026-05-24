@@ -227,8 +227,8 @@ bpm repo list
 
 Output:
 ```
-core                enabled    https://repo.blueberry.linux/packages/x86_64
-extra               enabled    https://repo.blueberry.linux/extra/x86_64
+core                enabled    https://bb.mmzsigmond.me/packages/x86_64
+extra               enabled    https://bb.mmzsigmond.me/extra/x86_64
 local               disabled   file:///var/lib/bpm/local-repo
 ```
 
@@ -239,7 +239,7 @@ local               disabled   file:///var/lib/bpm/local-repo
 Add a repository.
 
 ```sh
-bpm repo add extra https://repo.blueberry.linux/extra/x86_64
+bpm repo add extra https://bb.mmzsigmond.me/extra/x86_64
 bpm repo add local file:///var/lib/bpm/local-repo
 ```
 
@@ -287,7 +287,7 @@ bpm repo enable extra
 
 ```toml
 name    = "core"
-url     = "https://repo.blueberry.linux/packages/x86_64"
+url     = "https://bb.mmzsigmond.me/packages/x86_64"
 enabled = true
 ```
 

@@ -218,7 +218,7 @@ go test -race ./...
 ## 9. Security Reporting
 
 Do **not** open a public issue for security vulnerabilities. Email
-`security@blueberry.linux` with:
+`security@blueberry.mmzsigmond.me` with:
 - Description of the vulnerability
 - Steps to reproduce
 - Affected components and versions

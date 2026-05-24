@@ -23,7 +23,7 @@ To add a trusted key:
 ```sh
 # Download the repo's public key
 wget -O /etc/bpm/trusted-keys/core.pub \
-    https://repo.blueberry.linux/keys/blueberry-repo.pub
+    https://bb.mmzsigmond.me/keys/blueberry-repo.pub
 ```
 
 To generate a signing key pair (repository maintainers only):
@@ -184,7 +184,7 @@ Service accounts should have:
 
 **Do not open public issues for vulnerabilities.**
 
-Email `security@blueberry.linux` with:
+Email `security@blueberry.mmzsigmond.me` with:
 
 1. Affected component and version
 2. Description of the vulnerability

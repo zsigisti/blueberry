@@ -333,7 +333,7 @@ depends=("musl")
 makedepends=()
 source=("https://zlib.net/zlib-$version.tar.gz")
 checksums=("sha256:9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23")
-packager="Blueberry Maintainers <maintainers@blueberry.linux>"
+packager="Blueberry Maintainers <maintainers@blueberry.mmzsigmond.me>"
 
 build() {
     cd "$name-$version"

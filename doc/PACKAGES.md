@@ -98,7 +98,7 @@ replaces = []
 size = 1234567
 installed_size = 3456789
 build_date = "2026-05-01T10:00:00Z"
-packager = "Blueberry Maintainers <maintainers@blueberry.linux>"
+packager = "Blueberry Maintainers <maintainers@blueberry.mmzsigmond.me>"
 sha256 = "a1b2c3d4..."
 ```
 
@@ -208,7 +208,7 @@ license: MIT
 size: 443266
 installed_size: 1454080
 build_date: 2026-05-01T10:00:00Z
-packager: Blueberry Maintainers <maintainers@blueberry.linux>
+packager: Blueberry Maintainers <maintainers@blueberry.mmzsigmond.me>
 sha256: a1b2c3d4e5f6...
 filename: musl-1.2.5-1-x86_64.bb
 

@@ -164,7 +164,7 @@ locking (e.g., `flock /var/lib/bpm/lock`).
 
 ```toml
 name    = "core"
-url     = "https://repo.blueberry.linux/packages/x86_64"
+url     = "https://bb.mmzsigmond.me/packages/x86_64"
 enabled = true
 ```
 

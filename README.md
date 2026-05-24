@@ -105,7 +105,7 @@ bpm repo list            # list configured repositories
 ```
 
 Packages are `.bb` files — zstd-compressed tar archives — served from an
-Nginx-backed repository at `https://repo.blueberry.linux/`.
+Nginx-backed repository at `https://bb.mmzsigmond.me/`.
 
 ---
 
