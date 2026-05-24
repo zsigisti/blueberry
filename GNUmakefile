@@ -46,6 +46,7 @@ STAMP_FETCH_LINUX    := $(OBJDIR)/.stamp-fetch-linux
 STAMP_FETCH_MUSL     := $(OBJDIR)/.stamp-fetch-musl
 STAMP_FETCH_BUSYBOX  := $(OBJDIR)/.stamp-fetch-busybox
 STAMP_FETCH_RUNIT    := $(OBJDIR)/.stamp-fetch-runit
+STAMP_KERNEL_HEADERS := $(OBJDIR)/.stamp-kernel-headers
 STAMP_MUSL           := $(OBJDIR)/.stamp-musl
 STAMP_BUSYBOX        := $(OBJDIR)/.stamp-busybox
 STAMP_RUNIT          := $(OBJDIR)/.stamp-runit
@@ -72,7 +73,7 @@ TAR  := tar
 
 # ── Default goal ─────────────────────────────────────────────────────────────
 .DEFAULT_GOAL := world
-.PHONY: world kernel userland musl busybox runit bpm initramfs install \
+.PHONY: world kernel kernel-headers userland musl busybox runit bpm initramfs install \
         iso repo fetch clean distclean help _check_tools
 
 world: userland kernel initramfs
@@ -131,10 +132,21 @@ $(STAMP_FETCH_RUNIT): | $(OBJDIR_SRC)
 	fi
 	@touch $@
 
+# ── Kernel headers (needed by musl and busybox) ───────────────────────────────
+kernel-headers: $(STAMP_KERNEL_HEADERS)
+
+$(STAMP_KERNEL_HEADERS): $(STAMP_FETCH_LINUX) | $(MUSL_SYSROOT)
+	@echo "[kernel-headers] installing to $(MUSL_SYSROOT)/usr"
+	@$(MAKE) -C $(LINUX_SRC) \
+	    ARCH=$(ARCH) \
+	    INSTALL_HDR_PATH=$(MUSL_SYSROOT)/usr \
+	    headers_install
+	@touch $@
+
 # ── musl libc ─────────────────────────────────────────────────────────────────
 musl: $(STAMP_MUSL)
 
-$(STAMP_MUSL): $(STAMP_FETCH_MUSL) | $(MUSL_SYSROOT)
+$(STAMP_MUSL): $(STAMP_FETCH_MUSL) $(STAMP_KERNEL_HEADERS) | $(MUSL_SYSROOT)
 	@echo "[build] musl-$(MUSL_VERSION)"
 	@$(MAKE) -C $(SRCDIR)/lib/musl \
 	    MUSL_SRC=$(MUSL_SRC) \
@@ -215,13 +227,14 @@ $(STAMP_INITRAMFS): $(STAMP_BUSYBOX) $(STAMP_RUNIT) | $(BOOTDIR)
 	@touch $@
 
 # ── install ───────────────────────────────────────────────────────────────────
-install: userland
+install: world
 	@echo "[install] rootfs → $(STAGEDIR)"
 	@$(MAKE) -f $(TOPDIR)/GNUmakefile _do_install
 	@touch $(STAMP_INSTALL)
 
 _do_install:
 	@# Copy /etc skeleton
+	@mkdir -p $(STAGEDIR)/etc
 	@cp -a $(ETCDIR)/. $(STAGEDIR)/etc/
 	@# Install bpm binary
 	@install -Dm755 $(BPM_BIN) $(STAGEDIR)/usr/bin/bpm
@@ -235,10 +248,13 @@ _do_install:
 	@chmod 711  $(STAGEDIR)/var/empty
 	@# /init → runit-init
 	@ln -sf /sbin/runit-init $(STAGEDIR)/init 2>/dev/null || true
+	@# Copy boot assets (kernel + initramfs) into rootfs/boot for mkiso.sh
+	@cp $(BOOTDIR)/vmlinuz              $(STAGEDIR)/boot/vmlinuz
+	@cp $(BOOTDIR)/initramfs.cpio.zst   $(STAGEDIR)/boot/initramfs.cpio.zst
 	@echo "[install] done → $(STAGEDIR)"
 
 # ── ISO ───────────────────────────────────────────────────────────────────────
-iso: world install
+iso: install
 	@echo "[iso] building bootable image"
 	@$(TOPDIR)/tools/mkiso.sh $(STAGEDIR) \
 	    blueberry-$(shell date +%Y%m%d)-$(ARCH).iso

@@ -33,7 +33,7 @@ $(SYSROOT)/lib/libc.so: $(MUSL_SRC)/Makefile
 	@ln -sf $(SYSROOT)/usr/lib/libc.so $(SYSROOT)/lib/ld-musl-$(ARCH).so.1   2>/dev/null || true
 	@# Create musl-gcc wrapper explicitly — don't rely on --enable-wrapper=all
 	@mkdir -p $(SYSROOT)/bin $(SYSROOT)/usr/bin
-	@printf '#!/bin/sh\nexec "$${CC:-gcc}" --sysroot="$(SYSROOT)/usr" -isystem "$(SYSROOT)/usr/include" -L "$(SYSROOT)/usr/lib" "$$@"\n' \
+	@printf '#!/bin/sh\nexec "$(CC)" --sysroot="$(SYSROOT)/usr" -isystem "$(SYSROOT)/usr/include" -L "$(SYSROOT)/usr/lib" "$$@"\n' \
 	    > $(SYSROOT)/bin/musl-gcc
 	@chmod +x $(SYSROOT)/bin/musl-gcc
 	@cp $(SYSROOT)/bin/musl-gcc $(SYSROOT)/usr/bin/musl-gcc
