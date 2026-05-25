@@ -74,7 +74,7 @@ TAR  := tar
 # ── Default goal ─────────────────────────────────────────────────────────────
 .DEFAULT_GOAL := world
 .PHONY: world kernel kernel-headers userland musl busybox runit bpm initramfs install \
-        iso repo pkg upgrade-pkg fetch clean distclean help _check_tools
+        iso repo pkg upgrade-pkg smoke-test fetch clean distclean help _check_tools
 
 world: userland kernel initramfs
 	@echo ""
@@ -307,6 +307,12 @@ upgrade-pkg:
 	@bash $(TOPDIR)/tools/bump-package.sh $(PKG) $(VERSION)
 	@$(MAKE) pkg PKG=$(PKG)
 
+# Boot Blueberry in QEMU with a smoke-test init and verify PASS.
+# Requires: make world (or at least make kernel + make initramfs)
+# The packages repo is built automatically if not already present.
+smoke-test:
+	@bash $(TOPDIR)/tools/smoke-test.sh
+
 # ── Directory creation ────────────────────────────────────────────────────────
 $(OBJDIR_SRC) $(MUSL_SYSROOT) $(STAGEDIR) $(BOOTDIR) $(OBJDIR):
 	@mkdir -p $@
@@ -344,6 +350,7 @@ help:
 	@echo "  initramfs      Build initramfs image"
 	@echo "  install        Install world into DESTDIR=$(STAGEDIR)"
 	@echo "  iso            Build a bootable ISO"
+	@echo "  smoke-test     Boot in QEMU and verify SMOKE_TEST_RESULT=PASS"
 	@echo ""
 	@echo "Package repository targets:"
 	@echo "  repo           Build all packages from pkgs/ (needs musl-gcc)"
