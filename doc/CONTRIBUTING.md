@@ -252,22 +252,35 @@ make repo
 
 ### Testing the OS in QEMU
 
-After `make world`:
+Use absolute paths — relative paths break when you `cd` into a temp directory.
 
 ```sh
-# Boot with the standard init (requires root= parameter)
+SRCDIR=~/projects/blueberry        # your clone location
+OBJDIR=~/projects/blueberry-build  # default build output
+
+# Boot with the standard init (requires a real root disk)
 qemu-system-x86_64 \
-  -kernel ../blueberry-build/boot/vmlinuz \
-  -initrd ../blueberry-build/boot/initramfs.cpio.zst \
+  -kernel $OBJDIR/boot/vmlinuz \
+  -initrd $OBJDIR/boot/initramfs.cpio.zst \
   -append "console=ttyS0 root=/dev/sda1 rootfstype=ext4" \
   -nographic -m 512M
 
-# Boot with the smoke test init (no real root needed)
-# First serve the package repo:
-python3 -m http.server 8080 --directory ../blueberry-build/repo/ &
+# Boot with the smoke test init (no real disk needed — runs in RAM)
+# Step 1: build and serve packages
+cd $SRCDIR && make repo
+python3 -m http.server 8080 --directory $OBJDIR/repo &
+
+# Step 2: inject test-init into the initramfs
+mkdir -p /tmp/itest
+zstd -d < $OBJDIR/boot/initramfs.cpio.zst | cpio -id --quiet -D /tmp/itest
+cp $SRCDIR/src/initramfs/test-init /tmp/itest/test-init
+chmod 755 /tmp/itest/test-init
+(cd /tmp/itest && find . | sort | cpio -H newc -o --quiet | zstd -19 -q > /tmp/test.cpio.zst)
+
+# Step 3: boot
 qemu-system-x86_64 \
-  -kernel ../blueberry-build/boot/vmlinuz \
-  -initrd ../blueberry-build/boot/initramfs.cpio.zst \
+  -kernel $OBJDIR/boot/vmlinuz \
+  -initrd /tmp/test.cpio.zst \
   -append "console=ttyS0 init=/test-init BPMREPO=http://10.0.2.2:8080" \
   -nographic -no-reboot -m 512M \
   -net nic,model=virtio -net user

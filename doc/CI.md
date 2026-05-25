@@ -179,30 +179,38 @@ QEMU network setup: `-net nic,model=virtio -net user`
 
 ### Local equivalent
 
+Use absolute paths throughout — relative paths break when you `cd` into a work directory.
+
 ```sh
-# Build world first
-make world
+SRCDIR=~/projects/blueberry        # adjust if your clone is elsewhere
+OBJDIR=~/projects/blueberry-build  # default output location
 
-# Serve packages
-make repo
-python3 -m http.server 8080 --directory ../blueberry-build/repo/ &
+# 1. Build world (one-time, ~20-40 min — skip if already done)
+cd $SRCDIR && make world JOBS=$(nproc)
 
-# Build test initramfs
-mkdir -p /tmp/initramfs-test && cd /tmp/initramfs-test
-zstd -d < ../blueberry-build/boot/initramfs.cpio.zst | cpio -id --quiet
-cp /path/to/blueberry/src/initramfs/test-init ./test-init
-chmod 755 ./test-init
-find . | sort | cpio -H newc -o --quiet | zstd -19 -q > /tmp/test-initramfs.cpio.zst
-cd -
+# 2. Build packages so the smoke test has a repo to install from
+cd $SRCDIR && make repo
 
-# Boot
+# 3. Serve the package repo from a background HTTP server
+python3 -m http.server 8080 --directory $OBJDIR/repo &
+
+# 4. Build a test initramfs (inject test-init into the real initramfs)
+mkdir -p /tmp/itest
+zstd -d < $OBJDIR/boot/initramfs.cpio.zst | cpio -id --quiet -D /tmp/itest
+cp $SRCDIR/src/initramfs/test-init /tmp/itest/test-init
+chmod 755 /tmp/itest/test-init
+(cd /tmp/itest && find . | sort | cpio -H newc -o --quiet | zstd -19 -q > /tmp/test.cpio.zst)
+
+# 5. Boot in QEMU (BPMREPO points to the HTTP server started above)
 qemu-system-x86_64 \
-  -kernel ../blueberry-build/boot/vmlinuz \
-  -initrd /tmp/test-initramfs.cpio.zst \
+  -kernel $OBJDIR/boot/vmlinuz \
+  -initrd /tmp/test.cpio.zst \
   -append "console=ttyS0 init=/test-init BPMREPO=http://10.0.2.2:8080" \
   -nographic -no-reboot -m 512M \
   -net nic,model=virtio -net user
 ```
+
+Watch for `SMOKE_TEST_RESULT=PASS` in the serial output. The VM powers off automatically when done.
 
 ---
 
