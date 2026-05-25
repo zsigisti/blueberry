@@ -201,7 +201,7 @@ userland: musl busybox runit bpm
 # ── Linux kernel ─────────────────────────────────────────────────────────────
 kernel: $(STAMP_KERNEL)
 
-$(STAMP_KERNEL): $(STAMP_FETCH_LINUX) | $(BOOTDIR)
+$(STAMP_KERNEL): $(STAMP_FETCH_LINUX) $(TOPDIR)/src/kernel/config | $(BOOTDIR)
 	@echo "[build] linux-$(LINUX_VERSION)"
 	@$(MAKE) -C $(SRCDIR)/kernel \
 	    LINUX_SRC=$(LINUX_SRC) \

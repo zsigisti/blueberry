@@ -67,7 +67,7 @@ done
 python3 -m http.server "$HTTP_PORT" --directory "$REPODIR" \
     > "$WORK_DIR/http.log" 2>&1 &
 HTTP_PID=$!
-trap 'kill $HTTP_PID 2>/dev/null; rm -rf "$WORK_DIR"' EXIT
+trap 'kill $HTTP_PID 2>/dev/null' EXIT
 
 # QEMU user networking: guest sees the host as 10.0.2.2, any port on 127.0.0.1
 # maps in via the hostfwd or just directly since 10.0.2.2 is the SLIRP gateway.
@@ -91,16 +91,21 @@ timeout "$TIMEOUT" qemu-system-x86_64 \
 echo "─────────────────────────────────────────────────────────"
 
 # ── Result ───────────────────────────────────────────────────────────────────
-if grep -q "SMOKE_TEST_RESULT=PASS" "$LOG"; then
+SAVED_LOG="/tmp/blueberry-smoke-last.log"
+cp "$LOG" "$SAVED_LOG" 2>/dev/null || true
+rm -rf "$WORK_DIR"
+
+if grep -q "SMOKE_TEST_RESULT=PASS" "$SAVED_LOG"; then
     echo ""
     echo "[smoke-test] RESULT: PASS"
+    rm -f "$SAVED_LOG"
     exit 0
 else
     echo ""
     echo "[smoke-test] RESULT: FAIL"
     echo "  Last 20 lines of boot log:"
-    tail -20 "$LOG" | sed 's/^/  /'
+    tail -20 "$SAVED_LOG" | sed 's/^/  /'
     echo ""
-    echo "  Full log: $LOG (note: cleaned up on exit)"
+    echo "  Full log saved to: $SAVED_LOG"
     exit 1
 fi
