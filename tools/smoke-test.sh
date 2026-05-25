@@ -80,13 +80,31 @@ echo "[smoke-test] booting QEMU (timeout ${TIMEOUT}s)..."
 echo "─────────────────────────────────────────────────────────"
 
 # ── Boot ─────────────────────────────────────────────────────────────────────
-timeout "$TIMEOUT" qemu-system-x86_64 \
+# Run QEMU in background writing serial to $LOG, stream it live with tail -f.
+# e1000: virtio-net can cause silent QEMU exit in some host configurations.
+touch "$LOG"
+qemu-system-x86_64 \
     -kernel "$BOOTDIR/vmlinuz" \
     -initrd "$TEST_CPIO" \
     -append "console=ttyS0 init=/test-init BPMREPO=$BPMREPO" \
-    -nographic -no-reboot -m 512M \
-    -net nic,model=virtio -net user \
-    2>&1 | tee "$LOG" || true
+    -display none -serial "file:$LOG" -monitor null \
+    -no-reboot -m 512M \
+    -net nic,model=e1000 -net user \
+    &
+QEMU_PID=$!
+
+# Stream serial output live; exit tail when QEMU process ends
+tail -f "$LOG" &
+TAIL_PID=$!
+
+# Wait for QEMU, enforce timeout
+( sleep "$TIMEOUT" && kill "$QEMU_PID" 2>/dev/null ) &
+WATCHDOG_PID=$!
+
+wait "$QEMU_PID" 2>/dev/null || true
+kill "$WATCHDOG_PID" 2>/dev/null || true
+kill "$TAIL_PID"    2>/dev/null || true
+sleep 0.2  # let tail flush its last lines
 
 echo "─────────────────────────────────────────────────────────"
 
