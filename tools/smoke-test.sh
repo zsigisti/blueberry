@@ -84,7 +84,7 @@ trap 'kill $HTTP_PID 2>/dev/null' EXIT
 # maps in via the hostfwd or just directly since 10.0.2.2 is the SLIRP gateway.
 # We need the HTTP server accessible at 10.0.2.2:$HTTP_PORT inside the guest.
 # QEMU SLIRP always forwards 10.0.2.2 → host 127.0.0.1, so this works.
-BPMREPO="http://10.0.2.2:$HTTP_PORT"
+BPMREPO="http://localhost:$HTTP_PORT"
 
 echo "[smoke-test] package server: $BPMREPO"
 echo "[smoke-test] booting QEMU (timeout ${TIMEOUT}s)..."

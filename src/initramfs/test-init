@@ -39,6 +39,8 @@ BPMREPO=""
 for p in $(cat /proc/cmdline); do
     case "$p" in BPMREPO=*) BPMREPO="${p#BPMREPO=}" ;; esac
 done
+# Inside QEMU SLIRP the host is at 10.0.2.2, not localhost
+BPMREPO=$(printf '%s' "$BPMREPO" | sed 's|localhost|10.0.2.2|g')
 
 printf '\n=== Blueberry Smoke Tests ===\n\n'
 
