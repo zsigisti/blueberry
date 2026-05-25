@@ -129,7 +129,12 @@ make pkg PKG=openssh
 
 **Trigger:** manual (`workflow_dispatch`) or weekly schedule (Sunday 02:00 UTC)
 
-**Purpose:** verify that the complete OS builds and boots correctly.
+**Purpose:** verify that the OS compiles and that the initramfs boots to a
+working shell, network, and package manager. This is a **CI smoke test** — not
+a simulation of the production deployment target, which is real bare-metal
+x86_64 hardware. QEMU is used purely because it lets CI verify boot correctness
+without physical machines.
+
 This is the slow job (~40-60 minutes) so it does not run on every push.
 
 ### Jobs
@@ -152,18 +157,25 @@ build-packages ┘
 | `smoke-test` | Downloads both artifacts |
 | `smoke-test` | Unpacks initramfs, injects `test-init` and networking applets |
 | `smoke-test` | Starts a Python HTTP server on port 8080 serving the package repo |
-| `smoke-test` | Boots QEMU with `init=/test-init BPMREPO=http://10.0.2.2:8080` |
+| `smoke-test` | Boots QEMU with `rdinit=/test-init BPMREPO=http://10.0.2.2:8080` |
 | `smoke-test` | Greps output for `SMOKE_TEST_RESULT=PASS` |
 | `smoke-test` | Uploads `boot-log-<run_id>` artifact (always, for debugging) |
 
 ### QEMU smoke test details
 
+> **Note:** QEMU is used only for CI boot verification. The production deployment
+> target is real bare-metal x86_64 hardware. The smoke test confirms the kernel
+> boots and the package manager works — it is not a hardware compatibility test.
+
 The test-init script (`src/initramfs/test-init`) runs as PID 1 inside the
-initramfs. It has no real root disk — everything runs in RAM. It:
+initramfs via `rdinit=/test-init`. It has no real root disk — everything runs
+in RAM. It:
 
 1. Mounts `/proc`, `/sys`, `/dev`
-2. Runs basic shell commands: `ls /bin`, `busybox ps`, `mount`, `uname -a`
-3. Brings up `eth0` with DHCP via QEMU user networking (gets `10.0.2.15`)
+2. Runs basic shell commands: `ls /bin`, `busybox ps`, `mount`, `busybox uname -a`
+3. Waits up to 5s for an Ethernet interface to appear (e1000 driver probes PCI
+   concurrently with init), assigns static `10.0.2.15/24` — QEMU SLIRP always
+   uses this range
 4. Pings the QEMU gateway at `10.0.2.2`
 5. Fetches `http://1.1.1.1/` to verify internet access
 6. If `BPMREPO=` is set on the kernel cmdline: creates a repo config pointing
@@ -172,9 +184,9 @@ initramfs. It has no real root disk — everything runs in RAM. It:
 7. Prints `SMOKE_TEST_RESULT=PASS` or `FAIL`
 8. Powers off (`halt -f -p`)
 
-QEMU network setup: `-net nic,model=virtio -net user`
-- Guest IP: `10.0.2.15` (DHCP from QEMU built-in server)
-- Gateway / host: `10.0.2.2` (this is where the CI Python server is accessible)
+QEMU network setup: `-net nic,model=e1000 -net user`
+- Guest IP: `10.0.2.15` (static; QEMU SLIRP always uses this subnet)
+- Gateway / host: `10.0.2.2` (the CI Python HTTP server is accessible here)
 - DNS: `10.0.2.3`
 
 ### Local equivalent
@@ -185,29 +197,30 @@ Use absolute paths throughout — relative paths break when you `cd` into a work
 SRCDIR=~/projects/blueberry        # adjust if your clone is elsewhere
 OBJDIR=~/projects/blueberry-build  # default output location
 
+# The easiest way — just run:
+cd $SRCDIR && make smoke-test
+
+# Or manually, step by step:
+
 # 1. Build world (one-time, ~20-40 min — skip if already done)
 cd $SRCDIR && make world JOBS=$(nproc)
 
-# 2. Build packages so the smoke test has a repo to install from
+# 2. Build packages
 cd $SRCDIR && make repo
 
-# 3. Serve the package repo from a background HTTP server
+# 3. Serve packages + boot
 python3 -m http.server 8080 --directory $OBJDIR/repo &
-
-# 4. Build a test initramfs (inject test-init into the real initramfs)
 mkdir -p /tmp/itest
 zstd -d < $OBJDIR/boot/initramfs.cpio.zst | cpio -id --quiet -D /tmp/itest
-cp $SRCDIR/src/initramfs/test-init /tmp/itest/test-init
-chmod 755 /tmp/itest/test-init
+cp $SRCDIR/src/initramfs/test-init /tmp/itest/test-init && chmod 755 /tmp/itest/test-init
 (cd /tmp/itest && find . | sort | cpio -H newc -o --quiet | zstd -19 -q > /tmp/test.cpio.zst)
 
-# 5. Boot in QEMU (BPMREPO points to the HTTP server started above)
 qemu-system-x86_64 \
   -kernel $OBJDIR/boot/vmlinuz \
   -initrd /tmp/test.cpio.zst \
-  -append "console=ttyS0 init=/test-init BPMREPO=http://10.0.2.2:8080" \
-  -nographic -no-reboot -m 512M \
-  -net nic,model=virtio -net user
+  -append "console=ttyS0 rdinit=/test-init BPMREPO=http://10.0.2.2:8080" \
+  -display none -serial stdio -monitor null \
+  -no-reboot -m 512M -net nic,model=e1000 -net user
 ```
 
 Watch for `SMOKE_TEST_RESULT=PASS` in the serial output. The VM powers off automatically when done.
