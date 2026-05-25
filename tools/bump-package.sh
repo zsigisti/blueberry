@@ -50,6 +50,7 @@ if [ -z "$TARGET_VERSION" ]; then
     echo "Checking upstream version for $PKG (current: $CURRENT)..."
     # Delegate to check-updates.sh with single-package filter
     LATEST=$(bash "$TOPDIR/tools/check-updates.sh" "$PKG" 2>/dev/null \
+             | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' \
              | grep -oE '→ [^ ]+$' | tail -1 | sed 's/→ //' || true)
     if [ -z "$LATEST" ]; then
         echo "Already up to date or no upstream check configured for $PKG."
