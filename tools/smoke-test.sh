@@ -65,7 +65,7 @@ while ss -tlnp 2>/dev/null | grep -q ":$HTTP_PORT "; do
     HTTP_PORT=$((HTTP_PORT + 1))
 done
 python3 -m http.server "$HTTP_PORT" --directory "$REPODIR" \
-    --bind 127.0.0.1 > "$WORK_DIR/http.log" 2>&1 &
+    > "$WORK_DIR/http.log" 2>&1 &
 HTTP_PID=$!
 trap 'kill $HTTP_PID 2>/dev/null; rm -rf "$WORK_DIR"' EXIT
 
