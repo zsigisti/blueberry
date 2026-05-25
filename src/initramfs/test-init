@@ -56,8 +56,11 @@ check "cat /proc/uptime" cat /proc/uptime
 # 2. Network
 # ─────────────────────────────────────────────────────────────────────────────
 printf '\n--- Network ---\n'
-# Detect first non-loopback interface (name varies: eth0, ens3, enp0s3…)
-ETH=$(ls /sys/class/net/ 2>/dev/null | grep -v lo | head -1)
+# Detect first real Ethernet interface (type=1 = ARPHRD_ETHER, skips sit0/lo)
+ETH=""
+for _iface in $(ls /sys/class/net/ 2>/dev/null); do
+    [ "$(cat /sys/class/net/$_iface/type 2>/dev/null)" = "1" ] && ETH="$_iface" && break
+done
 if [ -z "$ETH" ]; then
     fail "no network interface found"
 else

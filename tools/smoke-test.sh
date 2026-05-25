@@ -49,6 +49,17 @@ mkdir -p "$WORK_DIR/root"
 zstd -d < "$BOOTDIR/initramfs.cpio.zst" | cpio -id --quiet -D "$WORK_DIR/root"
 cp "$TEST_INIT" "$WORK_DIR/root/test-init"
 chmod 755 "$WORK_DIR/root/test-init"
+
+# Inject bpm binary so the install test works
+mkdir -p "$WORK_DIR/root/usr/bin"
+for _bpm in "$OBJDIR/bpm" "$OBJDIR/sysroot/usr/bin/bpm"; do
+    if [ -f "$_bpm" ]; then
+        cp "$_bpm" "$WORK_DIR/root/usr/bin/bpm"
+        echo "[smoke-test] injected bpm from $_bpm"
+        break
+    fi
+done
+
 (cd "$WORK_DIR/root" && find . | sort | cpio -H newc -o --quiet | zstd -19 -q > "$TEST_CPIO")
 echo "[smoke-test] test initramfs: $TEST_CPIO ($(du -sh "$TEST_CPIO" | cut -f1))"
 
