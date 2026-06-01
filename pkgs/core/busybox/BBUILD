@@ -1,6 +1,6 @@
 name=busybox
-version=1.36.1
-release=2
+version=1.38.0
+release=1
 description="size-optimized toolbox of Unix utilities"
 url="https://busybox.net/"
 license="GPL-2.0"
@@ -9,7 +9,7 @@ depends=("musl")
 makedepends=()
 source=("https://busybox.net/downloads/busybox-$version.tar.bz2"
         "busybox.config")
-checksums=("sha256:b8cc24c9574d809e7279c3be349795c5d5ceb6fdf19ca709f80cde50e47de314"
+checksums=("sha256:34f9ea6ff8636f2c9241153b9114eefa9e65674a45318ae1ef95bb5f31c53bb2"
            "SKIP")
 packager="Blueberry Maintainers <maintainers@blueberry.linux>"
 
