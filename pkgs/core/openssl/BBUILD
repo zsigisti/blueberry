@@ -1,5 +1,5 @@
 name=openssl
-version=3.3.1
+version=4.0.0
 release=1
 description="toolkit for TLS/SSL and general-purpose cryptography"
 url="https://openssl.org/"
@@ -8,7 +8,7 @@ arch=("x86_64" "aarch64")
 depends=("musl")
 makedepends=("linux-headers")
 source=("https://www.openssl.org/source/openssl-$version.tar.gz")
-checksums=("sha256:777cd596284c883375a2a7a11bf5d2786fc5413255efab20c50d6ffe6d020b7e")
+checksums=("sha256:c32cf49a959c4f345f9606982dd36e7d28f7c58b19c2e25d75624d2b3d2f79ac")
 packager="Blueberry Maintainers <maintainers@blueberry.linux>"
 
 build() {
