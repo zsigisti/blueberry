@@ -1,5 +1,5 @@
 name=util-linux
-version=2.40.2
+version=2.42.1
 release=1
 description="essential system utilities (mount, fdisk, lsblk, ...)"
 url="https://github.com/util-linux/util-linux"
@@ -8,7 +8,7 @@ arch=("x86_64" "aarch64")
 depends=("musl" "zlib")
 makedepends=("linux-headers")
 source=("https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/v2.40/util-linux-$version.tar.xz")
-checksums=("sha256:d78b37a66f5922d70edf3bdfb01a6b33d34ed3c3cafd6628203b2a2b67c8e8b3")
+checksums=("sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 packager="Blueberry Maintainers <maintainers@blueberry.linux>"
 
 build() {
