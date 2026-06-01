@@ -1,5 +1,5 @@
 name=openssh
-version=9.8p1
+version=10.3p1
 release=1
 description="OpenSSH: free SSH protocol implementation"
 url="https://www.openssh.com/"
@@ -8,7 +8,7 @@ arch=("x86_64" "aarch64")
 depends=("musl" "openssl" "zlib")
 makedepends=("linux-headers")
 source=("https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-$version.tar.gz")
-checksums=("sha256:dd8bd002a379b5d499dfb050dd1fa9af8029e80461f4bb6c523c49973f5a39f3")
+checksums=("sha256:56682a36bb92dcf4b4f016fd8ec8e74059b79a8de25c15d670d731e7d18e45f4")
 packager="Blueberry Maintainers <maintainers@blueberry.linux>"
 
 build() {
