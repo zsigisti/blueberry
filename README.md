@@ -106,7 +106,7 @@ QEMU ─► vmlinuz ─► initramfs /init (PID 1)
 | [doc/KERNEL.md](doc/KERNEL.md) | Kernel config, customisation, patch workflow |
 | [doc/INIT.md](doc/INIT.md) | The live-CLI init and the runit disk-boot path |
 | [doc/CI.md](doc/CI.md) | CI pipeline: build world + QEMU boot test |
-| [doc/WEBSITE.md](doc/WEBSITE.md) | Design for the auto-updating site + release automation (planned) |
+| [doc/WEBSITE.md](doc/WEBSITE.md) | Build & deploy spec for the React site (self-hosted on Rocky/LAN) + release automation |
 | [doc/CONTRIBUTING.md](doc/CONTRIBUTING.md) | How to contribute |
 | [doc/SECURITY.md](doc/SECURITY.md) | Kernel hardening, SSH hardening |
 
