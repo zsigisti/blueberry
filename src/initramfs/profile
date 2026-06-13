@@ -8,5 +8,11 @@ export TERM="${TERM:-linux}"
 alias ll='ls -l'
 alias la='ls -la'
 
+# In the live CLI, PID 1 is a shell, not a real init, so the usual "signal init
+# to shut down" path does nothing. Force the direct reboot(2) syscall instead.
+alias poweroff='poweroff -f'
+alias reboot='reboot -f'
+alias halt='halt -f'
+
 umask 022
 cd "$HOME" 2>/dev/null || cd /

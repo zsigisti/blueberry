@@ -12,6 +12,17 @@ from `make world`:
 
 Both boot the *same* live CLI you get from `make run`.
 
+## Tested hardware
+
+| Machine | CPU | Firmware | Result |
+|---------|-----|----------|--------|
+| Dell Latitude 3140 | Intel N100 | UEFI | ✅ boots to the live CLI on the laptop screen |
+| QEMU (`-cdrom`) | — | SeaBIOS (legacy) | ✅ |
+| QEMU + OVMF | — | UEFI | ✅ |
+
+On real UEFI machines the kernel uses the EFI framebuffer (`efifb`/`simplefb`)
+for the display, since modern laptops have no legacy VGA text console.
+
 ---
 
 ## Option A — Bootable ISO (BIOS or UEFI)
@@ -138,6 +149,20 @@ Under `make run` the guest's SSH is forwarded to the host:
 ```sh
 ssh -p 2222 root@localhost     # password: blueberry
 ```
+
+## Shutting down
+
+`poweroff`, `reboot`, and `halt` work from the live-CLI prompt. (Internally they
+use the direct `reboot(2)` syscall — in the live system PID 1 is a shell, not a
+full init, so the usual "signal init to shut down" path is short-circuited via
+shell aliases and a PID-1 signal handler.)
+
+```sh
+poweroff      # power the machine off (ACPI S5)
+reboot        # warm reboot
+```
+
+---
 
 ## What this is *not* (yet)
 

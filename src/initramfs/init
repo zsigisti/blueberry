@@ -187,5 +187,13 @@ for c in $CONSOLES; do
     esac
 done
 
+# Act like a minimal init for shutdown: busybox halt/poweroff/reboot signal
+# PID 1 (SIGUSR1/SIGUSR2/SIGTERM respectively). Catch them and perform the
+# actual reboot(2) syscall, after syncing disks. This makes a bare `poweroff`,
+# `reboot`, or `halt` from any shell or script work, not just `... -f`.
+trap 'sync; halt -f'     USR1
+trap 'sync; poweroff -f' USR2
+trap 'sync; reboot -f'   TERM INT
+
 # PID 1 must never exit.
 while : ; do wait; sleep 1; done
