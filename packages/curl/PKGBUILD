@@ -1,0 +1,35 @@
+# Maintainer: Blueberry Linux <packages@blueberry.linux>
+pkgname=curl
+pkgver=8.11.1
+pkgrel=1
+pkgdesc='Command-line tool and library for transferring data with URLs'
+arch=('x86_64')
+url='https://curl.se/'
+license=('MIT')
+depends=('glibc' 'ca-certificates' 'zlib' 'openssl' 'libpsl' 'zstd' 'brotli')
+makedepends=('pkgconf')
+provides=('libcurl.so')
+source=("https://curl.se/download/curl-$pkgver.tar.xz")
+sha256sums=('c7ca7db48b0909743eaef34250da02c19bc61d4f1dcedd6603f109409536ab56')
+
+build() {
+  cd "$pkgname-$pkgver"
+  ./configure \
+    --prefix=/usr \
+    --mandir=/usr/share/man \
+    --disable-static \
+    --with-openssl \
+    --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \
+    --enable-threaded-resolver \
+    --with-zlib \
+    --with-zstd \
+    --with-brotli \
+    --with-libpsl
+  make
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  make DESTDIR="$pkgdir" install
+  install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+}
