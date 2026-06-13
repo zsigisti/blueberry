@@ -76,6 +76,15 @@ else
     bad "DHCP lease (no IPv4 on any NIC after 8s)"
 fi
 
+# Phantom interfaces: the built-in bonding/dummy drivers each auto-create a
+# device unless suppressed on the kernel cmdline (bonding.max_bonds=0
+# dummy.numdummies=0). Assert they are absent so only real NICs appear.
+if [ ! -e /sys/class/net/bond0 ] && [ ! -e /sys/class/net/dummy0 ]; then
+    ok "no phantom bond0/dummy0 interfaces"
+else
+    bad "phantom interface present: $(ls /sys/class/net | tr '\n' ' ')"
+fi
+
 # SSH: Dropbear should be listening on TCP 22. Port 22 = 0x0016, LISTEN = 0A
 # in /proc/net/tcp{,6}. Wait a moment for the daemon (and its host-key gen).
 ssh_ok=""

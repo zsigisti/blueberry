@@ -82,12 +82,12 @@ fi
 search --no-floppy --file --set=root /vmlinuz
 menuentry "Blueberry Linux (live CLI)" {
     set gfxpayload=text
-    linux /vmlinuz console=tty0 console=ttyS0,115200
+    linux /vmlinuz console=tty0 console=ttyS0,115200 bonding.max_bonds=0 dummy.numdummies=0
     initrd /initramfs.cpio.zst
 }
 menuentry "Blueberry Linux (live CLI, verbose)" {
     set gfxpayload=text
-    linux /vmlinuz console=tty0 console=ttyS0,115200 debug
+    linux /vmlinuz console=tty0 console=ttyS0,115200 bonding.max_bonds=0 dummy.numdummies=0 debug
     initrd /initramfs.cpio.zst
 }
 EOF

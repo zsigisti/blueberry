@@ -55,6 +55,11 @@ command -v "$QEMU" >/dev/null || { echo "ERROR: $QEMU not found — install QEMU
 SSH_PORT="${SSH_PORT:-2222}"
 NET_ARGS=(-nic "user,model=e1000,hostfwd=tcp::${SSH_PORT}-:22")
 
+# Built-in bonding/dummy drivers each auto-create a device (bond0/dummy0) at
+# init. Suppress them so only real NICs show up. Kept as a shared cmdline
+# fragment so run/test match the ISO and disk-image boot configs.
+HW_QUIET="bonding.max_bonds=0 dummy.numdummies=0"
+
 case "$MODE" in
 # ──────────────────────────────────────────────────────────────────────────────
 run)
@@ -63,7 +68,7 @@ run)
     echo "──────────────────────────────────────────────────────────"
     exec "$QEMU" "${MACHINE_ARGS[@]}" "${NET_ARGS[@]}" \
         -kernel "$KERNEL" -initrd "$INITRD" \
-        -append "console=$CONSOLE" \
+        -append "console=$CONSOLE $HW_QUIET" \
         -m "$MEM" -no-reboot \
         -nographic
     ;;
@@ -77,7 +82,7 @@ test)
     touch "$LOG"
     "$QEMU" "${MACHINE_ARGS[@]}" "${NET_ARGS[@]}" \
         -kernel "$KERNEL" -initrd "$INITRD" \
-        -append "console=$CONSOLE bbtest quiet" \
+        -append "console=$CONSOLE bbtest quiet $HW_QUIET" \
         -m "$MEM" -no-reboot \
         -display none -serial "file:$LOG" -monitor none &
     QEMU_PID=$!

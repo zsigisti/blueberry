@@ -60,13 +60,13 @@ fi
 # would hang the tty0 console — text mode keeps the physical monitor working.
 menuentry "Blueberry Linux (live CLI)" {
     set gfxpayload=text
-    linux /boot/vmlinuz console=tty0 console=ttyS0,115200
+    linux /boot/vmlinuz console=tty0 console=ttyS0,115200 bonding.max_bonds=0 dummy.numdummies=0
     initrd /boot/initramfs.cpio.zst
 }
 
 menuentry "Blueberry Linux (live CLI, verbose)" {
     set gfxpayload=text
-    linux /boot/vmlinuz console=tty0 console=ttyS0,115200 debug
+    linux /boot/vmlinuz console=tty0 console=ttyS0,115200 bonding.max_bonds=0 dummy.numdummies=0 debug
     initrd /boot/initramfs.cpio.zst
 }
 EOF
