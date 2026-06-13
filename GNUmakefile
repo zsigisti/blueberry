@@ -70,7 +70,7 @@ TAR  := tar
 # ── Default goal ─────────────────────────────────────────────────────────────
 .DEFAULT_GOAL := world
 .PHONY: world kernel kernel-headers userland musl busybox runit initramfs install \
-        iso run test fetch clean distclean help _check_tools
+        iso disk run test fetch clean distclean help _check_tools
 
 world: userland kernel initramfs
 	@echo ""
@@ -243,6 +243,15 @@ iso: install
 	@$(TOPDIR)/tools/mkiso.sh $(STAGEDIR) \
 	    blueberry-$(shell date +%Y%m%d)-$(ARCH).iso
 
+# ── Disk image ────────────────────────────────────────────────────────────────
+# Build a dd-able, UEFI-bootable raw disk image (ESP + data partition).
+# Deploy with: dd if=blueberry-*.img of=/dev/sdX bs=4M oflag=sync
+disk: install
+	@echo "[disk] building UEFI disk image"
+	@$(TOPDIR)/tools/mkdisk.sh \
+	    blueberry-$(shell date +%Y%m%d)-$(ARCH).img \
+	    $(STAGEDIR)
+
 # ── QEMU: boot the live CLI ───────────────────────────────────────────────────
 # Boot the kernel + initramfs in QEMU and drop straight into an interactive
 # Blueberry shell. Ctrl-A X quits QEMU. Requires: make kernel + make initramfs.
@@ -290,7 +299,8 @@ help:
 	@echo "  runit          Build runit init"
 	@echo "  initramfs      Build initramfs image"
 	@echo "  install        Install world into DESTDIR=$(STAGEDIR)"
-	@echo "  iso            Build a bootable ISO"
+	@echo "  iso            Build a bootable hybrid BIOS+UEFI ISO"
+	@echo "  disk           Build a dd-able UEFI disk image (ESP + data)"
 	@echo ""
 	@echo "QEMU targets:"
 	@echo "  run            Boot the live CLI in QEMU (interactive; Ctrl-A X to quit)"
