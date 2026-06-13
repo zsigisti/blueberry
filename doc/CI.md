@@ -6,10 +6,10 @@ Blueberry has a single CI workflow: **`.github/workflows/ci.yml`**.
 
 On every push, pull request, and manual dispatch it:
 
-1. Installs the build toolchain (gcc, musl-tools, kernel build deps, zstd,
+1. Installs the build toolchain (gcc, kernel build deps, zstd,
    cpio, `qemu-system-x86`).
 2. Runs `make _check_tools`.
-3. Builds the full OS: `make world` (musl + busybox + runit + kernel +
+3. Builds the full OS: `make world` (busybox + runit + dropbear + kernel +
    initramfs).
 4. Boots the result headless in QEMU and asserts the in-guest self-test
    prints `BLUEBERRY_TEST=PASS`: `make test TIMEOUT=180`.

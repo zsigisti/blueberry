@@ -31,7 +31,7 @@ Output is a static `dist/` folder served by nginx on the Rocky box.
 | Default branch | `master` |
 | CI workflow file | `.github/workflows/ci.yml` (name: **CI**) |
 | Release tag pattern | `v*` (e.g. `v0.1.0`) |
-| License | MIT (kernel GPL-2.0, busybox GPL-2.0, runit BSD-3, musl MIT, dropbear MIT) |
+| License | MIT (kernel GPL-2.0, busybox GPL-2.0, runit BSD-3, glibc LGPL-2.1, dropbear MIT) |
 
 **Component versions** (source of truth is `Make.config` — read them from there
 at build time if you can; otherwise hard-code these):
@@ -39,7 +39,7 @@ at build time if you can; otherwise hard-code these):
 | Component | Version | Role | License |
 |-----------|---------|------|---------|
 | Linux kernel | 7.0 | kernel | GPL-2.0 |
-| musl libc | 1.2.5 | C library | MIT |
+| glibc | host | C library (dynamic) | LGPL-2.1 |
 | busybox | 1.36.1 | userland (standalone shell) | GPL-2.0 |
 | runit | 2.1.2 | init (disk-boot path) | BSD-3-Clause |
 | Dropbear | 2024.86 | SSH server + client | MIT |
@@ -121,7 +121,7 @@ ssh root@<box-ip>          # password: blueberry
 1. **Hero** — name "Blueberry Linux", one-line pitch ("A minimal Linux that
    boots from a single source tree straight into a live CLI"), the ASCII logo,
    a **version pill** (latest release tag, live) and a **CI status** indicator
-   (live), and a compact component strip (kernel/musl/busybox/runit/dropbear
+   (live), and a compact component strip (kernel/glibc/busybox/runit/dropbear
    versions).
 2. **Download** — two cards: **ISO** (hybrid BIOS+UEFI) and **Disk image**
    (UEFI). Each: a download button (links to the latest GitHub Release asset),
@@ -196,7 +196,7 @@ images so the website's Download section has something to link to.
 Steps (must match this repo's actual targets/paths):
 1. `apt-get install` build deps: `build-essential bc bison flex libelf-dev
    libssl-dev wget xz-utils zstd cpio qemu-system-x86 grub2-common
-   grub-pc-bin grub-efi-amd64-bin mtools xorriso` (+ `musl-tools`).
+   grub-pc-bin grub-efi-amd64-bin mtools xorriso`
 2. `make world JOBS=$(nproc)`
 3. `make test TIMEOUT=240` (gate the release on a green boot test).
 4. `make iso`  → `iso/blueberry-<date>-x86_64.iso`

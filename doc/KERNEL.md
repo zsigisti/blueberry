@@ -199,7 +199,7 @@ alphabetical order before the kernel is configured.
 
 Naming convention:
 ```
-0001-musl-compat-remove-glibc-specific-includes.patch
+0001-fix-build-with-gcc-14.patch
 0002-fix-build-with-clang-17.patch
 ```
 

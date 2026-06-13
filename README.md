@@ -5,7 +5,7 @@ tradition. `git clone` → `make world` → `make run` drops you into a live CLI
 running entirely from RAM in QEMU.
 
 ```
-Linux 7.0 kernel · musl libc · busybox · runit init
+Linux 7.0 kernel · glibc · busybox · runit init · Dropbear SSH
 ```
 
 ---
@@ -20,7 +20,7 @@ cd blueberry
 # 2. Check prerequisites (compiler, wget/curl, zstd, cpio, qemu)
 make _check_tools
 
-# 3. Build everything: kernel + musl + busybox + runit + initramfs
+# 3. Build everything: kernel + busybox + runit + dropbear + initramfs
 make world          # all output goes to ../blueberry-build/ (never in the tree)
 
 # 4. Boot the live CLI in QEMU (interactive — Ctrl-A X to quit)
@@ -39,7 +39,7 @@ busybox shell. No disk image, no install step, no network required.
 
 | Component | Choice | Why |
 |-----------|--------|-----|
-| C library | **musl 1.2.x** | Small, correct, static-friendly |
+| C library | **glibc** (host) | Binary compatibility — runs prebuilt glibc software |
 | Core utilities | **busybox 1.36.x** | Single binary, 300+ applets, standalone shell |
 | Init | **runit 2.1.x** | Supervision tree, 35 KB, no DSL |
 | SSH | **Dropbear 2024.x** | Tiny static SSH server + client |
@@ -66,8 +66,7 @@ Make.config         Tunable variables (arch, versions, jobs)
 
 src/
   kernel/           Linux 7.0 config, patches, Makefile
-  lib/musl/         musl libc build rules
-  busybox/          busybox config + Makefile
+  busybox/          busybox config + Makefile (dynamic glibc)
   init/             runit stage scripts + service dirs (disk-boot path)
   dropbear/         Dropbear SSH build rules
   initramfs/        /init live-CLI script, selftest, profile, udhcpc, Makefile
@@ -117,4 +116,5 @@ QEMU ─► vmlinuz ─► initramfs /init (PID 1)
 MIT — see `LICENSE`.
 
 All kernel code remains under the Linux kernel license (GPL-2.0-only with
-Linux-syscall-note). musl is MIT. busybox is GPL-2.0. runit is BSD-3-Clause.
+Linux-syscall-note). glibc is LGPL-2.1. busybox is GPL-2.0. runit is
+BSD-3-Clause. Dropbear is MIT.

@@ -6,8 +6,8 @@ The following tools must be present on the **build host**:
 
 | Tool | Minimum version | Purpose |
 |------|----------------|---------|
-| GCC or Clang | 12+ | C compiler |
-| musl-gcc | any | musl-linked binaries (install: `musl-tools` on Debian/Ubuntu) |
+| GCC or Clang | 12+ | C compiler (the userland links against the host glibc) |
+| glibc + headers | host | C library the userland builds against and bundles |
 | GNU Make | 4.0 | build orchestration |
 | wget or curl | any | source downloads |
 | tar | any | archive extraction |
@@ -28,20 +28,20 @@ The following tools must be present on the **build host**:
 
 **Debian / Ubuntu**
 ```sh
-apt-get install -y build-essential musl-tools wget tar \
+apt-get install -y build-essential wget tar \
     xz-utils bzip2 zstd cpio perl bc libelf-dev flex bison \
     libssl-dev qemu-system-x86 xorriso squashfs-tools
 ```
 
 **Arch Linux**
 ```sh
-pacman -S base-devel musl wget xz bzip2 zstd cpio bc \
+pacman -S base-devel wget xz bzip2 zstd cpio bc \
           libelf flex bison openssl qemu-base xorriso squashfs-tools
 ```
 
 **Fedora / RHEL**
 ```sh
-dnf install -y gcc musl-gcc wget xz bzip2 zstd cpio bc \
+dnf install -y gcc glibc-devel wget xz bzip2 zstd cpio bc \
               elfutils-libelf-devel flex bison openssl-devel \
               qemu-system-x86 xorriso squashfs-tools
 ```
@@ -72,23 +72,20 @@ with internet access before building air-gapped.
 
 ```
 ../blueberry-build/src/linux-7.0.tar.xz
-../blueberry-build/src/musl-1.2.5.tar.gz
 ../blueberry-build/src/busybox-1.36.1.tar.bz2
 ../blueberry-build/src/runit-2.1.2.tar.gz
 ```
 
-### `make musl`
-
-Builds musl libc and installs it into `../blueberry-build/sysroot/`, providing
-the `musl-gcc` wrapper and a sysroot that isolates the OS build from the
-host's glibc. Must complete before busybox or runit.
-
 ### `make busybox`
 
-Compiles busybox with `musl-gcc` from `src/busybox/config`. Output:
+Compiles busybox with the host `$(CC)` (gcc), linked **dynamically against the
+host glibc**, from `src/busybox/config`. Output:
 
-- `../blueberry-build/rootfs/bin/busybox` (static binary, ~1.1 MB)
+- `../blueberry-build/rootfs/bin/busybox` (dynamic, ~1 MB + the glibc runtime)
 - applet symlinks: `sh`, `ls`, `mount`, … (created in the initramfs)
+
+The glibc runtime is bundled into the image later (initramfs + `make install`)
+by `tools/bundle-glibc.sh`.
 
 ### `make runit`
 
@@ -98,7 +95,7 @@ from `src/init/sv/`. This is the init used on the optional disk-boot path.
 
 ### `make userland`
 
-Alias for `make musl busybox runit` in dependency order.
+Alias for `make busybox runit dropbear` (all dynamic glibc).
 
 ### `make kernel`
 
@@ -161,7 +158,7 @@ xorriso. Output: `blueberry-YYYYMMDD-x86_64.iso`.
 Override any variable on the command line:
 
 ```sh
-make ARCH=aarch64 CROSS_COMPILE=aarch64-linux-musl- world
+make ARCH=aarch64 CROSS_COMPILE=aarch64-linux-gnu- world
 make JOBS=16 kernel
 make run MEM=1G
 make test TIMEOUT=180
@@ -174,9 +171,9 @@ make test TIMEOUT=180
 | `DESTDIR` | `../blueberry-build/rootfs` | Install root |
 | `OBJDIR` | `../blueberry-build` | All build artefacts |
 | `LINUX_VERSION` | `7.0` | Linux kernel version |
-| `MUSL_VERSION` | `1.2.5` | musl libc version |
 | `BUSYBOX_VERSION` | `1.36.1` | busybox version |
 | `RUNIT_VERSION` | `2.1.2` | runit version |
+| `DROPBEAR_VERSION` | `2024.86` | Dropbear SSH version |
 | `CROSS_COMPILE` | _(empty)_ | Cross-compiler prefix |
 | `CC` | `gcc` | C compiler |
 | `CFLAGS` | `-Os -pipe -fstack-protector-strong` | C compiler flags |
@@ -210,7 +207,7 @@ Cross-compiling for `aarch64`:
 
 ```sh
 apt-get install gcc-aarch64-linux-gnu
-make world ARCH=aarch64 CROSS_COMPILE=aarch64-linux-musl-
+make world ARCH=aarch64 CROSS_COMPILE=aarch64-linux-gnu-
 make run   ARCH=aarch64          # boots under qemu-system-aarch64 (virt machine)
 ```
 
@@ -263,7 +260,6 @@ On an 8-core machine with `JOBS=8`:
 
 | Target | Approximate time |
 |--------|-----------------|
-| musl | 1–2 min |
 | busybox | 1 min |
 | runit | < 1 min |
 | kernel | 8–15 min |
@@ -275,10 +271,14 @@ On an 8-core machine with `JOBS=8`:
 
 ## Troubleshooting
 
-### `musl-gcc: command not found`
+### A bundled glibc binary fails to run (`No such file or directory` on a valid ELF)
 
-Install musl-tools: `apt-get install musl-tools`, or run `make musl` which
-builds the sysroot and its `musl-gcc` wrapper.
+That error usually means the dynamic linker is missing. The image must contain
+`/lib64/ld-linux-x86-64.so.2`, the libs in `/usr/lib`, and `/etc/ld.so.cache` —
+all staged by `tools/bundle-glibc.sh` during the initramfs build and
+`make install`. Rebuild the initramfs
+(`rm ../blueberry-build/.stamp-initramfs && make initramfs`) and confirm those
+paths are present.
 
 ### Kernel build fails: `elfutils not found`
 

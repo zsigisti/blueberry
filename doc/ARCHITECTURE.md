@@ -20,7 +20,7 @@ line.
 │  Make.config ─ tunable build variables (arch, jobs, versions)         │
 │                                                                       │
 │  src/kernel/    Linux 7.0 fetch + patch + build → vmlinuz             │
-│  src/lib/musl/  musl 1.2.x → sysroot (libc.so, headers)               │
+│  tools/bundle-glibc.sh  stage host glibc runtime into the image        │
 │  src/busybox/   busybox 1.36.x → /bin/busybox + applet symlinks       │
 │  src/init/      runit 2.1.x → /sbin/runit-init + stage scripts        │
 │  src/initramfs/ live-CLI /init + selftest + build rules → initramfs   │
@@ -36,12 +36,12 @@ line.
 ```
 Build host
   └─ make world
-       ├─ fetch      downloads linux, musl, busybox, runit tarballs → obj/src/
-       ├─ musl       builds libc sysroot → obj/sysroot/
-       ├─ busybox    links against sysroot → obj/rootfs/bin/busybox
-       ├─ runit      links against sysroot → obj/rootfs/sbin/runit*
+       ├─ fetch      downloads linux, busybox, runit, dropbear tarballs
+       ├─ busybox    gcc (dynamic glibc) → obj/rootfs/bin/busybox
+       ├─ runit      gcc (dynamic glibc) → obj/rootfs/sbin/runit*
+       ├─ dropbear   gcc (dynamic glibc) → obj/rootfs/usr/sbin/dropbearmulti
        ├─ kernel     builds Linux → obj/boot/vmlinuz + modules in rootfs
-       └─ initramfs  packs busybox + /init + selftest → obj/boot/initramfs.cpio.zst
+       └─ initramfs  bundle-glibc.sh + pack busybox/dropbear + /init → initramfs.cpio.zst
 
 Runtime (live CLI — the default)
   kernel → initramfs:/init (PID 1)
@@ -56,20 +56,26 @@ Runtime (optional disk boot — root= on cmdline)
 
 ## 3. Design Decisions
 
-### 3.1  musl libc instead of glibc
+### 3.1  glibc for binary compatibility
 
-musl provides a correct, small, maintainable POSIX C library (the libc of
-Alpine Linux). Single-file build, reliable static linking, small binaries, and
-a tighter security surface (no RUNPATH injection, no `LD_PRELOAD` by default).
+The userland is built dynamically against **glibc** so that prebuilt,
+glibc-only software (proprietary binaries, language runtimes, GPU/driver
+userspace, etc.) runs on Blueberry without a compatibility shim. The glibc
+runtime — the ELF interpreter `/lib64/ld-linux-x86-64.so.2`, the shared libs,
+the dlopen-only NSS modules, and `ld.so.cache` — is staged into the image at the
+standard ABI paths by `tools/bundle-glibc.sh`.
 
-Trade-off: proprietary glibc-only binaries need a compatibility layer or a
-rebuild.
+No libc is built from source: the build links against the host's glibc with
+`$(CC)` and bundles that runtime. Trade-off vs musl: larger image (the glibc
+runtime is a few MB), dynamic linking instead of a single static binary, and the
+build is tied to the host glibc version (less hermetic). The win is drop-in
+compatibility with the vast ecosystem of glibc binaries.
 
 ### 3.2  busybox for base utilities
 
 busybox combines 300+ Unix utilities into a single binary — small and
 auditable. The applet configuration (`src/busybox/config`) is tuned so that the
-single static binary provides the entire live-CLI userland: shell, coreutils,
+single (dynamic glibc) binary provides the entire live-CLI userland: shell, coreutils,
 `mdev`, `switch_root`, `cttyhack`, networking tools, and an editor.
 
 ### 3.3  runit as the init (disk-boot path)
@@ -144,7 +150,7 @@ reproducible from one `make`.
 | `Make.config` | Default build variables |
 | `Make.local` | Machine-local overrides (gitignored) |
 | `src/kernel/` | Linux kernel config, patches, Makefile |
-| `src/lib/musl/` | musl libc build rules |
+| `tools/bundle-glibc.sh` | stage the host glibc runtime into the image |
 | `src/busybox/` | busybox config + Makefile |
 | `src/init/` | runit stage scripts + service definitions (disk-boot path) |
 | `src/initramfs/` | live-CLI `/init`, `selftest`, `profile`, Makefile |
@@ -153,6 +159,5 @@ reproducible from one `make`.
 | `doc/` | All documentation |
 | `../blueberry-build/` | Build artefacts (outside the source tree) |
 | `../blueberry-build/src/` | Extracted upstream source tarballs |
-| `../blueberry-build/sysroot/` | musl libc sysroot for building userland |
 | `../blueberry-build/boot/` | vmlinuz, System.map, initramfs.cpio.zst |
 | `../blueberry-build/rootfs/` | Assembled root filesystem (DESTDIR) |

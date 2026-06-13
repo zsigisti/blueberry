@@ -7,7 +7,7 @@ removes an entire class of supply-chain risk: the running system is exactly
 what `make world` produced from the source tree.
 
 - **Pinned sources.** Upstream versions are pinned in `Make.config`
-  (`LINUX_VERSION`, `MUSL_VERSION`, `BUSYBOX_VERSION`, `RUNIT_VERSION`).
+  (`LINUX_VERSION`, `BUSYBOX_VERSION`, `RUNIT_VERSION`, `DROPBEAR_VERSION`).
   Changing one is a reviewable, atomic commit.
 - **Verify what you ship.** The build artefacts under `../blueberry-build/boot/`
   (`vmlinuz`, `initramfs.cpio.zst`) are the only things that boot. Hash them
