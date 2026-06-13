@@ -98,6 +98,12 @@ if [ -z "$QUIET" ]; then
 EOF
 fi
 
+# Hush late/runtime kernel messages on the console so they don't interleave
+# with the interactive prompt (e.g. the i8042 input devices that probe after
+# init has started). Boot messages already printed, errors still show, and the
+# full ring buffer is always available via `dmesg`. Skipped when `debug` is set.
+[ -z "$DEBUG" ] && [ -w /proc/sys/kernel/printk ] && echo 4 > /proc/sys/kernel/printk
+
 # Hand the controlling terminal to an interactive login shell. cttyhack gives
 # us a controlling tty so job control (Ctrl-C, fg/bg) works on the console;
 # setsid + the respawn loop means exiting the shell just starts a fresh one
