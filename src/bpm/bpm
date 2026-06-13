@@ -118,28 +118,61 @@ cmd_remove() {
 }
 
 # ── repo index ────────────────────────────────────────────────────────────────
-# Index line format (one per package):
-#   name|version|filename|sha256|dep1,dep2,...|repo_base_url
+# repos.conf line:  <name> <url1> [url2 ...]   (extra urls are mirrors)
+# Index line:       name|version|filename|sha256|dep1,dep2,...|repo_name
+#
+# Mirrors give redundancy: `bpm update` and package downloads try each mirror in
+# turn and move on when one is unreachable.
+
+# echo the mirror URLs configured for repo <name>
+repo_mirrors() {
+    [ -f "$CONF" ] && awk -v r="$1" '$1==r{$1="";sub(/^[ \t]+/,"");print;exit}' "$CONF"
+}
+
 cmd_update() {
     [ -f "$CONF" ] || die "no repo config: $CONF"
     command -v wget >/dev/null 2>&1 || die "wget required for 'update'"
     mkdir -p "$(dirname "$INDEX")"
     : > "$INDEX.tmp"
-    while read -r rname rurl; do
+    while read -r rname urls; do
         case "$rname" in ''|\#*) continue ;; esac
-        log "syncing repo '$rname' ($rurl)"
-        if wget -q -O "$INDEX.repo" "$rurl/bpm.index"; then
-            sed "s#\$#|$rurl#" "$INDEX.repo" >> "$INDEX.tmp"
-        else
-            warn "failed to fetch index from $rurl"
-        fi
+        [ -n "$urls" ] || continue
+        got=
+        for url in $urls; do
+            log "syncing '$rname' from $url"
+            if wget -q -O "$INDEX.repo" "$url/bpm.index"; then
+                sed "s#\$#|$rname#" "$INDEX.repo" >> "$INDEX.tmp"
+                got=1; break
+            fi
+            warn "mirror unreachable: $url"
+        done
+        [ -n "$got" ] || warn "all mirrors failed for repo '$rname'"
     done < "$CONF"
     rm -f "$INDEX.repo"
     mv "$INDEX.tmp" "$INDEX"
-    log "$(wc -l < "$INDEX") packages in index"
+    log "$(wc -l < "$INDEX" 2>/dev/null || echo 0) packages in index"
 }
 
 index_line() { [ -f "$INDEX" ] && awk -F'|' -v n="$1" '$1==n{print; exit}' "$INDEX"; }
+
+# download <file> <sha256> <repo_name> -> $CACHE/<file>, trying each mirror
+fetch_pkg() {
+    local file="$1" sha="$2" repo="$3" out="$CACHE/$1" m got=
+    mkdir -p "$CACHE"
+    if [ -f "$out" ] && [ -n "$sha" ] && \
+       [ "$(sha256sum "$out" | cut -d' ' -f1)" = "$sha" ]; then
+        printf '%s\n' "$out"; return 0
+    fi
+    for m in $(repo_mirrors "$repo"); do
+        if wget -q -O "$out" "$m/$file"; then got=1; break; fi
+        warn "mirror unreachable: $m"
+    done
+    [ -n "$got" ] || die "all mirrors failed for $file (repo '$repo')"
+    if [ -n "$sha" ] && [ "$(sha256sum "$out" | cut -d' ' -f1)" != "$sha" ]; then
+        die "checksum mismatch for $file"
+    fi
+    printf '%s\n' "$out"
+}
 
 # ── install by name (resolve deps, download, install) ─────────────────────────
 # Tracks names already handled this transaction in $SEEN (newline list).
@@ -149,7 +182,7 @@ mark() { SEEN="$SEEN|$1|"; }
 
 install_name() {
     # locals — without these, recursing for a dependency clobbers our state
-    local name line ver file sha deps base out dep
+    local name line ver file sha deps repo dep out
     name="$1"
     seen "$name" && return 0
     mark "$name"
@@ -165,25 +198,17 @@ install_name() {
     file=$(printf '%s' "$line" | cut -d'|' -f3)
     sha=$(printf '%s' "$line" | cut -d'|' -f4)
     deps=$(printf '%s' "$line" | cut -d'|' -f5)
-    base=$(printf '%s' "$line" | cut -d'|' -f6)
+    repo=$(printf '%s' "$line" | cut -d'|' -f6)
 
-    # dependencies first
-    if [ -n "$deps" ]; then
-        IFS=','; for dep in $deps; do
-            [ -n "$dep" ] || continue
-            install_name "$(dep_name "$dep")"
-        done; unset IFS
-    fi
+    # dependencies first. Split on commas without touching global IFS (doing so
+    # would corrupt word-splitting inside the recursive calls below).
+    for dep in $(printf '%s' "$deps" | tr ',' ' '); do
+        [ -n "$dep" ] || continue
+        install_name "$(dep_name "$dep")"
+    done
 
-    mkdir -p "$CACHE"
-    out="$CACHE/$file"
-    if [ ! -f "$out" ] || [ "$(sha256sum "$out" | cut -d' ' -f1)" != "$sha" ]; then
-        log "downloading $name $ver"
-        wget -q -O "$out" "$base/$file" || die "download failed: $base/$file"
-    fi
-    if [ -n "$sha" ] && [ "$(sha256sum "$out" | cut -d' ' -f1)" != "$sha" ]; then
-        die "checksum mismatch for $file"
-    fi
+    log "downloading $name $ver"
+    out=$(fetch_pkg "$file" "$sha" "$repo")
     install_file "$out"
 }
 

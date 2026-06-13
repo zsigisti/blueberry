@@ -187,7 +187,8 @@ initramfs: $(STAMP_INITRAMFS)
 
 INITRAMFS_SRC := $(wildcard $(SRCDIR)/initramfs/init $(SRCDIR)/initramfs/selftest \
                             $(SRCDIR)/initramfs/profile $(SRCDIR)/initramfs/udhcpc.script \
-                            $(SRCDIR)/initramfs/shadow $(SRCDIR)/initramfs/Makefile)
+                            $(SRCDIR)/initramfs/shadow $(SRCDIR)/initramfs/Makefile \
+                            $(SRCDIR)/bpm/bpm)
 $(STAMP_INITRAMFS): $(STAMP_BUSYBOX) $(STAMP_RUNIT) $(STAMP_DROPBEAR) $(INITRAMFS_SRC) | $(BOOTDIR)
 	@echo "[build] initramfs"
 	@$(MAKE) -C $(SRCDIR)/initramfs \
