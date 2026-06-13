@@ -11,8 +11,10 @@ Make.local
 .DS_Store
 *~
 
-# QEMU run artefacts
+# Bootable images (make iso / make disk)
 *.qcow2
 serial.log
 *.iso
 *.img
+/iso/
+/disk/

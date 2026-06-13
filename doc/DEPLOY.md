@@ -17,19 +17,19 @@ Both boot the *same* live CLI you get from `make run`.
 ## Option A — Bootable ISO (BIOS or UEFI)
 
 ```sh
-make iso        # -> blueberry-YYYYMMDD-x86_64.iso
+make iso        # -> iso/blueberry-YYYYMMDD-x86_64.iso
 ```
 
 Boot it in a VM:
 
 ```sh
-qemu-system-x86_64 -cdrom blueberry-*.iso -m 512M -nographic
+qemu-system-x86_64 -cdrom iso/blueberry-*.iso -m 512M -nographic
 ```
 
 Write it to a USB stick and boot any x86_64 machine (legacy BIOS or UEFI):
 
 ```sh
-dd if=blueberry-*.iso of=/dev/sdX bs=4M status=progress oflag=sync
+dd if=iso/blueberry-*.iso of=/dev/sdX bs=4M status=progress oflag=sync
 ```
 
 The ISO is built with `grub-mkrescue`, so a single image works on both legacy
@@ -42,7 +42,7 @@ serial/IPMI console (`ttyS0`, 115200 8N1).
 ## Option B — Disk image (UEFI)
 
 ```sh
-make disk       # -> blueberry-YYYYMMDD-x86_64.img
+make disk       # -> disk/blueberry-YYYYMMDD-x86_64.img
 ```
 
 This is a GPT raw image with two partitions:
@@ -55,13 +55,13 @@ This is a GPT raw image with two partitions:
 Deploy it to the target machine's disk (or a USB drive):
 
 ```sh
-dd if=blueberry-*.img of=/dev/sdX bs=4M status=progress oflag=sync
+dd if=disk/blueberry-*.img of=/dev/sdX bs=4M status=progress oflag=sync
 ```
 
 Boot it in a VM with UEFI firmware:
 
 ```sh
-qemu-system-x86_64 -drive file=blueberry-*.img,format=raw,if=virtio \
+qemu-system-x86_64 -drive file=disk/blueberry-*.img,format=raw,if=virtio \
     -bios /usr/share/edk2/x64/OVMF.4m.fd -m 512M -nographic
 ```
 
@@ -78,10 +78,11 @@ Both products pass `console=tty0 console=ttyS0,115200` and set
 - **Physical monitor** → output on `tty0` in VGA text mode. (The kernel has no
   framebuffer driver — server profile — so a graphics console is intentionally
   avoided; text mode keeps the monitor working.)
-- **Headless / IPMI / serial** → output and the interactive shell on `ttyS0`.
+- **Headless / IPMI / serial** → output on `ttyS0`.
 
-`/dev/console` is `ttyS0` (the last `console=`), so the live-CLI shell lands on
-the serial port, which is what most headless servers use.
+`/init` spawns an interactive root shell on **every** active console (the VGA
+`tty1` *and* `ttyS0`), so you get a prompt whether you're at the machine's
+monitor or on a serial/IPMI console — not just on `/dev/console`.
 
 ---
 

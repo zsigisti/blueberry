@@ -267,16 +267,18 @@ _do_install:
 # ── ISO ───────────────────────────────────────────────────────────────────────
 iso: install
 	@echo "[iso] building bootable image"
+	@mkdir -p $(TOPDIR)/iso
 	@$(TOPDIR)/tools/mkiso.sh $(STAGEDIR) \
-	    blueberry-$(shell date +%Y%m%d)-$(ARCH).iso
+	    $(TOPDIR)/iso/blueberry-$(shell date +%Y%m%d)-$(ARCH).iso
 
 # ── Disk image ────────────────────────────────────────────────────────────────
 # Build a dd-able, UEFI-bootable raw disk image (ESP + data partition).
-# Deploy with: dd if=blueberry-*.img of=/dev/sdX bs=4M oflag=sync
+# Deploy with: dd if=disk/blueberry-*.img of=/dev/sdX bs=4M oflag=sync
 disk: install
 	@echo "[disk] building UEFI disk image"
+	@mkdir -p $(TOPDIR)/disk
 	@$(TOPDIR)/tools/mkdisk.sh \
-	    blueberry-$(shell date +%Y%m%d)-$(ARCH).img \
+	    $(TOPDIR)/disk/blueberry-$(shell date +%Y%m%d)-$(ARCH).img \
 	    $(STAGEDIR)
 
 # ── QEMU: boot the live CLI ───────────────────────────────────────────────────
@@ -300,7 +302,8 @@ clean:
 	@echo "[clean] removing build artefacts"
 	@rm -rf $(OBJDIR)/build $(OBJDIR)/boot $(OBJDIR)/rootfs \
 	        $(OBJDIR)/sysroot $(OBJDIR)/initramfs \
-	        $(OBJDIR)/.stamp-* $(OBJDIR_SRC)/admin
+	        $(OBJDIR)/.stamp-* $(OBJDIR_SRC)/admin \
+	        $(TOPDIR)/iso $(TOPDIR)/disk
 
 distclean: clean
 	@echo "[distclean] removing all downloaded sources"
