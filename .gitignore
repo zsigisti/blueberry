@@ -14,3 +14,4 @@ Make.local
 # QEMU run artefacts
 *.qcow2
 serial.log
+*.iso

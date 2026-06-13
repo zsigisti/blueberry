@@ -44,20 +44,28 @@ cp "$INITRD"  "$ISO_ROOT/boot/initramfs.cpio.zst"
 # ttyS0 is listed last so the interactive shell lands on the serial console
 # (which is what QEMU -nographic and most headless servers use).
 cat > "$ISO_ROOT/boot/grub/grub.cfg" <<'EOF'
-set timeout=5
 set default=0
+set timeout=5
+# countdown (not the interactive menu) so a headless/serial console auto-boots
+# instead of stalling forever waiting for a keypress.
+set timeout_style=countdown
 
 if serial --unit=0 --speed=115200; then
     terminal_input  console serial
     terminal_output console serial
 fi
 
+# gfxpayload=text: hand the kernel a text-mode VGA console. This kernel has no
+# framebuffer driver (CONFIG_FB off, server profile), so a graphics payload
+# would hang the tty0 console — text mode keeps the physical monitor working.
 menuentry "Blueberry Linux (live CLI)" {
+    set gfxpayload=text
     linux /boot/vmlinuz console=tty0 console=ttyS0,115200
     initrd /boot/initramfs.cpio.zst
 }
 
 menuentry "Blueberry Linux (live CLI, verbose)" {
+    set gfxpayload=text
     linux /boot/vmlinuz console=tty0 console=ttyS0,115200 debug
     initrd /boot/initramfs.cpio.zst
 }
