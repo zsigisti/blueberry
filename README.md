@@ -102,6 +102,7 @@ QEMU ─► vmlinuz ─► initramfs /init (PID 1)
 | [doc/ARCHITECTURE.md](doc/ARCHITECTURE.md) | System design, boot sequence, components |
 | [doc/BUILD.md](doc/BUILD.md) | Building the OS, prerequisites, all make targets |
 | [doc/DEPLOY.md](doc/DEPLOY.md) | Deploying on real hardware: ISO, disk image, `dd` |
+| [doc/BPM.md](doc/BPM.md) | `bpm` package manager + repos/mirrors; see also [packages/](packages/) |
 | [doc/KERNEL.md](doc/KERNEL.md) | Kernel config, customisation, patch workflow |
 | [doc/INIT.md](doc/INIT.md) | The live-CLI init and the runit disk-boot path |
 | [doc/CI.md](doc/CI.md) | CI pipeline: build world + QEMU boot test |
