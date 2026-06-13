@@ -314,6 +314,20 @@ CONFIG_NLS_ISO8859_1=y
 CONFIG_NLS_UTF8=y
 
 #
+# Framebuffer console — real UEFI machines (laptops/desktops) have no legacy
+# VGA text console, only the EFI GOP framebuffer. Without this the kernel boots
+# invisibly and the screen stays on the firmware logo. efifb drives the UEFI
+# framebuffer; vesafb covers BIOS graphics; vgacon still handles BIOS text.
+#
+CONFIG_FB=y
+CONFIG_FB_EFI=y
+CONFIG_FB_VESA=y
+CONFIG_FB_SIMPLE=y
+CONFIG_FRAMEBUFFER_CONSOLE=y
+CONFIG_FRAMEBUFFER_CONSOLE_DETECT_PRIMARY=y
+CONFIG_SYSFB_SIMPLEFB=y
+
+#
 # Debugging: strip to minimum for production
 #
 # CONFIG_DEBUG_KERNEL is not set
@@ -330,4 +344,4 @@ CONFIG_BUG=y
 # CONFIG_BLUETOOTH is not set
 # CONFIG_VIDEO_V4L2 is not set
 # CONFIG_DRM is not set
-# CONFIG_FB is not set
+# (CONFIG_FB is enabled above for the EFI/VESA framebuffer console)

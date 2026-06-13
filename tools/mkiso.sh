@@ -50,22 +50,25 @@ set timeout=5
 # instead of stalling forever waiting for a keypress.
 set timeout_style=countdown
 
-if serial --unit=0 --speed=115200; then
-    terminal_input  console serial
-    terminal_output console serial
+# Display payload depends on firmware:
+#   UEFI -> keep the GOP framebuffer so the kernel's efifb can drive the screen
+#           (modern laptops/desktops have no legacy VGA text console).
+#   BIOS -> text mode for vgacon.
+if [ "$grub_platform" = "efi" ]; then
+    set gfxpayload=keep
+else
+    set gfxpayload=text
 fi
 
-# gfxpayload=text: hand the kernel a text-mode VGA console. This kernel has no
-# framebuffer driver (CONFIG_FB off, server profile), so a graphics payload
-# would hang the tty0 console — text mode keeps the physical monitor working.
+# (No `serial` setup here — it errors on machines without a COM port. The kernel
+# still gets console=ttyS0 for real serial/IPMI consoles after GRUB hands off.)
+
 menuentry "Blueberry Linux (live CLI)" {
-    set gfxpayload=text
     linux /boot/vmlinuz console=tty0 console=ttyS0,115200 bonding.max_bonds=0 dummy.numdummies=0
     initrd /boot/initramfs.cpio.zst
 }
 
 menuentry "Blueberry Linux (live CLI, verbose)" {
-    set gfxpayload=text
     linux /boot/vmlinuz console=tty0 console=ttyS0,115200 bonding.max_bonds=0 dummy.numdummies=0 debug
     initrd /boot/initramfs.cpio.zst
 }

@@ -75,28 +75,27 @@ mkfs.fat -F32 -n EFI "$ESP_IMG" >/dev/null
 cat > "$WORK/grub.cfg" <<'EOF'
 set timeout=3
 set timeout_style=countdown
-if serial --unit=0 --speed=115200; then
-    terminal_input  console serial
-    terminal_output console serial
-fi
+# UEFI image: keep the GOP framebuffer so the kernel's efifb drives the screen.
+set gfxpayload=keep
 search --no-floppy --file --set=root /vmlinuz
 menuentry "Blueberry Linux (live CLI)" {
-    set gfxpayload=text
     linux /vmlinuz console=tty0 console=ttyS0,115200 bonding.max_bonds=0 dummy.numdummies=0
     initrd /initramfs.cpio.zst
 }
 menuentry "Blueberry Linux (live CLI, verbose)" {
-    set gfxpayload=text
     linux /vmlinuz console=tty0 console=ttyS0,115200 bonding.max_bonds=0 dummy.numdummies=0 debug
     initrd /initramfs.cpio.zst
 }
 EOF
 
+# --modules: grub-mkstandalone's memdisk image does NOT include filesystem
+# drivers by default, so the embedded grub.cfg can't read the real FAT ESP to
+# find /vmlinuz. Pull in GPT + FAT + search + the loaders explicitly.
+GRUB_MODS="part_gpt fat search search_fs_file normal linux echo all_video gfxterm test configfile"
 grub-mkstandalone -O x86_64-efi \
+    --modules="$GRUB_MODS" \
     -o "$WORK/BOOTX64.EFI" \
-    "boot/grub/grub.cfg=$WORK/grub.cfg" >/dev/null 2>&1 \
-    || grub-mkstandalone -O x86_64-efi -o "$WORK/BOOTX64.EFI" \
-         "boot/grub/grub.cfg=$WORK/grub.cfg"
+    "boot/grub/grub.cfg=$WORK/grub.cfg"
 
 mmd   -i "$ESP_IMG" ::/EFI ::/EFI/BOOT
 mcopy -i "$ESP_IMG" "$WORK/BOOTX64.EFI" ::/EFI/BOOT/BOOTX64.EFI
