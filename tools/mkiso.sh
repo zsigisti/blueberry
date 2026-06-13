@@ -1,9 +1,15 @@
 #!/bin/sh
-# mkiso.sh — create a bootable ISO from a Blueberry rootfs
+# mkiso.sh — create a hybrid BIOS+UEFI bootable ISO of the Blueberry live CLI.
 #
-# Usage: ./build/mkiso.sh <rootfsdir> [output.iso]
+# The ISO boots the kernel + initramfs straight into the live CLI shell — no
+# disk, no squashfs, no package manager. It is identical to what `make run`
+# boots, just on real media (CD/USB) for bare metal.
 #
-# Requires: grub2, xorriso (or genisoimage), squashfs-tools
+# Usage: tools/mkiso.sh <rootfsdir> [output.iso]
+#   <rootfsdir> must contain boot/vmlinuz and boot/initramfs.cpio.zst
+#               (populated by `make install`)
+#
+# Requires: grub-mkrescue (grub2), xorriso, and mtools (for the UEFI image).
 
 set -e
 
@@ -16,62 +22,56 @@ log() { printf '\033[1;32m==> %s\033[0m\n' "$*"; }
 die() { printf '\033[1;31mFATAL: %s\033[0m\n' "$*" >&2; exit 1; }
 
 [ -d "$ROOTFS" ] || die "rootfs directory not found: $ROOTFS"
-command -v mksquashfs >/dev/null || die "mksquashfs not found (install squashfs-tools)"
-command -v xorriso    >/dev/null || die "xorriso not found"
+command -v grub-mkrescue >/dev/null || die "grub-mkrescue not found (install grub2)"
+command -v xorriso       >/dev/null || die "xorriso not found"
+command -v mformat       >/dev/null || die "mtools not found (needed for the UEFI image)"
 
+# ── Locate boot assets ────────────────────────────────────────────────────────
+VMLINUZ="$ROOTFS/boot/vmlinuz"
+INITRD="$ROOTFS/boot/initramfs.cpio.zst"
+[ -f "$VMLINUZ" ] || VMLINUZ=$(find "$ROOTFS/boot" -name 'vmlinuz*' | head -1)
+[ -f "$INITRD"  ] || INITRD=$(find "$ROOTFS/boot" \( -name 'initramfs*' -o -name 'initrd*' \) | head -1)
+[ -f "$VMLINUZ" ] || die "no kernel found in $ROOTFS/boot (run 'make install')"
+[ -f "$INITRD"  ] || die "no initramfs found in $ROOTFS/boot (run 'make install')"
+
+# ── Stage the ISO tree ────────────────────────────────────────────────────────
 ISO_ROOT="$BUILD_TMP/iso"
 mkdir -p "$ISO_ROOT/boot/grub"
-
-# ── 1. Build squashfs of the rootfs ──────────────────────────────────────────
-log "Creating squashfs image"
-mksquashfs "$ROOTFS" "$ISO_ROOT/boot/rootfs.squashfs" \
-    -comp zstd -Xcompression-level 19 \
-    -noappend -no-progress \
-    -e boot
-
-# ── 2. Copy kernel and initramfs ─────────────────────────────────────────────
-log "Copying kernel"
-VMLINUZ=$(find "$ROOTFS/boot" -name 'vmlinuz*' | head -1)
-INITRD=$(find "$ROOTFS/boot"  -name 'initramfs*' -o -name 'initrd*' | head -1)
-
-[ -n "$VMLINUZ" ] || die "No kernel found in $ROOTFS/boot"
 cp "$VMLINUZ" "$ISO_ROOT/boot/vmlinuz"
-[ -n "$INITRD" ] && cp "$INITRD" "$ISO_ROOT/boot/initramfs.img"
+cp "$INITRD"  "$ISO_ROOT/boot/initramfs.cpio.zst"
 
-# ── 3. Write GRUB config ─────────────────────────────────────────────────────
+# console=tty0 → physical monitor (VGA text); console=ttyS0 → serial / IPMI.
+# ttyS0 is listed last so the interactive shell lands on the serial console
+# (which is what QEMU -nographic and most headless servers use).
 cat > "$ISO_ROOT/boot/grub/grub.cfg" <<'EOF'
 set timeout=5
 set default=0
 
-menuentry "Blueberry Linux" {
-    linux /boot/vmlinuz root=live:CDLABEL=BLUEBERRY rw quiet
-    initrd /boot/initramfs.img
+if serial --unit=0 --speed=115200; then
+    terminal_input  console serial
+    terminal_output console serial
+fi
+
+menuentry "Blueberry Linux (live CLI)" {
+    linux /boot/vmlinuz console=tty0 console=ttyS0,115200
+    initrd /boot/initramfs.cpio.zst
 }
 
-menuentry "Blueberry Linux (verbose)" {
-    linux /boot/vmlinuz root=live:CDLABEL=BLUEBERRY rw
-    initrd /boot/initramfs.img
+menuentry "Blueberry Linux (live CLI, verbose)" {
+    linux /boot/vmlinuz console=tty0 console=ttyS0,115200 debug
+    initrd /boot/initramfs.cpio.zst
 }
 EOF
 
-# ── 4. Create ISO ─────────────────────────────────────────────────────────────
-log "Creating ISO: $OUTPUT"
-xorriso -as mkisofs \
-    -iso-level 3 \
-    -full-iso9660-filenames \
-    -volid "BLUEBERRY" \
-    -eltorito-boot boot/grub/i386-pc/eltorito.img \
-    -no-emul-boot \
-    -boot-load-size 4 \
-    -boot-info-table \
-    --eltorito-catalog boot/grub/boot.cat \
-    --grub2-boot-info \
-    --grub2-mbr /usr/lib/grub/i386-pc/boot_hybrid.img \
-    -eltorito-alt-boot \
-    -e boot/grub/efi.img \
-    -no-emul-boot \
-    -append_partition 2 0xEF "$ISO_ROOT/boot/grub/efi.img" \
-    -output "$OUTPUT" \
-    "$ISO_ROOT"
+# ── Build the hybrid ISO ──────────────────────────────────────────────────────
+# grub-mkrescue emits a GRUB image that boots on both legacy BIOS (El Torito +
+# embedded MBR) and UEFI (an embedded EFI System Partition), so the one ISO
+# works on essentially any x86_64 machine and as a `dd`-able USB stick.
+log "Building hybrid BIOS+UEFI ISO: $OUTPUT"
+grub-mkrescue --output "$OUTPUT" "$ISO_ROOT" \
+    -- -volid BLUEBERRY >/dev/null 2>&1 \
+    || grub-mkrescue --output "$OUTPUT" "$ISO_ROOT" -- -volid BLUEBERRY
 
 log "ISO written to $OUTPUT ($(du -sh "$OUTPUT" | cut -f1))"
+log "Boot it:  qemu-system-x86_64 -cdrom $OUTPUT -m 512M -nographic"
+log "Or write to USB:  dd if=$OUTPUT of=/dev/sdX bs=4M status=progress oflag=sync"
