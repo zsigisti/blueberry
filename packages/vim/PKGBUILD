@@ -21,6 +21,7 @@ build() {
     --enable-gui=no \
     --without-x \
     --disable-netbeans \
+    --disable-gpm \
     --enable-terminal
   make
 }
