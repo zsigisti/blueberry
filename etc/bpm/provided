@@ -1,10 +1,17 @@
-# Packages the Blueberry base system already provides.
-# When bpm resolves dependencies (e.g. from the official Arch repos), any dep
-# named here is treated as satisfied and is NOT downloaded/installed — this
-# keeps Arch packages from trying to reinstall glibc, bash, coreutils, etc.
-# over the base system. One package name per line; #comments and blanks ignored.
+# Packages whose shared libraries / files the Blueberry base image already ships.
+# A dep named here is treated as satisfied and is NOT installed, so packages
+# don't try to reinstall what the base already provides. One name per line;
+# #comments and blanks ignored. The built-in list in bpm's is_provided() (glibc,
+# gcc-libs, bash, coreutils, ...) is EXTENDED by this file.
 #
-# A built-in list lives in `is_provided` inside the bpm script; this file EXTENDS
-# it. Add anything else your image bundles (e.g. ncurses, zlib if you ship them).
-ncurses
+# Only list things actually present. The base bundles the glibc runtime plus:
+#   libz.so.1      -> zlib
+#   libzstd.so.1   -> zstd
+#   liblzma.so.5   -> xz
+#   liblz4.so.1    -> lz4
+# and ships the CA bundle at /etc/ssl/certs/ca-certificates.crt -> ca-certificates.
 zlib
+zstd
+xz
+lz4
+ca-certificates
