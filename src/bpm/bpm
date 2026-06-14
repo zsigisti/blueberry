@@ -16,6 +16,10 @@ set -eu
 
 BPM_ROOT="${BPM_ROOT:-/}"
 BPM_ROOT="${BPM_ROOT%/}"
+# After stripping the trailing slash, a root of "/" becomes "" — perfect for
+# building paths ("$BPM_ROOT/var/..." -> "/var/...") but useless as a directory
+# target. DEST is the real filesystem root to extract into / mkdir.
+DEST="${BPM_ROOT:-/}"
 DB="$BPM_ROOT/var/lib/bpm/db"
 CACHE="$BPM_ROOT/var/lib/bpm/cache"
 INDEX="$BPM_ROOT/var/lib/bpm/index"
@@ -90,8 +94,8 @@ install_file() {
     fi
 
     # Extract the payload (everything but the metadata members) into the root.
-    mkdir -p "$BPM_ROOT"
-    zstd -dcq "$pkg" | tar -x -C "$BPM_ROOT" \
+    mkdir -p "$DEST"
+    zstd -dcq "$pkg" | tar -x -C "$DEST" \
         --exclude .PKGINFO --exclude .MTREE --exclude .BUILDINFO \
         --exclude .INSTALL --exclude .CHANGELOG 2>/dev/null
 
