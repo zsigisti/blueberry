@@ -188,14 +188,16 @@ initramfs: $(STAMP_INITRAMFS)
 INITRAMFS_SRC := $(wildcard $(SRCDIR)/initramfs/init $(SRCDIR)/initramfs/selftest \
                             $(SRCDIR)/initramfs/profile $(SRCDIR)/initramfs/udhcpc.script \
                             $(SRCDIR)/initramfs/shadow $(SRCDIR)/initramfs/Makefile \
-                            $(SRCDIR)/bpm/bpm)
+                            $(SRCDIR)/bpm/Makefile \
+                            $(SRCDIR)/bpm/bpm.h $(wildcard $(SRCDIR)/bpm/*.c))
 $(STAMP_INITRAMFS): $(STAMP_BUSYBOX) $(STAMP_RUNIT) $(STAMP_DROPBEAR) $(INITRAMFS_SRC) | $(BOOTDIR)
 	@echo "[build] initramfs"
 	@$(MAKE) -C $(SRCDIR)/initramfs \
 	    STAGEDIR=$(STAGEDIR) \
 	    BOOTDIR=$(BOOTDIR) \
 	    OBJDIR=$(OBJDIR) \
-	    ARCH=$(ARCH)
+	    ARCH=$(ARCH) \
+	    CC="$(CC)" CFLAGS="$(CFLAGS)"
 	@touch $@
 
 # ── install ───────────────────────────────────────────────────────────────────
@@ -219,16 +221,20 @@ _do_install:
 	@chmod 711  $(STAGEDIR)/var/empty
 	@# /init → runit-init
 	@ln -sf /sbin/runit-init $(STAGEDIR)/init 2>/dev/null || true
-	@# bpm package manager + zstd (bpm needs zstd to read .pkg.tar.zst)
-	@install -Dm755 $(SRCDIR)/bpm/bpm $(STAGEDIR)/usr/bin/bpm
+	@# bpm package manager (compiled C binary) + zstd helper
+	@$(MAKE) --no-print-directory -C $(SRCDIR)/bpm \
+	    CC="$(CC)" CFLAGS="$(CFLAGS)" \
+	    OBJDIR=$(OBJDIR)/bpm BPM_OUT=$(OBJDIR)/bpm/bpm
+	@install -Dm755 $(OBJDIR)/bpm/bpm $(STAGEDIR)/usr/bin/bpm
 	@install -Dm755 $$(command -v zstd) $(STAGEDIR)/usr/bin/zstd
 	@# Bundle the glibc runtime into the rootfs (disk-boot path + external
-	@# prebuilt glibc software).
+	@# prebuilt glibc software). bpm links libzstd, so include it too.
 	@bash $(TOPDIR)/tools/bundle-glibc.sh $(STAGEDIR) \
 	    $(STAGEDIR)/bin/busybox \
 	    $(STAGEDIR)/sbin/runit-init \
 	    $(STAGEDIR)/usr/sbin/dropbearmulti \
-	    $(STAGEDIR)/usr/bin/zstd
+	    $(STAGEDIR)/usr/bin/zstd \
+	    $(STAGEDIR)/usr/bin/bpm
 	@# Copy boot assets (kernel + initramfs) into rootfs/boot for mkiso.sh
 	@cp $(BOOTDIR)/vmlinuz              $(STAGEDIR)/boot/vmlinuz
 	@cp $(BOOTDIR)/initramfs.cpio.zst   $(STAGEDIR)/boot/initramfs.cpio.zst

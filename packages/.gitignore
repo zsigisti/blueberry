@@ -1,0 +1,9 @@
+# makepkg build artifacts — never committed
+*/src/
+*/pkg/
+*.tar.gz
+*.tar.xz
+*.tar.bz2
+*.tar.zst
+*.pkg.tar.zst
+*.log

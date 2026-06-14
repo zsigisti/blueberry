@@ -16,8 +16,9 @@ all: $(BOOTDIR)/initramfs.cpio.zst
 
 $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
                                $(THISDIR)/profile $(THISDIR)/udhcpc.script \
-                               $(THISDIR)/shadow $(THISDIR)/../bpm/bpm \
-                               $(THISDIR)/Makefile
+                               $(THISDIR)/shadow $(THISDIR)/Makefile \
+                               $(wildcard $(THISDIR)/../bpm/*.c $(THISDIR)/../bpm/*.h) \
+                               $(THISDIR)/../bpm/Makefile
 	@echo "[initramfs] assembling"
 	@rm -rf $(INITRAMDIR)
 	@mkdir -p $(INITRAMDIR)/bin $(INITRAMDIR)/sbin $(INITRAMDIR)/lib \
@@ -69,14 +70,18 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	@cp $(THISDIR)/udhcpc.script $(INITRAMDIR)/etc/udhcpc.script
 	@chmod 755 $(INITRAMDIR)/etc/udhcpc.script
 
-	@# bpm package manager + default repo config
+	@# bpm package manager (compiled C binary) + default repo config
 	@mkdir -p $(INITRAMDIR)/usr/bin $(INITRAMDIR)/etc/bpm
-	@cp $(THISDIR)/../bpm/bpm $(INITRAMDIR)/usr/bin/bpm
+	@$(MAKE) --no-print-directory -C $(THISDIR)/../bpm \
+	    CC="$(CC)" CFLAGS="$(CFLAGS)" \
+	    OBJDIR=$(OBJDIR)/bpm BPM_OUT=$(OBJDIR)/bpm/bpm
+	@cp $(OBJDIR)/bpm/bpm $(INITRAMDIR)/usr/bin/bpm
 	@chmod 755 $(INITRAMDIR)/usr/bin/bpm
 	@cp $(THISDIR)/../../etc/bpm/repos.conf $(INITRAMDIR)/etc/bpm/repos.conf
+	@cp $(THISDIR)/../../etc/bpm/provided  $(INITRAMDIR)/etc/bpm/provided
 
-	@# zstd binary — bpm needs it to read .pkg.tar.zst (busybox has no zstd).
-	@# Its libs (libzstd/liblz4/liblzma/libz) are picked up by bundle-glibc.
+	@# zstd binary — handy on the live system; its libs (libzstd/liblz4/liblzma/
+	@# libz) also satisfy the C bpm, which links libzstd. Picked up by bundle-glibc.
 	@cp $$(command -v zstd) $(INITRAMDIR)/usr/bin/zstd
 
 	@# Minimal account + hostname so \u resolves and the prompt reads root@blueberry
@@ -116,7 +121,8 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	@bash $(THISDIR)/../../tools/bundle-glibc.sh $(INITRAMDIR) \
 	    $(INITRAMDIR)/bin/busybox \
 	    $(INITRAMDIR)/usr/sbin/dropbearmulti \
-	    $(INITRAMDIR)/usr/bin/zstd
+	    $(INITRAMDIR)/usr/bin/zstd \
+	    $(INITRAMDIR)/usr/bin/bpm
 
 	@# Pack as CPIO
 	@echo "[initramfs] packing"
