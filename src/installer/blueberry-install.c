@@ -308,7 +308,10 @@ static int setup_luks(const char *part, char *mapper, size_t mn) {
     fputs(pw, k); fclose(k); chmod(kf, 0600);
 
     step("encrypting %s with LUKS2", part);
-    int rc = run("cryptsetup luksFormat --type luks2 --batch-mode --key-file %s %s", kf, part);
+    /* Cap the argon2 memory cost (256 MiB) so it succeeds on low-RAM systems
+     * while staying strong; cryptsetup's default can demand up to ~1 GiB. */
+    int rc = run("cryptsetup luksFormat --type luks2 --batch-mode "
+                 "--pbkdf argon2id --pbkdf-memory 262144 --key-file %s %s", kf, part);
     if (rc == 0)
         rc = run("cryptsetup open --key-file %s %s cryptroot", kf, part);
     unlink(kf);

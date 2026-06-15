@@ -228,8 +228,15 @@ CONFIG_PERF_EVENTS=y
 # Cryptography
 #
 CONFIG_CRYPTO=y
+CONFIG_CRYPTO_MANAGER=y
 CONFIG_CRYPTO_AES=y
 CONFIG_CRYPTO_AES_NI_INTEL=y
+# LUKS dm-crypt default cipher is aes-xts-plain64 — needs the XTS template
+# (plus ECB/CBC for other LUKS profiles). Without XTS, dm-crypt fails with
+# "Error allocating crypto tfm (-ENOENT)".
+CONFIG_CRYPTO_XTS=y
+CONFIG_CRYPTO_ECB=y
+CONFIG_CRYPTO_CBC=y
 CONFIG_CRYPTO_GHASH_CLMUL_NI_INTEL=y
 CONFIG_CRYPTO_SHA256=y
 CONFIG_CRYPTO_SHA512=y

@@ -96,8 +96,8 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	@# unlock at boot and luksFormat at install. Bundled so it works offline.
 	@echo "[initramfs] bundling installer + disk + crypto tools"
 	@sh $(THISDIR)/../../tools/build-pkgs.sh $(OBJDIR)/instpkgs \
-	    popt e2fsprogs dosfstools gptfdisk json-c device-mapper openssl cryptsetup
-	@for p in popt e2fsprogs dosfstools gptfdisk json-c device-mapper openssl cryptsetup; do \
+	    popt e2fsprogs dosfstools gptfdisk json-c device-mapper openssl zlib cryptsetup
+	@for p in popt e2fsprogs dosfstools gptfdisk json-c device-mapper openssl zlib cryptsetup; do \
 	    zstd -dcq $(OBJDIR)/instpkgs/$$p-*.pkg.tar.zst \
 	        | tar -x -C $(INITRAMDIR) --exclude .PKGINFO --exclude .MTREE \
 	          --exclude .BUILDINFO --exclude .INSTALL 2>/dev/null; \
