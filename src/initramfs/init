@@ -125,14 +125,40 @@ if [ -n "$BBINSTALL" ]; then
     BLUEBERRY_SWAP=$(cmdline blueberry.swap)
     BLUEBERRY_USER=$(cmdline blueberry.user)
     BLUEBERRY_USERPW=$(cmdline blueberry.userpw)
+    BLUEBERRY_LUKS=$(cmdline blueberry.luks)
+    BLUEBERRY_LUKSPW=$(cmdline blueberry.lukspw)
     export BLUEBERRY_TARGET BLUEBERRY_ROOTPW BLUEBERRY_PKGS BLUEBERRY_YES=1
     export BLUEBERRY_HOSTNAME BLUEBERRY_SWAP BLUEBERRY_USER BLUEBERRY_USERPW
+    export BLUEBERRY_LUKS BLUEBERRY_LUKSPW
     blueberry-install; rc=$?
     echo "BLUEBERRY_INSTALL_EXIT=$rc"
     [ "$rc" = 0 ] && echo "BLUEBERRY_INSTALL=OK" || echo "BLUEBERRY_INSTALL=FAIL"
     echo o > /proc/sysrq-trigger 2>/dev/null
     poweroff -f 2>/dev/null
     exec sh
+fi
+
+# ── LUKS unlock (optional) ────────────────────────────────────────────────────
+# `cryptdevice=<src>:<name>` on the cmdline unlocks an encrypted partition
+# before the root mount, so root= can point at /dev/mapper/<name>. <src> is a
+# device node or UUID=/PARTUUID=/LABEL=. cryptsetup prompts for the passphrase
+# on the console; three tries then falls through to a rescue shell.
+CRYPTDEV=$(cmdline cryptdevice)
+if [ -n "$CRYPTDEV" ] && command -v cryptsetup >/dev/null 2>&1; then
+    _csrc=${CRYPTDEV%%:*}; _cname=${CRYPTDEV#*:}; : "${_cname:=cryptroot}"
+    case "$_csrc" in
+        UUID=*|PARTUUID=*|LABEL=*) _r=$(findfs "$_csrc" 2>/dev/null) && [ -n "$_r" ] && _csrc=$_r ;;
+    esac
+    if [ -b "$_csrc" ]; then
+        _n=0
+        until cryptsetup open "$_csrc" "$_cname"; do
+            _n=$((_n + 1))
+            [ "$_n" -ge 3 ] && { echo "init: too many failed unlock attempts" >&2; break; }
+            echo "Unlock failed — try again."
+        done
+    else
+        echo "init: LUKS source not found: $_csrc" >&2
+    fi
 fi
 
 # ── Disk boot mode (optional) ─────────────────────────────────────────────────

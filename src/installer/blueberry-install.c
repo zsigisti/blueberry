@@ -274,6 +274,49 @@ static void install_packages(const char *target) {
                         "(the base system is still fine)\n");
 }
 
+/* Optionally LUKS-encrypt the root partition. Returns 1 (and fills <mapper>
+ * with /dev/mapper/cryptroot) when encryption was set up, else 0. The
+ * passphrase is written to a 0600 tmpfs keyfile rather than passed on a command
+ * line, so it never appears in the process table. */
+static int setup_luks(const char *part, char *mapper, size_t mn) {
+    int want;
+    const char *env = getenv("BLUEBERRY_LUKS");
+    if (env) want = (*env == '1' || *env == 'y' || *env == 'Y');
+    else if (!getenv("BLUEBERRY_YES"))
+        want = (prompt("\nEncrypt the system with LUKS? [y/N]: ")[0] | 0x20) == 'y';
+    else want = 0;
+    if (!want) return 0;
+
+    if (run("command -v cryptsetup >/dev/null 2>&1") != 0)
+        die("encryption requested but cryptsetup is missing from the live image");
+
+    char pw[256] = "";
+    const char *envpw = getenv("BLUEBERRY_LUKSPW");
+    if (envpw && *envpw) snprintf(pw, sizeof pw, "%s", envpw);
+    else for (;;) {
+        char first[256];
+        snprintf(first, sizeof first, "%s", prompt("  LUKS passphrase: "));
+        if (*first && !strcmp(first, prompt("  repeat passphrase: "))) {
+            snprintf(pw, sizeof pw, "%s", first); break;
+        }
+        printf("   passphrases didn't match (or empty); try again\n");
+    }
+
+    const char *kf = "/run/bb-luks.key";
+    FILE *k = fopen(kf, "w");
+    if (!k) die("cannot stage LUKS keyfile");
+    fputs(pw, k); fclose(k); chmod(kf, 0600);
+
+    step("encrypting %s with LUKS2", part);
+    int rc = run("cryptsetup luksFormat --type luks2 --batch-mode --key-file %s %s", kf, part);
+    if (rc == 0)
+        rc = run("cryptsetup open --key-file %s %s cryptroot", kf, part);
+    unlink(kf);
+    if (rc != 0) die("LUKS setup failed");
+    snprintf(mapper, mn, "/dev/mapper/cryptroot");
+    return 1;
+}
+
 int main(void) {
     if (geteuid() != 0) die("must run as root");
     /* the bundled tools live in /usr/{bin,sbin} with libs in /usr/lib, which
@@ -308,13 +351,19 @@ int main(void) {
     /* make the new partition nodes appear (busybox: re-scan /sys) */
     run("partprobe %s 2>/dev/null; mdev -s 2>/dev/null; sync; sleep 1", disk);
 
+    /* Optionally encrypt the root partition; rootfs goes on the mapper then. */
+    char rootfs_dev[96]; snprintf(rootfs_dev, sizeof rootfs_dev, "%s", root);
+    char crypt_uuid[128] = "";
+    int encrypted = setup_luks(root, rootfs_dev, sizeof rootfs_dev);
+    if (encrypted) read_uuid(root, crypt_uuid, sizeof crypt_uuid);  /* LUKS container UUID */
+
     step("formatting");
     runck("mkfs.fat -F32 -n EFI %s", efi);
-    runck("mkfs.ext4 -F -L blueberry-root %s", root);
+    runck("mkfs.ext4 -F -L blueberry-root %s", rootfs_dev);
 
     step("mounting target");
     runck("mkdir -p /mnt/blueberry");
-    runck("mount %s /mnt/blueberry", root);
+    runck("mount %s /mnt/blueberry", rootfs_dev);
     runck("mkdir -p /mnt/blueberry/boot");
     runck("mount %s /mnt/blueberry/boot", efi);
 
@@ -327,26 +376,43 @@ int main(void) {
     runck("mkdir -p /mnt/blueberry/boot/EFI/BOOT /mnt/blueberry/boot/grub");
     runck("cp %s/bootx64.efi /mnt/blueberry/boot/EFI/BOOT/BOOTX64.EFI", pay);
 
-    /* root partition UUID for the kernel cmdline */
+    /* UUID of the root filesystem (the ext4 — inside the mapper if encrypted) */
     char uuid[128];
-    read_uuid(root, uuid, sizeof uuid);
+    read_uuid(rootfs_dev, uuid, sizeof uuid);
     if (!*uuid) die("could not read root UUID");
 
-    step("writing boot config (root=UUID=%s)", uuid);
+    /* When encrypted, the kernel must unlock the LUKS container first
+     * (cryptdevice=UUID=<container>:cryptroot) and boot the mapper; the
+     * root filesystem itself is then /dev/mapper/cryptroot. */
+    char rootspec[160], cryptarg[200] = "";
+    if (encrypted) {
+        snprintf(rootspec, sizeof rootspec, "/dev/mapper/cryptroot");
+        snprintf(cryptarg, sizeof cryptarg, "cryptdevice=UUID=%s:cryptroot ", crypt_uuid);
+    } else {
+        snprintf(rootspec, sizeof rootspec, "UUID=%s", uuid);
+    }
+
+    step("writing boot config (root=%s%s)", rootspec, encrypted ? " [encrypted]" : "");
     FILE *g = fopen("/mnt/blueberry/boot/grub/grub.cfg", "w");
     if (!g) die("cannot write grub.cfg");
     fprintf(g,
         "set timeout=3\n"
         "menuentry 'Blueberry Linux' {\n"
-        "    linux /vmlinuz root=UUID=%s rw console=tty0 console=ttyS0,115200\n"
+        "    linux /vmlinuz %sroot=%s rw console=tty0 console=ttyS0,115200\n"
         "    initrd /initramfs.cpio.zst\n"
-        "}\n", uuid);
+        "}\n", cryptarg, rootspec);
     fclose(g);
+
+    /* crypttab so the installed system documents the mapping */
+    if (encrypted) {
+        FILE *ct = fopen("/mnt/blueberry/etc/crypttab", "w");
+        if (ct) { fprintf(ct, "cryptroot  UUID=%s  none  luks\n", crypt_uuid); fclose(ct); }
+    }
 
     /* fstab */
     FILE *fs = fopen("/mnt/blueberry/etc/fstab", "w");
     if (fs) {
-        fprintf(fs, "UUID=%s  /      ext4  rw,relatime  0 1\n", uuid);
+        fprintf(fs, "%s  /      ext4  rw,relatime  0 1\n", rootspec);
         char efiuuid[128];
         read_uuid(efi, efiuuid, sizeof efiuuid);
         if (*efiuuid) fprintf(fs, "UUID=%s  /boot  vfat  rw,relatime  0 2\n", efiuuid);
@@ -373,6 +439,7 @@ int main(void) {
     run("swapoff /mnt/blueberry/swapfile 2>/dev/null");
     run("umount /mnt/blueberry/boot");
     run("umount /mnt/blueberry");
+    if (encrypted) run("cryptsetup close cryptroot 2>/dev/null");
 
     printf("\n=== Installation complete. Remove the install medium and reboot. ===\n");
     return 0;

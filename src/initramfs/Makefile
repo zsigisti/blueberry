@@ -91,12 +91,13 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	@# libz) also satisfy the C bpm, which links libzstd. Picked up by bundle-glibc.
 	@cp $$(command -v zstd) $(INITRAMDIR)/usr/bin/zstd
 
-	@# blueberry-install + its disk tools (sgdisk, mkfs.fat, mkfs.ext4), bundled
-	@# so installing to disk works offline. The tool packages are built once.
-	@echo "[initramfs] bundling installer + disk tools"
+	@# blueberry-install + its disk tools (sgdisk, mkfs.fat, mkfs.ext4) plus
+	@# cryptsetup + its libs (device-mapper, json-c, openssl, popt) for LUKS
+	@# unlock at boot and luksFormat at install. Bundled so it works offline.
+	@echo "[initramfs] bundling installer + disk + crypto tools"
 	@sh $(THISDIR)/../../tools/build-pkgs.sh $(OBJDIR)/instpkgs \
-	    popt e2fsprogs dosfstools gptfdisk
-	@for p in popt e2fsprogs dosfstools gptfdisk; do \
+	    popt e2fsprogs dosfstools gptfdisk json-c device-mapper openssl cryptsetup
+	@for p in popt e2fsprogs dosfstools gptfdisk json-c device-mapper openssl cryptsetup; do \
 	    zstd -dcq $(OBJDIR)/instpkgs/$$p-*.pkg.tar.zst \
 	        | tar -x -C $(INITRAMDIR) --exclude .PKGINFO --exclude .MTREE \
 	          --exclude .BUILDINFO --exclude .INSTALL 2>/dev/null; \
