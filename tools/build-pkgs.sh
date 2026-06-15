@@ -44,5 +44,10 @@ done
 rm -f /out/*-debug-*.pkg.tar.zst
 [ -z "$fail" ] || { echo "build-pkgs: FAILED:$fail" >&2; exit 1; }
 '
-"$ENGINE" run --rm -v "$TOPDIR:/repo:ro,z" -v "$OUT:/out:z" "$IMAGE" bash -euc "$SCRIPT"
+# --ipc=host + seccomp=unconfined: makepkg's fakeroot uses SysV-IPC message
+# queues that corrupt ("payload not recognized") in podman's private IPC
+# namespace, esp. under Rocky's SELinux/seccomp. The build container is
+# ephemeral and trusted.
+"$ENGINE" run --rm --ipc=host --security-opt seccomp=unconfined \
+    -v "$TOPDIR:/repo:ro,z" -v "$OUT:/out:z" "$IMAGE" bash -euc "$SCRIPT"
 echo "build-pkgs: done ->$need"
