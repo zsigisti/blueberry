@@ -40,6 +40,37 @@ mkdir -p "$ISO_ROOT/boot/grub"
 cp "$VMLINUZ" "$ISO_ROOT/boot/vmlinuz"
 cp "$INITRD"  "$ISO_ROOT/boot/initramfs.cpio.zst"
 
+# ── Installer payload ─────────────────────────────────────────────────────────
+# Ship the full rootfs + boot assets + a GRUB EFI under /blueberry so the
+# bundled `blueberry-install` can install Blueberry to a local disk offline.
+if command -v zstd >/dev/null; then
+    PAYLOAD="$ISO_ROOT/blueberry"
+    mkdir -p "$PAYLOAD"
+    log "Building installer payload (rootfs.tar.zst)"
+    tar -C "$ROOTFS" \
+        --exclude='./boot/vmlinuz' --exclude='./boot/initramfs.cpio.zst' \
+        -cf - . | zstd -q -19 > "$PAYLOAD/rootfs.tar.zst"
+    cp "$VMLINUZ" "$PAYLOAD/vmlinuz"
+    cp "$INITRD"  "$PAYLOAD/initramfs.cpio.zst"
+    # Prebuilt GRUB EFI: finds the installed ESP (the one holding /vmlinuz) and
+    # runs the /grub/grub.cfg that blueberry-install writes (with root=UUID).
+    if command -v grub-mkstandalone >/dev/null; then
+        cat > "$BUILD_TMP/inst-grub.cfg" <<'GEOF'
+search --no-floppy --file --set=root /vmlinuz
+configfile ($root)/grub/grub.cfg
+GEOF
+        grub-mkstandalone -O x86_64-efi \
+            --modules="part_gpt fat search search_fs_file normal linux echo all_video gfxterm test configfile" \
+            -o "$PAYLOAD/bootx64.efi" \
+            "boot/grub/grub.cfg=$BUILD_TMP/inst-grub.cfg" 2>/dev/null
+        log "installer payload ready ($(du -sh "$PAYLOAD" | cut -f1))"
+    else
+        log "WARNING: grub-mkstandalone missing — installer payload has no bootloader"
+    fi
+else
+    log "WARNING: zstd missing — ISO will not include the installer payload"
+fi
+
 # console=tty0 → physical monitor (VGA text); console=ttyS0 → serial / IPMI.
 # ttyS0 is listed last so the interactive shell lands on the serial console
 # (which is what QEMU -nographic and most headless servers use).

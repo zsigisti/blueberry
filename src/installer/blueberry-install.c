@@ -110,6 +110,29 @@ static void partdev(char *out, size_t n, const char *disk, int idx) {
     else snprintf(out, n, "%s%d", disk, idx);
 }
 
+/* Read a device's filesystem UUID by parsing blkid output (works with both
+ * busybox and util-linux blkid). out[0]='\0' if not found. */
+static void read_uuid(const char *dev, char *out, size_t n) {
+    out[0] = '\0';
+    char cmd[160]; snprintf(cmd, sizeof cmd, "blkid %s 2>/dev/null", dev);
+    FILE *p = popen(cmd, "r");
+    if (!p) return;
+    char line[512];
+    if (fgets(line, sizeof line, p)) {
+        char *u = strstr(line, "UUID=\"");
+        if (u) {
+            u += 6;
+            char *e = strchr(u, '"');
+            if (e) {
+                size_t len = (size_t)(e - u);
+                if (len >= n) len = n - 1;
+                memcpy(out, u, len); out[len] = '\0';
+            }
+        }
+    }
+    pclose(p);
+}
+
 /* Locate the payload by trying to mount each block device read-only and
  * checking for rootfs.tar.zst. Returns a static mountpoint path. */
 static const char *find_payload(void) {
@@ -153,6 +176,10 @@ static const char *find_payload(void) {
 
 int main(void) {
     if (geteuid() != 0) die("must run as root");
+    /* the bundled tools live in /usr/{bin,sbin} with libs in /usr/lib, which
+     * may not be in the live image's PATH / ld.so.cache — make sure they're found. */
+    putenv("PATH=/usr/sbin:/usr/bin:/sbin:/bin");
+    putenv("LD_LIBRARY_PATH=/usr/lib:/lib");
 
     printf("\n=== Blueberry Linux installer ===\n");
 
@@ -161,9 +188,14 @@ int main(void) {
     if (!pay) die("could not find the install payload (rootfs.tar.zst) on any boot medium");
     printf("   payload: %s\n", pay);
 
-    char *disk = choose_disk();
+    /* Non-interactive mode for scripted installs / CI:
+     *   BLUEBERRY_TARGET=/dev/sdX  BLUEBERRY_YES=1  BLUEBERRY_ROOTPW=secret */
+    const char *env_disk = getenv("BLUEBERRY_TARGET");
+    char *disk = (env_disk && *env_disk) ? (char *)env_disk : choose_disk();
     printf("\nThis will ERASE ALL DATA on %s.\n", disk);
-    if (strcmp(prompt("Type 'yes' to continue: "), "yes") != 0) die("aborted by user");
+    if (!getenv("BLUEBERRY_YES") &&
+        strcmp(prompt("Type 'yes' to continue: "), "yes") != 0)
+        die("aborted by user");
 
     char efi[96], root[96];
     partdev(efi, sizeof efi, disk, 1);
@@ -173,7 +205,8 @@ int main(void) {
     runck("sgdisk --zap-all %s", disk);
     runck("sgdisk -n1:0:+512M -t1:ef00 -c1:EFI "
           "-n2:0:0 -t2:8300 -c2:blueberry-root %s", disk);
-    run("partprobe %s 2>/dev/null; sync", disk);
+    /* make the new partition nodes appear (busybox: re-scan /sys) */
+    run("partprobe %s 2>/dev/null; mdev -s 2>/dev/null; sync; sleep 1", disk);
 
     step("formatting");
     runck("mkfs.fat -F32 -n EFI %s", efi);
@@ -195,12 +228,8 @@ int main(void) {
     runck("cp %s/bootx64.efi /mnt/blueberry/boot/EFI/BOOT/BOOTX64.EFI", pay);
 
     /* root partition UUID for the kernel cmdline */
-    char uuid[128] = "";
-    {
-        char cmd[128]; snprintf(cmd, sizeof cmd, "blkid -s UUID -o value %s", root);
-        FILE *p = popen(cmd, "r");
-        if (p) { if (fgets(uuid, sizeof uuid, p)) uuid[strcspn(uuid, "\n")] = 0; pclose(p); }
-    }
+    char uuid[128];
+    read_uuid(root, uuid, sizeof uuid);
     if (!*uuid) die("could not read root UUID");
 
     step("writing boot config (root=UUID=%s)", uuid);
@@ -209,7 +238,7 @@ int main(void) {
     fprintf(g,
         "set timeout=3\n"
         "menuentry 'Blueberry Linux' {\n"
-        "    linux /vmlinuz root=UUID=%s rw\n"
+        "    linux /vmlinuz root=UUID=%s rw console=tty0 console=ttyS0,115200\n"
         "    initrd /initramfs.cpio.zst\n"
         "}\n", uuid);
     fclose(g);
@@ -218,17 +247,22 @@ int main(void) {
     FILE *fs = fopen("/mnt/blueberry/etc/fstab", "w");
     if (fs) {
         fprintf(fs, "UUID=%s  /      ext4  rw,relatime  0 1\n", uuid);
-        char efiuuid[128] = "";
-        char cmd[128]; snprintf(cmd, sizeof cmd, "blkid -s UUID -o value %s", efi);
-        FILE *p = popen(cmd, "r");
-        if (p) { if (fgets(efiuuid, sizeof efiuuid, p)) efiuuid[strcspn(efiuuid, "\n")] = 0; pclose(p); }
+        char efiuuid[128];
+        read_uuid(efi, efiuuid, sizeof efiuuid);
         if (*efiuuid) fprintf(fs, "UUID=%s  /boot  vfat  rw,relatime  0 2\n", efiuuid);
         fclose(fs);
     }
 
     step("set the root password for the installed system");
-    while (run("chroot /mnt/blueberry /usr/bin/passwd root") != 0)
-        printf("   passwords didn't match; try again\n");
+    const char *pw = getenv("BLUEBERRY_ROOTPW");
+    if (pw && *pw) {
+        if (run("printf 'root:%s\\n' | chroot /mnt/blueberry /usr/sbin/chpasswd 2>/dev/null"
+                " || printf 'root:%s\\n' | chroot /mnt/blueberry chpasswd", pw, pw) != 0)
+            die("could not set root password");
+    } else {
+        while (run("chroot /mnt/blueberry /usr/bin/passwd root") != 0)
+            printf("   passwords didn't match; try again\n");
+    }
 
     step("unmounting");
     run("umount /mnt/blueberry/boot");

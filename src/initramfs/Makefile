@@ -18,7 +18,9 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
                                $(THISDIR)/profile $(THISDIR)/udhcpc.script \
                                $(THISDIR)/shadow $(THISDIR)/Makefile \
                                $(wildcard $(THISDIR)/../bpm/*.c $(THISDIR)/../bpm/*.h) \
-                               $(THISDIR)/../bpm/Makefile
+                               $(THISDIR)/../bpm/Makefile \
+                               $(THISDIR)/../installer/blueberry-install.c \
+                               $(THISDIR)/../installer/Makefile
 	@echo "[initramfs] assembling"
 	@rm -rf $(INITRAMDIR)
 	@mkdir -p $(INITRAMDIR)/bin $(INITRAMDIR)/sbin $(INITRAMDIR)/lib \
@@ -88,6 +90,26 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	@# zstd binary — handy on the live system; its libs (libzstd/liblz4/liblzma/
 	@# libz) also satisfy the C bpm, which links libzstd. Picked up by bundle-glibc.
 	@cp $$(command -v zstd) $(INITRAMDIR)/usr/bin/zstd
+
+	@# blueberry-install + its disk tools (sgdisk, mkfs.fat, mkfs.ext4), bundled
+	@# so installing to disk works offline. The tool packages are built once.
+	@echo "[initramfs] bundling installer + disk tools"
+	@sh $(THISDIR)/../../tools/build-pkgs.sh $(OBJDIR)/instpkgs \
+	    popt e2fsprogs dosfstools gptfdisk
+	@for p in popt e2fsprogs dosfstools gptfdisk; do \
+	    zstd -dcq $(OBJDIR)/instpkgs/$$p-*.pkg.tar.zst \
+	        | tar -x -C $(INITRAMDIR) --exclude .PKGINFO --exclude .MTREE \
+	          --exclude .BUILDINFO --exclude .INSTALL 2>/dev/null; \
+	done
+	@# trim dev cruft from the bundled tools (keep binaries + shared libs)
+	@rm -rf $(INITRAMDIR)/usr/include $(INITRAMDIR)/usr/share/man \
+	        $(INITRAMDIR)/usr/share/info $(INITRAMDIR)/usr/lib/pkgconfig
+	@find $(INITRAMDIR)/usr/lib -name '*.a' -delete 2>/dev/null || true
+	@$(MAKE) --no-print-directory -C $(THISDIR)/../installer \
+	    CC="$(CC)" CFLAGS="$(CFLAGS)" \
+	    OBJDIR=$(OBJDIR)/installer OUT=$(OBJDIR)/installer/blueberry-install
+	@cp $(OBJDIR)/installer/blueberry-install $(INITRAMDIR)/usr/bin/blueberry-install
+	@chmod 755 $(INITRAMDIR)/usr/bin/blueberry-install
 
 	@# Minimal account + hostname so \u resolves and the prompt reads root@blueberry
 	@printf 'root:x:0:0:root:/root:/bin/sh\n' > $(INITRAMDIR)/etc/passwd

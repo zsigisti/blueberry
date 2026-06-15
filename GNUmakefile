@@ -190,6 +190,7 @@ INITRAMFS_SRC := $(wildcard $(SRCDIR)/initramfs/init $(SRCDIR)/initramfs/selftes
                             $(SRCDIR)/initramfs/shadow $(SRCDIR)/initramfs/Makefile \
                             $(SRCDIR)/bpm/Makefile \
                             $(SRCDIR)/bpm/bpm.h $(wildcard $(SRCDIR)/bpm/*.c) \
+                            $(SRCDIR)/installer/Makefile $(SRCDIR)/installer/blueberry-install.c \
                             $(ETCDIR)/bpm/repos.conf $(ETCDIR)/bpm/provided)
 $(STAMP_INITRAMFS): $(STAMP_BUSYBOX) $(STAMP_RUNIT) $(STAMP_DROPBEAR) $(INITRAMFS_SRC) | $(BOOTDIR)
 	@echo "[build] initramfs"
