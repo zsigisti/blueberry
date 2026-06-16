@@ -10,6 +10,7 @@
 #             (default: ../blueberry-build/boot relative to this script)
 #   ARCH      x86_64 (default)
 #   MEM       guest RAM (default 512M)
+#   DISK      run-mode disk size (default 2G); DISK_IMG overrides its path
 #   TIMEOUT   seconds before the test run is killed (default 90)
 
 set -euo pipefail
@@ -58,10 +59,22 @@ HW_QUIET="bonding.max_bonds=0 dummy.numdummies=0"
 case "$MODE" in
 # ──────────────────────────────────────────────────────────────────────────────
 run)
+    # Persistent AHCI disk so the live CLI has writable storage and an install
+    # target (shows up as /dev/sda — the installer's default). Size via DISK=,
+    # path via DISK_IMG=. Created on first run, reused after; delete it to reset.
+    DISK_SIZE="${DISK:-2G}"
+    DISK_IMG="${DISK_IMG:-$(dirname "$BOOTDIR")/run-disk.qcow2}"
+    if [ ! -f "$DISK_IMG" ]; then
+        echo "[qemu] creating $DISK_SIZE disk: $DISK_IMG"
+        qemu-img create -f qcow2 "$DISK_IMG" "$DISK_SIZE" >/dev/null
+    fi
+    DISK_ARGS=(-drive "file=$DISK_IMG,if=none,format=qcow2,id=hd0"
+               -device ahci,id=ahci -device ide-hd,drive=hd0,bus=ahci.0)
     echo "[qemu] booting Blueberry live CLI ($ARCH) — Ctrl-A X to quit"
     echo "[qemu] SSH:  ssh -p ${SSH_PORT} root@localhost   (password: blueberry)"
+    echo "[qemu] disk: $DISK_IMG ($DISK_SIZE) -> /dev/sda  (run 'bb-install' to install)"
     echo "──────────────────────────────────────────────────────────"
-    exec "$QEMU" "${MACHINE_ARGS[@]}" "${NET_ARGS[@]}" \
+    exec "$QEMU" "${MACHINE_ARGS[@]}" "${NET_ARGS[@]}" "${DISK_ARGS[@]}" \
         -kernel "$KERNEL" -initrd "$INITRD" \
         -append "console=$CONSOLE $HW_QUIET" \
         -m "$MEM" -no-reboot \
