@@ -146,7 +146,10 @@ $(STAMP_BUSYBOX): $(STAMP_FETCH_BUSYBOX) $(SRCDIR)/busybox/config.full | $(STAGE
 # ── runit ─────────────────────────────────────────────────────────────────────
 runit: $(STAMP_RUNIT)
 
-$(STAMP_RUNIT): $(STAMP_FETCH_RUNIT) | $(STAGEDIR)
+RUNIT_FILES := $(wildcard $(SRCDIR)/init/[123] $(SRCDIR)/init/Makefile \
+                          $(SRCDIR)/init/sv-enable $(SRCDIR)/init/sv-disable \
+                          $(SRCDIR)/init/sv/*/run $(SRCDIR)/init/sv/*/finish)
+$(STAMP_RUNIT): $(STAMP_FETCH_RUNIT) $(RUNIT_FILES) | $(STAGEDIR)
 	@echo "[build] runit-$(RUNIT_VERSION)"
 	@$(MAKE) -C $(SRCDIR)/init \
 	    RUNIT_SRC=$(OBJDIR_SRC)/admin/runit-$(RUNIT_VERSION) \
