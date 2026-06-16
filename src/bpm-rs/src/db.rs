@@ -42,6 +42,47 @@ pub fn read_files(cfg: &Config, name: &str) -> Vec<String> {
         .collect()
 }
 
+/// Declared dependencies of an installed package (atoms stripped to names).
+pub fn package_deps(cfg: &Config, name: &str) -> Vec<String> {
+    let desc = cfg.db.join(name).join("desc");
+    let txt = fs::read_to_string(desc).unwrap_or_default();
+    index::pkginfo_all(&txt, "depend")
+        .iter()
+        .map(|d| index::dep_name(d).to_string())
+        .filter(|d| !d.is_empty())
+        .collect()
+}
+
+/// Installed packages that depend on `target`, excluding any in `ignore`
+/// (e.g. packages being removed in the same transaction).
+pub fn requirers(cfg: &Config, target: &str, ignore: &std::collections::HashSet<String>) -> Vec<String> {
+    let mut out = Vec::new();
+    for name in installed_names(cfg) {
+        if ignore.contains(&name) {
+            continue;
+        }
+        if package_deps(cfg, &name).iter().any(|d| d == target) {
+            out.push(name);
+        }
+    }
+    out
+}
+
+/// Map of every installed file path -> owning package, excluding `skip`'s files
+/// (the package currently being (re)installed). Used for conflict detection.
+pub fn file_owners(cfg: &Config, skip: &str) -> std::collections::HashMap<String, String> {
+    let mut map = std::collections::HashMap::new();
+    for name in installed_names(cfg) {
+        if name == skip {
+            continue;
+        }
+        for f in read_files(cfg, &name) {
+            map.insert(f.trim_end_matches('/').to_string(), name.clone());
+        }
+    }
+    map
+}
+
 /// Which installed package owns `rel` (a path with no leading slash).
 pub fn owner(cfg: &Config, rel: &str) -> Option<String> {
     for name in installed_names(cfg) {

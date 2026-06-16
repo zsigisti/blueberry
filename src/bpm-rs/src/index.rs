@@ -123,6 +123,15 @@ pub fn pkginfo_field(info: &str, key: &str) -> Option<String> {
     None
 }
 
+/// All values for a repeated .PKGINFO field (e.g. every `depend`).
+pub fn pkginfo_all<'a>(info: &'a str, key: &str) -> Vec<&'a str> {
+    info.lines()
+        .filter_map(|l| l.split_once('='))
+        .filter(|(k, _)| k.trim() == key)
+        .map(|(_, v)| v.trim())
+        .collect()
+}
+
 /// Lowercase hex SHA-256 of a file, streamed.
 pub fn sha256_file(path: &Path) -> std::io::Result<String> {
     use sha2::{Digest, Sha256};

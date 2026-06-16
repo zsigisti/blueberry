@@ -29,6 +29,7 @@ fn main() -> ExitCode {
         "remove" | "rm" => cmd_remove(&cfg, rest),
         "update" | "up" => cmd_update(&cfg),
         "upgrade" => cmd_upgrade(&cfg),
+        "clean" => cmd_clean(&cfg),
         "search" | "se" => cmd_search(&cfg, rest),
         "list" | "ls" => cmd_list(&cfg),
         "info" => cmd_info(&cfg, rest),
@@ -64,23 +65,39 @@ fn usage() {
          \x20 bpm list                                 list installed packages\n\
          \x20 bpm info    <name>                       show package metadata\n\
          \x20 bpm files   <name>                       list files a package owns\n\
-         \x20 bpm owns    <path>                       which package owns a path\n\n\
-         Env: BPM_ROOT=<dir> installs into a staging root instead of /.\n",
+         \x20 bpm owns    <path>                       which package owns a path\n\
+         \x20 bpm clean                                remove cached package downloads\n\n\
+         Flags: -f/--force  skip space/conflict/reverse-dep checks.\n\
+         Env:   BPM_ROOT=<dir> installs into a staging root instead of /.\n",
         config::VERSION
     );
 }
 
+/// Pull -f/--force out of the argument list, returning (force, positionals).
+fn split_flags(args: &[String]) -> (bool, Vec<String>) {
+    let mut force = false;
+    let mut pos = Vec::new();
+    for a in args {
+        match a.as_str() {
+            "-f" | "--force" => force = true,
+            _ => pos.push(a.clone()),
+        }
+    }
+    (force, pos)
+}
+
 // ── install ──────────────────────────────────────────────────────────────────
 fn cmd_install(cfg: &Config, args: &[String]) -> Result<(), String> {
-    if args.is_empty() {
-        return Err("usage: bpm install <name|file.pkg.tar.zst>...".into());
+    let (force, names) = split_flags(args);
+    if names.is_empty() {
+        return Err("usage: bpm install [-f] <name|file.pkg.tar.zst>...".into());
     }
     let mut seen = HashSet::new();
-    for a in args {
+    for a in &names {
         if a.contains(".pkg.tar.") {
-            pkg::install_file(cfg, Path::new(a)).map_err(|e| e.to_string())?;
+            pkg::install_file(cfg, Path::new(a), force).map_err(|e| e.to_string())?;
         } else {
-            install_name(cfg, a, true, &mut seen)?;
+            install_name(cfg, a, true, force, &mut seen)?;
         }
     }
     pkg::run_ldconfig(cfg);
@@ -94,6 +111,7 @@ fn install_name(
     cfg: &Config,
     name: &str,
     explicit: bool,
+    force: bool,
     seen: &mut HashSet<String>,
 ) -> Result<(), String> {
     if !seen.insert(name.to_string()) {
@@ -116,30 +134,93 @@ fn install_name(
     for dep in &entry.deps {
         let dn = index::dep_name(dep);
         if !dn.is_empty() {
-            install_name(cfg, dn, false, seen)?;
+            install_name(cfg, dn, false, force, seen)?;
         }
     }
     println!(":: downloading {} {}", entry.name, entry.version);
     let path = repo::fetch(cfg, &entry)?;
-    pkg::install_file(cfg, &path).map_err(|e| e.to_string())?;
+    pkg::install_file(cfg, &path, force).map_err(|e| e.to_string())?;
     Ok(())
 }
 
 // ── remove ───────────────────────────────────────────────────────────────────
 fn cmd_remove(cfg: &Config, args: &[String]) -> Result<(), String> {
-    if args.is_empty() {
-        return Err("usage: bpm remove <name>...".into());
+    let (force, names) = split_flags(args);
+    if names.is_empty() {
+        return Err("usage: bpm remove [-f] <name>...".into());
     }
-    for name in args {
+    for name in &names {
         if !db::is_installed(cfg, name) {
             return Err(format!("{name} is not installed"));
         }
+    }
+    let removing: HashSet<String> = names.iter().cloned().collect();
+
+    // Refuse to strand a still-needed package (e.g. `bpm remove glibc`).
+    if !force {
+        for name in &names {
+            let req = db::requirers(cfg, name, &removing);
+            if !req.is_empty() {
+                return Err(format!(
+                    "cannot remove {name}: still required by {} (use -f to override)",
+                    req.join(", ")
+                ));
+            }
+        }
+    }
+
+    // Gather the removed packages' dependencies first, to report new orphans.
+    let mut dep_candidates: Vec<String> = Vec::new();
+    for name in &names {
+        for d in db::package_deps(cfg, name) {
+            if !removing.contains(&d) && !dep_candidates.contains(&d) {
+                dep_candidates.push(d);
+            }
+        }
+    }
+
+    for name in &names {
         println!(":: removing {name}");
         db::remove_files(cfg, name);
         db::remove(cfg, name);
         println!(":: removed {name}");
     }
     pkg::run_ldconfig(cfg);
+
+    let orphans: Vec<String> = dep_candidates
+        .into_iter()
+        .filter(|d| db::is_installed(cfg, d) && db::requirers(cfg, d, &removing).is_empty())
+        .collect();
+    if !orphans.is_empty() {
+        eprintln!(
+            "bpm: note: now unneeded (orphans): {} — remove with 'bpm remove {}'",
+            orphans.join(", "),
+            orphans.join(" ")
+        );
+    }
+    Ok(())
+}
+
+// ── clean ────────────────────────────────────────────────────────────────────
+fn cmd_clean(cfg: &Config) -> Result<(), String> {
+    let mut n = 0u64;
+    let mut bytes = 0u64;
+    if let Ok(rd) = std::fs::read_dir(&cfg.cache) {
+        for e in rd.flatten() {
+            let p = e.path();
+            if p.file_name()
+                .and_then(|f| f.to_str())
+                .map(|f| f.ends_with(".pkg.tar.zst"))
+                .unwrap_or(false)
+            {
+                bytes += e.metadata().map(|m| m.len()).unwrap_or(0);
+                if std::fs::remove_file(&p).is_ok() {
+                    n += 1;
+                }
+            }
+        }
+    }
+    println!(":: removed {n} cached package(s), freed {} MiB", bytes / 1048576);
     Ok(())
 }
 
@@ -249,14 +330,14 @@ fn cmd_upgrade(cfg: &Config) -> Result<(), String> {
                 continue;
             }
         };
-        if let Err(err) = pkg::install_file(cfg, &path) {
+        if let Err(err) = pkg::install_file(cfg, &path, false) {
             eprintln!("bpm: warning: {err}");
             continue;
         }
         for dep in &e.deps {
             let dn = index::dep_name(dep);
             if !dn.is_empty() {
-                let _ = install_name(cfg, dn, false, &mut seen);
+                let _ = install_name(cfg, dn, false, false, &mut seen);
             }
         }
         ok += 1;

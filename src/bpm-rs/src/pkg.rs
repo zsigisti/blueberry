@@ -6,11 +6,27 @@
 
 use crate::config::Config;
 use crate::{db, index};
+use std::collections::HashMap;
 use std::fs;
 use std::io::{self, Read, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::process::Command;
+
+/// Free bytes on the filesystem holding `path` (None if statvfs fails).
+fn avail_bytes(path: &Path) -> Option<u64> {
+    use std::ffi::CString;
+    use std::os::unix::ffi::OsStrExt;
+    let c = CString::new(path.as_os_str().as_bytes()).ok()?;
+    unsafe {
+        let mut s: libc::statvfs = std::mem::zeroed();
+        if libc::statvfs(c.as_ptr(), &mut s) == 0 {
+            Some(s.f_bavail as u64 * s.f_frsize as u64)
+        } else {
+            None
+        }
+    }
+}
 
 fn is_meta(name: &str) -> bool {
     matches!(
@@ -63,7 +79,7 @@ struct Outcome {
 /// Install one local .pkg.tar.zst. Streams to disk, records the DB entry, runs
 /// the post-install/upgrade scriptlet. Does NOT run ldconfig (the caller does,
 /// once per transaction).
-pub fn install_file(cfg: &Config, path: &Path) -> io::Result<()> {
+pub fn install_file(cfg: &Config, path: &Path, force: bool) -> io::Result<()> {
     fs::create_dir_all(&cfg.dest)?;
 
     let file = fs::File::open(path)?;
@@ -78,6 +94,7 @@ pub fn install_file(cfg: &Config, path: &Path) -> io::Result<()> {
     let mut upgrade = false;
     let mut old_version: Option<String> = None;
     let mut settled = false;
+    let mut owners: HashMap<String, String> = HashMap::new();
 
     for entry in archive.entries()? {
         let mut e = entry?;
@@ -93,8 +110,35 @@ pub fn install_file(cfg: &Config, path: &Path) -> io::Result<()> {
             if rel == ".PKGINFO" && info.is_none() {
                 let mut s = String::new();
                 e.read_to_string(&mut s)?;
-                name = index::pkginfo_field(&s, "pkgname");
+                let pkgname = index::pkginfo_field(&s, "pkgname");
                 version = index::pkginfo_field(&s, "pkgver");
+
+                // Disk-space precheck (installed `size` vs free space) before we
+                // write anything — fails cleanly instead of half-extracting.
+                if !force {
+                    if let Some(need) = index::pkginfo_field(&s, "size")
+                        .and_then(|v| v.parse::<u64>().ok())
+                    {
+                        if let Some(free) = avail_bytes(&cfg.dest) {
+                            if free < need {
+                                return Err(err(&format!(
+                                    "not enough space for {} — need {} MiB, {} MiB free (use -f to override)",
+                                    pkgname.as_deref().unwrap_or("?"),
+                                    need / 1048576,
+                                    free / 1048576
+                                )));
+                            }
+                        }
+                    }
+                }
+
+                // Build the file-ownership map for conflict detection (other
+                // packages' files; this package's own are excluded so a reinstall
+                // doesn't conflict with itself).
+                if let Some(ref n) = pkgname {
+                    owners = db::file_owners(cfg, n);
+                }
+                name = pkgname;
                 info = Some(s);
             } else if rel == ".INSTALL" && script.is_none() {
                 let mut s = String::new();
@@ -102,6 +146,19 @@ pub fn install_file(cfg: &Config, path: &Path) -> io::Result<()> {
                 script = Some(s);
             }
             continue;
+        }
+
+        // File-conflict: another installed package already owns this path.
+        if !force {
+            let key = rel.trim_end_matches('/');
+            if let Some(other) = owners.get(key) {
+                return Err(err(&format!(
+                    "{}: file conflict — /{} is owned by {} (use -f to override)",
+                    name.as_deref().unwrap_or("?"),
+                    key,
+                    other
+                )));
+            }
         }
 
         // First real payload member: settle any previously installed version so
