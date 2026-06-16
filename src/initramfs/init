@@ -218,13 +218,16 @@ EOF
 # Put an interactive root shell on every console the kernel is using, so you get
 # a prompt whether you are on a physical monitor (tty0 -> tty1) or a serial/IPMI
 # console (ttyS0). getty opens the tty, makes it controlling (job control works),
-# and -n -l /bin/sh skips the login prompt to drop straight into a root shell.
+# and -n -l <shell> skips the login prompt to drop straight into a root shell.
+# Prefer bash (bundled in the live image) and fall back to busybox sh.
 # Each shell respawns when it exits so PID 1 never dies.
+LOGIN_SHELL=/bin/sh
+[ -x /usr/bin/bash ] && LOGIN_SHELL=/usr/bin/bash
 run_shell() {
     tty="$1"; baud="$2"
     while : ; do
         banner > "/dev/$tty" 2>/dev/null
-        getty -i -n -L -l /bin/sh "$baud" "$tty" 2>/dev/null
+        getty -i -n -L -l "$LOGIN_SHELL" "$baud" "$tty" 2>/dev/null
         sleep 0.2
     done
 }

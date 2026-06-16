@@ -90,14 +90,20 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	@# blueberry-install + its disk tools (sgdisk, mkfs.fat, mkfs.ext4) plus
 	@# cryptsetup + its libs (device-mapper, json-c, openssl, popt) for LUKS
 	@# unlock at boot and luksFormat at install. Bundled so it works offline.
-	@echo "[initramfs] bundling installer + disk + crypto tools"
+	@# bash + ncurses (libtinfo) so the live shell is bash, not busybox sh —
+	@# matching the installed system's default login shell.
+	@echo "[initramfs] bundling installer + disk + crypto tools + bash"
 	@sh $(THISDIR)/../../tools/build-pkgs.sh $(OBJDIR)/instpkgs \
-	    popt e2fsprogs dosfstools gptfdisk json-c device-mapper openssl zlib cryptsetup
-	@for p in popt e2fsprogs dosfstools gptfdisk json-c device-mapper openssl zlib cryptsetup; do \
+	    popt e2fsprogs dosfstools gptfdisk json-c device-mapper openssl zlib cryptsetup \
+	    ncurses bash
+	@for p in popt e2fsprogs dosfstools gptfdisk json-c device-mapper openssl zlib cryptsetup \
+	          ncurses bash; do \
 	    zstd -dcq $(OBJDIR)/instpkgs/$$p-*.pkg.tar.zst \
 	        | tar -x -C $(INITRAMDIR) --exclude .PKGINFO --exclude .MTREE \
 	          --exclude .BUILDINFO --exclude .INSTALL 2>/dev/null; \
 	done
+	@# bash lands in /usr/bin; make /bin/bash resolve too (login shell path).
+	@ln -sf /usr/bin/bash $(INITRAMDIR)/bin/bash
 	@# trim dev cruft from the bundled tools (keep binaries + shared libs)
 	@rm -rf $(INITRAMDIR)/usr/include $(INITRAMDIR)/usr/share/man \
 	        $(INITRAMDIR)/usr/share/info $(INITRAMDIR)/usr/lib/pkgconfig
@@ -107,11 +113,12 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	    OBJDIR=$(OBJDIR)/installer OUT=$(OBJDIR)/installer/blueberry-install
 	@cp $(OBJDIR)/installer/blueberry-install $(INITRAMDIR)/usr/bin/blueberry-install
 	@chmod 755 $(INITRAMDIR)/usr/bin/blueberry-install
-	@# short alias — people reach for `bb-install` at the live shell
+	@# short aliases — people reach for `bb-install` / `bb-installer` at the shell
 	@ln -sf blueberry-install $(INITRAMDIR)/usr/bin/bb-install
+	@ln -sf blueberry-install $(INITRAMDIR)/usr/bin/bb-installer
 
 	@# Minimal account + hostname so \u resolves and the prompt reads root@blueberry
-	@printf 'root:x:0:0:root:/root:/bin/sh\n' > $(INITRAMDIR)/etc/passwd
+	@printf 'root:x:0:0:root:/root:/bin/bash\n' > $(INITRAMDIR)/etc/passwd
 	@printf 'root:x:0:\n'                     > $(INITRAMDIR)/etc/group
 	@printf 'blueberry\n'                     > $(INITRAMDIR)/etc/hostname
 
