@@ -96,9 +96,15 @@ if [ -n "$need" ]; then
 
     SCRIPT='
 set -eu
-pacman -Syu --noconfirm --needed base-devel git >/dev/null 2>&1
+pacman -Syu --noconfirm --needed base-devel git ccache >/dev/null 2>&1
 echo "MAKEFLAGS=\"-j'"$jobs"'\"" >> /etc/makepkg.conf
 echo "OPTIONS+=(!debug)" >> /etc/makepkg.conf
+# ccache: persistent compiler cache mounted at /ccache speeds up recipe
+# re-iteration (gcc/kernel/python) from minutes to seconds. Enabled in BUILDENV.
+if [ -d /ccache ]; then
+    sed -i "s/!ccache/ccache/" /etc/makepkg.conf
+    export CCACHE_DIR=/ccache; chmod 777 /ccache 2>/dev/null || true
+fi
 # Reproducible builds: a fixed epoch makes builddate + file mtimes deterministic,
 # so rebuilding an unchanged recipe yields the same sha256 (no spurious index
 # churn / stale-CDN-cache mismatches). For bit-identical builds across time also
@@ -109,7 +115,7 @@ cp -a /repo /tmp/b; chown -R builder /tmp/b /out
 fail=""
 for p in '"$need"'; do
     mkdir -p /out/$p; chown builder /out/$p
-    if ! su builder -c "cd /tmp/b/packages/$p && SOURCE_DATE_EPOCH=$SDE PACKAGER=\"Blueberry Linux <packages@blueberry.linux>\" PKGDEST=/out/$p makepkg -f --skippgpcheck --noconfirm -s" >/out/$p/build.log 2>&1; then
+    if ! su builder -c "cd /tmp/b/packages/$p && CCACHE_DIR=/ccache SOURCE_DATE_EPOCH=$SDE PACKAGER=\"Blueberry Linux <packages@blueberry.linux>\" PKGDEST=/out/$p makepkg -f --skippgpcheck --noconfirm -s" >/out/$p/build.log 2>&1; then
         echo "!! FAILED: $p"; tail -8 /out/$p/build.log; fail="$fail $p"
     fi
     rm -f /out/$p/*-debug-*.pkg.tar.zst
@@ -122,9 +128,12 @@ chown -R 0:0 /out
 # rerun then only retries the failed recipes instead of rebuilding everything.
 printf "%s\n" "$fail" > /out/.failed
 '
-    log "building in $ENGINE ($IMAGE), -j$jobs"
+    CCACHE_DIR_HOST=${CCACHE_DIR_HOST:-$CACHE/.ccache}
+    mkdir -p "$CCACHE_DIR_HOST"
+    log "building in $ENGINE ($IMAGE), -j$jobs (ccache: $CCACHE_DIR_HOST)"
     "$ENGINE" run --rm --ipc=host --security-opt seccomp=unconfined \
-        -v "$TOPDIR:/repo:ro,z" -v "$BUILDOUT:/out:z" "$IMAGE" bash -euc "$SCRIPT"
+        -v "$TOPDIR:/repo:ro,z" -v "$BUILDOUT:/out:z" -v "$CCACHE_DIR_HOST:/ccache:z" \
+        "$IMAGE" bash -euc "$SCRIPT"
 
     failed=$(cat "$BUILDOUT/.failed" 2>/dev/null | tr -s ' ')
     failed=${failed# }; failed=${failed% }
