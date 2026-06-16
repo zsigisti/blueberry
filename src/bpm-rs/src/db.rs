@@ -136,3 +136,13 @@ pub fn record(cfg: &Config, name: &str, info: &str, files: &[String]) -> std::io
 pub fn remove(cfg: &Config, name: &str) {
     let _ = fs::remove_dir_all(cfg.db.join(name));
 }
+
+/// Mark a package as explicitly installed (user-requested), so autoremove never
+/// reaps it. Dependencies pulled in transitively are left unmarked.
+pub fn mark_explicit(cfg: &Config, name: &str) {
+    let _ = fs::write(cfg.db.join(name).join("explicit"), b"");
+}
+
+pub fn is_explicit(cfg: &Config, name: &str) -> bool {
+    cfg.db.join(name).join("explicit").exists()
+}

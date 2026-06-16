@@ -14,33 +14,34 @@ pub struct Entry {
     pub filename: String,
     pub sha256: String,
     pub deps: Vec<String>,
+    pub size: u64,    // installed size in bytes (0 if unknown)
+    pub desc: String, // one-line description
     pub repo: String,
 }
 
+// Line: name|version|filename|sha256|deps|size|desc|repo  (repo appended on
+// `bpm update`; desc is free text with separators stripped by mkrepo).
 fn parse_line(line: &str) -> Option<Entry> {
-    let mut f = line.splitn(6, '|');
-    let name = f.next()?.to_string();
-    let version = f.next().unwrap_or("").to_string();
-    let filename = f.next().unwrap_or("").to_string();
-    let sha256 = f.next().unwrap_or("").to_string();
-    let deps = f.next().unwrap_or("");
-    let repo = f.next().unwrap_or("").to_string();
-    if name.is_empty() {
+    let f: Vec<&str> = line.split('|').collect();
+    if f.first().map(|s| s.is_empty()).unwrap_or(true) {
         return None;
     }
-    let deps = deps
+    let get = |i: usize| f.get(i).copied().unwrap_or("");
+    let deps = get(4)
         .split(',')
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .map(|s| s.to_string())
         .collect();
     Some(Entry {
-        name,
-        version,
-        filename,
-        sha256,
+        name: f[0].to_string(),
+        version: get(1).to_string(),
+        filename: get(2).to_string(),
+        sha256: get(3).to_string(),
         deps,
-        repo,
+        size: get(5).parse().unwrap_or(0),
+        desc: get(6).to_string(),
+        repo: get(7).to_string(),
     })
 }
 

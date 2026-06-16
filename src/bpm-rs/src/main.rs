@@ -7,6 +7,8 @@ mod index;
 mod net;
 mod pkg;
 mod repo;
+mod repokey;
+mod sig;
 mod vercmp;
 
 use config::Config;
@@ -26,6 +28,7 @@ fn main() -> ExitCode {
     let r = match args[0].as_str() {
         "install" | "in" => cmd_install(&cfg, rest),
         "remove" | "rm" => cmd_remove(&cfg, rest),
+        "autoremove" => cmd_autoremove(&cfg, rest),
         "update" | "up" => cmd_update(&cfg),
         "upgrade" => cmd_upgrade(&cfg),
         "clean" => cmd_clean(&cfg),
@@ -58,6 +61,7 @@ fn usage() {
         "bpm {} — Blueberry Package Manager\n\n\
          \x20 bpm install <name|file.pkg.tar.zst>...   install (resolve deps from repos)\n\
          \x20 bpm remove  <name>...                    remove installed package(s)\n\
+         \x20 bpm autoremove                           remove orphaned dependencies\n\
          \x20 bpm update                               sync repo indices\n\
          \x20 bpm upgrade                              upgrade all installed packages\n\
          \x20 bpm search  <term>                       search the repo index\n\
@@ -94,7 +98,8 @@ fn cmd_install(cfg: &Config, args: &[String]) -> Result<(), String> {
     let mut seen = HashSet::new();
     for a in &names {
         if a.contains(".pkg.tar.") {
-            pkg::install_file(cfg, Path::new(a), force).map_err(|e| e.to_string())?;
+            let n = pkg::install_file(cfg, Path::new(a), force).map_err(|e| e.to_string())?;
+            db::mark_explicit(cfg, &n); // user named it explicitly
         } else {
             install_name(cfg, a, true, force, &mut seen)?;
         }
@@ -136,9 +141,26 @@ fn install_name(
             install_name(cfg, dn, false, force, seen)?;
         }
     }
+    // Pre-download disk check from the index size — avoids fetching a big
+    // package (gcc is ~84MB) only to fail at extraction on a full disk.
+    if !force && entry.size > 0 {
+        if let Some(free) = pkg::free_space(cfg) {
+            if free < entry.size {
+                return Err(format!(
+                    "not enough space for {} — need {} MiB, {} MiB free (use -f to override)",
+                    entry.name,
+                    entry.size / 1048576,
+                    free / 1048576
+                ));
+            }
+        }
+    }
     println!(":: downloading {} {}", entry.name, entry.version);
     let path = repo::fetch(cfg, &entry)?;
     pkg::install_file(cfg, &path, force).map_err(|e| e.to_string())?;
+    if explicit {
+        db::mark_explicit(cfg, name);
+    }
     Ok(())
 }
 
@@ -223,6 +245,53 @@ fn cmd_clean(cfg: &Config) -> Result<(), String> {
     Ok(())
 }
 
+// ── autoremove ───────────────────────────────────────────────────────────────
+fn cmd_autoremove(cfg: &Config, args: &[String]) -> Result<(), String> {
+    let yes = args.iter().any(|a| a == "-y" || a == "--yes");
+
+    // An orphan is an installed package that wasn't explicitly requested and
+    // that nothing else still depends on. Removing one can orphan its own deps,
+    // so iterate until the set is stable.
+    let mut removed = 0;
+    loop {
+        let mut orphans: Vec<String> = Vec::new();
+        for name in db::installed_names(cfg) {
+            if db::is_explicit(cfg, &name) {
+                continue;
+            }
+            let mut self_set = HashSet::new();
+            self_set.insert(name.clone());
+            if db::requirers(cfg, &name, &self_set).is_empty() {
+                orphans.push(name);
+            }
+        }
+        if orphans.is_empty() {
+            break;
+        }
+        if !yes {
+            eprintln!("bpm: orphaned packages (not explicitly installed, unused):");
+            for o in &orphans {
+                eprintln!("    {o}");
+            }
+            eprintln!("bpm: run 'bpm autoremove -y' to remove them");
+            return Ok(());
+        }
+        for name in &orphans {
+            println!(":: removing orphan {name}");
+            db::remove_files(cfg, name);
+            db::remove(cfg, name);
+            removed += 1;
+        }
+    }
+    if removed > 0 {
+        pkg::run_ldconfig(cfg);
+        println!(":: removed {removed} orphan(s)");
+    } else {
+        println!(":: no orphans");
+    }
+    Ok(())
+}
+
 // ── update ───────────────────────────────────────────────────────────────────
 fn cmd_update(cfg: &Config) -> Result<(), String> {
     let conf = std::fs::read_to_string(&cfg.conf)
@@ -257,9 +326,21 @@ fn cmd_update(cfg: &Config) -> Result<(), String> {
                     continue;
                 }
             };
-            // Integrity is per-package: every download is checked against the
-            // sha256 in the index (see repo::fetch), and the index itself is
-            // fetched over TLS. No index signing.
+            // Verify the detached ed25519 signature over the raw index bytes
+            // (bpm.index.sig, next to the index). Never trust an unsigned/invalid
+            // index unless BPM_ALLOW_UNSIGNED is set.
+            if sig::required() {
+                let sigtmp = cfg.index.with_extension("sig");
+                let ok = net::get(&format!("{url}/bpm.index.sig"), &sigtmp).is_ok()
+                    && std::fs::read(&sigtmp)
+                        .map(|s| sig::verify_index(&body, &s))
+                        .unwrap_or(false);
+                let _ = std::fs::remove_file(&sigtmp);
+                if !ok {
+                    eprintln!("bpm: warning: signature verification FAILED for '{repo}' from {url}");
+                    continue;
+                }
+            }
             for l in String::from_utf8_lossy(&body).lines() {
                 if l.is_empty() {
                     continue;
@@ -343,13 +424,16 @@ fn cmd_search(cfg: &Config, args: &[String]) -> Result<(), String> {
     }
     let term = args[0].to_lowercase();
     for e in index::load_all(cfg) {
-        if e.name.to_lowercase().contains(&term) {
+        if e.name.to_lowercase().contains(&term) || e.desc.to_lowercase().contains(&term) {
             let mark = if db::is_installed(cfg, &e.name) {
                 " [installed]"
             } else {
                 ""
             };
             println!("{} {} ({}){}", e.name, e.version, e.repo, mark);
+            if !e.desc.is_empty() {
+                println!("    {}", e.desc);
+            }
         }
     }
     Ok(())
@@ -378,6 +462,12 @@ fn cmd_info(cfg: &Config, args: &[String]) -> Result<(), String> {
             println!("name    : {}", e.name);
             println!("version : {}", e.version);
             println!("repo    : {}", e.repo);
+            if !e.desc.is_empty() {
+                println!("desc    : {}", e.desc);
+            }
+            if e.size > 0 {
+                println!("size    : {} MiB", e.size / 1048576);
+            }
             println!("depends : {}", e.deps.join(" "));
             println!("file    : {}", e.filename);
             Ok(())

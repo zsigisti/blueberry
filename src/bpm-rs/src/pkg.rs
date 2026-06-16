@@ -79,7 +79,7 @@ struct Outcome {
 /// Install one local .pkg.tar.zst. Streams to disk, records the DB entry, runs
 /// the post-install/upgrade scriptlet. Does NOT run ldconfig (the caller does,
 /// once per transaction).
-pub fn install_file(cfg: &Config, path: &Path, force: bool) -> io::Result<()> {
+pub fn install_file(cfg: &Config, path: &Path, force: bool) -> io::Result<String> {
     fs::create_dir_all(&cfg.dest)?;
 
     let file = fs::File::open(path)?;
@@ -243,7 +243,12 @@ pub fn install_file(cfg: &Config, path: &Path, force: bool) -> io::Result<()> {
     );
 
     println!(":: installed {name} {version}");
-    Ok(())
+    Ok(name)
+}
+
+/// Free bytes on the filesystem holding the install root (None if unknown).
+pub fn free_space(cfg: &Config) -> Option<u64> {
+    avail_bytes(&cfg.dest)
 }
 
 fn run_scriptlet(cfg: &Config, o: &Outcome) {
