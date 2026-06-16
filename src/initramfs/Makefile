@@ -105,6 +105,11 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	done
 	@# bash lands in /usr/bin; make /bin/bash resolve too (login shell path).
 	@ln -sf /usr/bin/bash $(INITRAMDIR)/bin/bash
+	@# Login wrapper: getty -l runs its program non-login, so bash would skip
+	@# /etc/profile and show the bare "bash-5.2#" prompt. Exec bash --login so it
+	@# reads /etc/profile (PS1 = \u@\h:\w\$$, sets HOME) -> root@blueberry:~#.
+	@printf '#!/bin/sh\nexec /usr/bin/bash --login\n' > $(INITRAMDIR)/usr/bin/bblogin
+	@chmod 755 $(INITRAMDIR)/usr/bin/bblogin
 	@# trim dev cruft from the bundled tools (keep binaries + shared libs)
 	@rm -rf $(INITRAMDIR)/usr/include $(INITRAMDIR)/usr/share/man \
 	        $(INITRAMDIR)/usr/share/info $(INITRAMDIR)/usr/lib/pkgconfig

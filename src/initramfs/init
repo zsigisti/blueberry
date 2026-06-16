@@ -230,7 +230,9 @@ EOF
 # Prefer bash (bundled in the live image) and fall back to busybox sh.
 # Each shell respawns when it exits so PID 1 never dies.
 LOGIN_SHELL=/bin/sh
-[ -x /usr/bin/bash ] && LOGIN_SHELL=/usr/bin/bash
+# bblogin execs `bash --login` so /etc/profile is read (sets the
+# root@blueberry:~# prompt); plain bash here would be non-login.
+[ -x /usr/bin/bblogin ] && LOGIN_SHELL=/usr/bin/bblogin
 run_shell() {
     tty="$1"; baud="$2"
     while : ; do
