@@ -1,7 +1,7 @@
 # Maintainer: Blueberry Linux <packages@blueberry.linux>
 pkgname=redis
 pkgver=7.4.2
-pkgrel=1
+pkgrel=2
 pkgdesc='In-memory data structure store, used as database, cache and message broker'
 arch=('x86_64')
 url='https://redis.io/'
@@ -15,4 +15,9 @@ package() {
   # redis's install target doesn't honour DESTDIR; point PREFIX at the pkgdir.
   make PREFIX="$pkgdir/usr" install
   install -Dm644 redis.conf "$pkgdir/etc/redis/redis.conf"
+  # runit service (disabled until `sv-enable redis`).
+  install -dm755 "$pkgdir/etc/sv/redis"
+  printf '#!/bin/sh\nexec /usr/bin/redis-server /etc/redis/redis.conf --daemonize no\n' \
+    > "$pkgdir/etc/sv/redis/run"
+  chmod 755 "$pkgdir/etc/sv/redis/run"
 }

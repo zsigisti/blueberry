@@ -20,6 +20,9 @@ all: $(RUNIT_SRC)/command/runit
 	@install -Dm755 $(RUNIT_SRC)/command/chpst      $(STAGEDIR)/sbin/chpst
 	@install -Dm755 $(RUNIT_SRC)/command/utmpset    $(STAGEDIR)/sbin/utmpset
 	@ln -sf runit-init $(STAGEDIR)/sbin/init 2>/dev/null || true
+	@# service enable/disable helpers (manage /etc/sv/enabled + /var/service)
+	@install -Dm755 $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/sv-enable  $(STAGEDIR)/usr/bin/sv-enable
+	@install -Dm755 $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/sv-disable $(STAGEDIR)/usr/bin/sv-disable
 	@$(MAKE) install_services
 
 $(RUNIT_SRC)/command/runit:

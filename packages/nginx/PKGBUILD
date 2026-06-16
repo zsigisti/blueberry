@@ -1,7 +1,7 @@
 # Maintainer: Blueberry Linux <packages@blueberry.linux>
 pkgname=nginx
 pkgver=1.26.3
-pkgrel=1
+pkgrel=2
 pkgdesc='Lightweight HTTP server and IMAP/POP3 proxy server'
 arch=('x86_64')
 url='https://nginx.org/'
@@ -26,4 +26,9 @@ package() {
   cd "$pkgname-$pkgver"
   make DESTDIR="$pkgdir" install
   rm -rf "$pkgdir/run"
+  # runit service (disabled until `sv-enable nginx`); daemon off keeps nginx in
+  # the foreground so runsv supervises it.
+  install -dm755 "$pkgdir/etc/sv/nginx"
+  printf '#!/bin/sh\nexec /usr/bin/nginx -g "daemon off;"\n' > "$pkgdir/etc/sv/nginx/run"
+  chmod 755 "$pkgdir/etc/sv/nginx/run"
 }

@@ -1,0 +1,15 @@
+#!/bin/sh
+# sv-disable <service>... — stop and disable runit service(s).
+#
+# Brings the service down, then removes its /var/service (runsvdir stops
+# supervising) and /etc/sv/enabled symlinks (won't come back on reboot). The
+# definition in /etc/sv/<name> is left in place so it can be re-enabled.
+set -eu
+
+[ $# -ge 1 ] || { echo "usage: sv-disable <service>..." >&2; exit 1; }
+
+for name in "$@"; do
+    [ -e "/var/service/$name" ] && sv down "$name" 2>/dev/null || true
+    rm -f "/var/service/$name" "/etc/sv/enabled/$name"
+    echo "disabled $name"
+done

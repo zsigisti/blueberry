@@ -1,7 +1,7 @@
 # Maintainer: Blueberry Linux <packages@blueberry.linux>
 pkgname=dhcpcd
 pkgver=10.1.0
-pkgrel=1
+pkgrel=2
 pkgdesc='RFC2131 compliant DHCP client daemon'
 arch=('x86_64')
 url='https://roy.marples.name/projects/dhcpcd'
@@ -15,4 +15,11 @@ build() {
     --dbdir=/var/lib/dhcpcd --rundir=/run --privsepuser=dhcpcd
   make
 }
-package() { cd "$pkgname-$pkgver"; make DESTDIR="$pkgdir" install; }
+package() {
+  cd "$pkgname-$pkgver"
+  make DESTDIR="$pkgdir" install
+  # runit service (disabled until `sv-enable dhcpcd`); -B stays in the foreground.
+  install -dm755 "$pkgdir/etc/sv/dhcpcd"
+  printf '#!/bin/sh\nexec /usr/bin/dhcpcd -B\n' > "$pkgdir/etc/sv/dhcpcd/run"
+  chmod 755 "$pkgdir/etc/sv/dhcpcd/run"
+}
