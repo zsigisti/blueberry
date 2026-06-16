@@ -10,10 +10,20 @@
 
 name: CI
 
+# The full world build (kernel from source + podman package builds + QEMU boot
+# under TCG) is heavy and slow on free runners. checks.yml gates every push with
+# the fast static checks; this integration test runs on demand, weekly, and on
+# release tags — not on every commit (which just piled up red runs).
 on:
-  push:
-  pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: '0 4 * * 1'   # Mondays 04:00 UTC
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   OBJDIR: /tmp/blueberry-build
