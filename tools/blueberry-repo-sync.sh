@@ -99,12 +99,17 @@ set -eu
 pacman -Syu --noconfirm --needed base-devel git >/dev/null 2>&1
 echo "MAKEFLAGS=\"-j'"$jobs"'\"" >> /etc/makepkg.conf
 echo "OPTIONS+=(!debug)" >> /etc/makepkg.conf
+# Reproducible builds: a fixed epoch makes builddate + file mtimes deterministic,
+# so rebuilding an unchanged recipe yields the same sha256 (no spurious index
+# churn / stale-CDN-cache mismatches). For bit-identical builds across time also
+# pin IMAGE to a digest so the toolchain is frozen.
+SDE=1767225600
 useradd -m builder; echo "builder ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/builder
 cp -a /repo /tmp/b; chown -R builder /tmp/b /out
 fail=""
 for p in '"$need"'; do
     mkdir -p /out/$p; chown builder /out/$p
-    if ! su builder -c "cd /tmp/b/packages/$p && PKGDEST=/out/$p makepkg -f --skippgpcheck --noconfirm -s" >/out/$p/build.log 2>&1; then
+    if ! su builder -c "cd /tmp/b/packages/$p && SOURCE_DATE_EPOCH=$SDE PACKAGER=\"Blueberry Linux <packages@blueberry.linux>\" PKGDEST=/out/$p makepkg -f --skippgpcheck --noconfirm -s" >/out/$p/build.log 2>&1; then
         echo "!! FAILED: $p"; tail -8 /out/$p/build.log; fail="$fail $p"
     fi
     rm -f /out/$p/*-debug-*.pkg.tar.zst

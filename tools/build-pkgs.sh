@@ -40,6 +40,8 @@ pacman -Syu --noconfirm --needed base-devel git >/dev/null 2>&1
 # (they only add the gdb-add-index noise and a -debug payload we delete).
 echo "MAKEFLAGS=\"-j\$(nproc)\"" >> /etc/makepkg.conf
 echo "OPTIONS+=(!debug)" >> /etc/makepkg.conf
+# Reproducible builds: fixed epoch -> deterministic builddate/mtimes/sha256.
+SDE=1767225600
 useradd -m builder; echo "builder ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/builder
 cp -a /repo /tmp/b; chown -R builder /tmp/b /out
 fail=""
@@ -48,7 +50,7 @@ for p in '"$need"'; do
     # version per package — otherwise the extraction globs (base/initramfs) can
     # pick a stale version after a pkgrel bump.
     rm -f /out/$p-[0-9]*.pkg.tar.zst
-    if ! su builder -c "cd /tmp/b/packages/$p && PKGDEST=/out makepkg -f --skippgpcheck --noconfirm -s" >/tmp/$p.log 2>&1; then
+    if ! su builder -c "cd /tmp/b/packages/$p && SOURCE_DATE_EPOCH=$SDE PKGDEST=/out makepkg -f --skippgpcheck --noconfirm -s" >/tmp/$p.log 2>&1; then
         echo "!! FAILED: $p"; tail -5 /tmp/$p.log; fail="$fail $p"
     fi
 done
