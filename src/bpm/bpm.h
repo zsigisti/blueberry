@@ -157,6 +157,7 @@ void install_file(const char *path);       /* local .pkg.tar.zst */
 void install_name(const char *name);       /* resolve from repos, recursive */
 void install_name_explicit(const char *name); /* user-requested: ignore is_provided */
 void seen_reset(void);
+void run_ldconfig(void);                    /* refresh ld.so.cache after install */
 
 /* ── commands (cmd.c) ───────────────────────────────────────────────────── */
 int cmd_install(int argc, char **argv);

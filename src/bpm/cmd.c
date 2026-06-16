@@ -13,6 +13,7 @@ int cmd_install(int argc, char **argv) {
         if (strstr(argv[i], ".pkg.tar.")) install_file(argv[i]);
         else                              install_name_explicit(argv[i]);
     }
+    run_ldconfig();
     return 0;
 }
 
@@ -263,6 +264,7 @@ int cmd_upgrade(int argc, char **argv) {
         index_entry_free(&e);
         ok++;
     }
+    run_ldconfig();
     logmsg("upgraded %d/%d package%s", ok, m, m == 1 ? "" : "s");
 
     for (int i = 0; i < m; i++) { free(up[i]); free(from[i]); free(to[i]); }

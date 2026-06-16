@@ -5,6 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 
 /* ── provided (base) packages ──────────────────────────────────────────────── */
 static const char *const BASE[] = {
@@ -47,6 +48,34 @@ static int is_meta(const char *name) {
            !strcmp(name, ".CHANGELOG");
 }
 
+/* ── scriptlets & ldconfig ─────────────────────────────────────────────────── */
+/* Run a /bin/sh command inside the install root. When installing to an
+ * alternate root (BPM_ROOT, e.g. the installer's /mnt) we chroot first so
+ * scriptlets and ldconfig act on the target, never the host. chroot needs root;
+ * if it fails the child exits non-zero and the caller treats it as best-effort.
+ * Returns the command's exit status, or -1 if it couldn't be launched. */
+static int run_root_sh(const char *cmd) {
+    pid_t pid = fork();
+    if (pid < 0) return -1;
+    if (pid == 0) {
+        if (g_root && *g_root && strcmp(g_root, "/") != 0) {
+            if (chdir(g_dest) != 0 || chroot(".") != 0 || chdir("/") != 0) _exit(127);
+        }
+        execl("/bin/sh", "sh", "-c", cmd, (char *)NULL);
+        _exit(127);
+    }
+    int st = 0;
+    if (waitpid(pid, &st, 0) < 0) return -1;
+    return WIFEXITED(st) ? WEXITSTATUS(st) : -1;
+}
+
+/* Refresh /etc/ld.so.cache so freshly-installed shared libraries are found.
+ * Best-effort and quiet: skipped silently if ldconfig isn't present. Call once
+ * per transaction, after everything is laid down. */
+void run_ldconfig(void) {
+    run_root_sh("command -v ldconfig >/dev/null 2>&1 && ldconfig 2>/dev/null");
+}
+
 /* ── extraction ────────────────────────────────────────────────────────────── */
 struct ictx {
     char **files;   /* collected installed paths (no leading slash, no dirs) */
@@ -55,6 +84,9 @@ struct ictx {
     char  *info;        /* .PKGINFO text (first member in a makepkg tarball) */
     char  *name;        /* pkgname, resolved from .PKGINFO */
     char  *ver;         /* pkgver */
+    char  *script;      /* .INSTALL scriptlet body, or NULL */
+    char  *old_ver;     /* previous version on an upgrade, else NULL */
+    int    upgrade;     /* 1 if a previous version was present */
     int    old_settled; /* old version's files removed before writing payload */
 };
 
@@ -88,8 +120,9 @@ static void settle_old(struct ictx *c) {
     if (old) {
         logmsg("reinstall/upgrade %s %s -> %s", c->name, old,
                c->ver ? c->ver : "?");
+        c->upgrade = 1;
+        c->old_ver = old;          /* kept for the post_upgrade scriptlet */
         db_remove_files(c->name);
-        free(old);
     } else {
         logmsg("installing %s %s", c->name, c->ver ? c->ver : "?");
     }
@@ -102,7 +135,7 @@ static int extract_cb(const TarEntry *e, ZReader *zr, void *p) {
     if (!*rel) return 0;
 
     if (is_meta(rel)) {
-        /* capture .PKGINFO; other metadata is skipped (drained by framework) */
+        /* capture .PKGINFO and .INSTALL; other metadata is skipped */
         if (!strcmp(rel, ".PKGINFO") && !c->info) {
             Buf b; buf_init(&b);
             unsigned char tmp[8192]; size_t got;
@@ -111,6 +144,12 @@ static int extract_cb(const TarEntry *e, ZReader *zr, void *p) {
             c->info = b.data;
             c->name = pkginfo_field(c->info, "pkgname");
             c->ver  = pkginfo_field(c->info, "pkgver");
+        } else if (!strcmp(rel, ".INSTALL") && !c->script) {
+            Buf b; buf_init(&b);
+            unsigned char tmp[8192]; size_t got;
+            while ((got = zr_read(zr, tmp, sizeof tmp)) > 0) buf_append(&b, tmp, got);
+            buf_putc(&b, '\0');
+            c->script = b.data;
         }
         return 0;
     }
@@ -148,7 +187,7 @@ void install_file(const char *path) {
     if (!file_exists(path)) die("no such package file: %s", path);
 
     mkdirs(g_dest);
-    struct ictx c = { NULL, 0, 0, NULL, NULL, NULL, 0 };
+    struct ictx c = {0};
     if (pkg_stream(path, extract_cb, &c) < 0) {
         free(c.info); free(c.name); free(c.ver);
         for (int i = 0; i < c.n; i++) free(c.files[i]);
@@ -160,11 +199,33 @@ void install_file(const char *path) {
     if (c.failed) warn("%s: some files could not be written", c.name);
 
     db_record(c.name, c.info, c.files, c.n);
+
+    /* Post-install/upgrade scriptlet. Trust comes from the signed index +
+     * sha256 verification (repo installs) or from the admin naming a local file
+     * explicitly. Set BPM_NO_SCRIPTLETS to skip. Convention matches pacman:
+     * source the .INSTALL, then call post_install <ver> / post_upgrade <new>
+     * <old> if defined. Run inside the root (chroot under BPM_ROOT). */
+    if (c.script && !getenv("BPM_NO_SCRIPTLETS")) {
+        char *tmp_full = xasprintf("%s/.bpm-scriptlet", g_dest);
+        if (write_file(tmp_full, c.script, strlen(c.script)) == 0) {
+            const char *hook = c.upgrade ? "post_upgrade" : "post_install";
+            char *cmd = xasprintf(
+                ". /.bpm-scriptlet 2>/dev/null; "
+                "type %s >/dev/null 2>&1 && %s '%s' '%s'",
+                hook, hook, c.ver ? c.ver : "", c.old_ver ? c.old_ver : "");
+            logmsg("running %s scriptlet for %s", hook, c.name);
+            run_root_sh(cmd);
+            free(cmd);
+        }
+        unlink(tmp_full);
+        free(tmp_full);
+    }
+
     logmsg("installed %s %s", c.name, c.ver ? c.ver : "?");
 
     for (int i = 0; i < c.n; i++) free(c.files[i]);
     free(c.files);
-    free(c.info); free(c.name); free(c.ver);
+    free(c.info); free(c.name); free(c.ver); free(c.script); free(c.old_ver);
 }
 
 /* ── dependency resolution ─────────────────────────────────────────────────── */
