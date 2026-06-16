@@ -15,7 +15,10 @@ build() {
   # --enable-bundled=yes: use strace's bundled kernel headers; the container's
   # linux-api-headers are newer than 6.13 expects and a struct-size static_assert
   # (io_uring_buf_reg.resv) otherwise fails the build.
-  ./configure --prefix=/usr --enable-mpers=check --enable-bundled=yes
+  # --disable-gcc-Werror: gcc 16 flags new warnings (e.g. discarded-qualifiers
+  # in ioctl.c) that strace's default -Werror would turn into build failures.
+  ./configure --prefix=/usr --enable-mpers=check --enable-bundled=yes \
+    --disable-gcc-Werror
   make
 }
 package() { cd "$pkgname-$pkgver"; make DESTDIR="$pkgdir" install; }
