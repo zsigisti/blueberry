@@ -16,22 +16,39 @@
 #   With no package names, every packages/<name> is considered.
 #   -n / --dry-run : show what would build/publish, change nothing.
 #
+# Each architecture is built and published completely separately — its own
+# container image, build cache, webroot and signed index. An aarch64 box never
+# sees an x86_64 package and vice versa (no mixing). aarch64 builds run under
+# emulation, so the host needs qemu-user + binfmt registered once, e.g.:
+#   podman run --rm --privileged docker.io/multiarch/qemu-user-static --reset -p yes
+#
 # Env:
-#   WEBROOT   publish dir served over HTTP   (default /var/www/html/x86_64)
-#   CACHE     private build cache            (default /var/cache/blueberry-repo-sync)
+#   ARCH      target architecture           (default x86_64; or aarch64)
+#   WEBROOT   publish dir served over HTTP   (default /var/www/html/$ARCH)
+#   CACHE     private build cache            (default /var/cache/blueberry-repo-sync/$ARCH)
 #   ENGINE    podman|docker                  (default podman)
-#   IMAGE     build container                (default archlinux:latest)
+#   IMAGE     build container                (default per ARCH)
 #   BPM_SIGN_KEY  index signing key  (default ~/.config/bpm/repo-signing-key.pem)
 #   JOBS      makepkg parallelism            (default: all cores)
 
 set -eu
 
 TOPDIR=$(cd "$(dirname "$0")/.." && pwd)
-WEBROOT=${WEBROOT:-/var/www/html/x86_64}
-CACHE=${CACHE:-/var/cache/blueberry-repo-sync}
+ARCH=${ARCH:-x86_64}
+WEBROOT=${WEBROOT:-/var/www/html/$ARCH}
+CACHE=${CACHE:-/var/cache/blueberry-repo-sync/$ARCH}
 ENGINE=${ENGINE:-podman}
-IMAGE=${IMAGE:-docker.io/library/archlinux:latest}
 DRYRUN=0
+
+# Per-arch build container + emulation platform. x86_64 uses Arch proper; other
+# arches use an Arch Linux ARM image run through qemu (--platform), since Arch
+# proper has no arm64 build. (Build-time only — the produced Blueberry system
+# never depends on these repos.)
+case "$ARCH" in
+    x86_64)  IMAGE=${IMAGE:-docker.io/library/archlinux:latest}; PLATFORM='' ;;
+    aarch64) IMAGE=${IMAGE:-docker.io/menci/archlinuxarm:latest}; PLATFORM='linux/arm64' ;;
+    *) printf 'repo-sync: unsupported ARCH %s\n' "$ARCH" >&2; exit 2 ;;
+esac
 
 log() { printf '==> %s\n' "$*"; }
 err() { printf 'repo-sync: %s\n' "$*" >&2; }
@@ -113,8 +130,10 @@ done
 chown -R 0:0 /out
 [ -z "$fail" ] || { echo "repo-sync: build FAILED:$fail" >&2; exit 1; }
 '
-    log "building in $ENGINE ($IMAGE), -j$jobs"
+    log "building $ARCH in $ENGINE ($IMAGE${PLATFORM:+, $PLATFORM}), -j$jobs"
+    # shellcheck disable=SC2086
     "$ENGINE" run --rm --ipc=host --security-opt seccomp=unconfined \
+        ${PLATFORM:+--platform "$PLATFORM"} \
         -v "$TOPDIR:/repo:ro,z" -v "$BUILDOUT:/out:z" "$IMAGE" bash -euc "$SCRIPT"
 
     # Commit each fresh build into the cache under its content hash, and mark it

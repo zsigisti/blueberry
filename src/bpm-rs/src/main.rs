@@ -246,7 +246,9 @@ fn cmd_update(cfg: &Config) -> Result<(), String> {
             None => continue,
         };
         let mut got = false;
-        for url in it {
+        for raw in it {
+            let url = index::expand_arch(raw);
+            let url = url.as_str();
             println!(":: syncing '{repo}' from {url}");
             if net::get(&format!("{url}/bpm.index"), &tmp).is_err() {
                 eprintln!("bpm: warning: mirror unreachable: {url}");

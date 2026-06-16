@@ -42,3 +42,39 @@ make world ARCH=aarch64 CROSS_COMPILE=aarch64-linux-gnu-
 
 Steps 1–4 are independent of the package set; step 5 is the largest and can
 follow once the base system boots on arm64.
+
+## Packaging: a fully separate aarch64 repo (no mixing)
+
+Each architecture is built and published completely separately — its own
+container image, build cache, webroot and signed index. An aarch64 box never
+sees an x86_64 package and vice versa.
+
+`tools/blueberry-repo-sync.sh` is arch-aware via `ARCH`:
+
+```sh
+# x86_64 (default) — Arch container, publishes /var/www/html/x86_64
+tools/blueberry-repo-sync.sh
+
+# aarch64 — Arch Linux ARM container under qemu, publishes /var/www/html/aarch64
+ARCH=aarch64 tools/blueberry-repo-sync.sh
+```
+
+`ARCH=aarch64` selects an arm64 image (`docker.io/menci/archlinuxarm`) and runs
+it with `--platform linux/arm64`, so packages build natively-emulated and land
+as `*-aarch64.pkg.tar.zst`. The build host needs qemu-user + binfmt registered
+once (root):
+
+```sh
+podman run --rm --privileged docker.io/multiarch/qemu-user-static --reset -p yes
+```
+
+On the client side, one `repos.conf` works for every arch: bpm expands `$arch`
+in repo URLs to the machine architecture, e.g.
+
+```
+core https://repo.mmzsigmond.me/$arch
+```
+
+so an x86_64 box pulls `/x86_64/bpm.index` and an aarch64 box pulls
+`/aarch64/bpm.index` — never each other's. The per-arch index is signed with the
+same maintainer key, so signatures verify identically on both.
