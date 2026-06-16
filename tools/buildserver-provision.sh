@@ -34,6 +34,21 @@ apt-get install -y -qq \
     podman git nginx zstd ca-certificates \
     uidmap fuse-overlayfs slirp4netns >/dev/null
 
+log "tuning podman for an LXC container"
+# Inside an LXC the OCI runtime can't create a kernel session keyring
+# ("create keyring: Function not implemented"), and systemd cgroup delegation /
+# journald aren't reliably available. Disable the keyring and use cgroupfs +
+# file event logger — the standard podman-in-LXC settings.
+mkdir -p /etc/containers/containers.conf.d
+cat > /etc/containers/containers.conf.d/blueberry.conf <<'EOF'
+[containers]
+keyring = false
+
+[engine]
+cgroup_manager = "cgroupfs"
+events_logger = "file"
+EOF
+
 log "cloning recipes -> $REPO (single clone; later runs git-pull)"
 mkdir -p "$WEBROOT"
 [ -d "$REPO/.git" ] || git clone --depth 1 -b "$BRANCH" "$GIT_URL" "$REPO"

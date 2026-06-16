@@ -29,6 +29,11 @@ pct create 110 local:vztmpl/ubuntu-22.04-standard_22.04-1_amd64.tar.zst \
 pct enter 110
 ```
 
+> The provisioner writes `/etc/containers/containers.conf.d/blueberry.conf`
+> (`keyring=false`, `cgroup_manager=cgroupfs`, `events_logger=file`) — the
+> settings podman needs inside an LXC. Without them you get
+> `create keyring: Function not implemented`.
+>
 > If podman still can't build (cgroup/overlay errors on older kernels), recreate
 > with `--unprivileged 0` (a privileged container) — nesting/keyctl behave more
 > simply there.
