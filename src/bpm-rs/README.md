@@ -1,29 +1,31 @@
-# bpm (Rust)
+# bpm
 
-The Blueberry Package Manager, rewritten in Rust. Drop-in compatible with the
-C `bpm` in `../bpm`: identical on-disk database, cache and index layout, the
-same repo index format and ECDSA-P256 signature scheme, and the same commands —
-so the two can replace each other on a live system.
+The Blueberry Package Manager, written in Rust.
 
-## Why the rewrite
+## What it does
 
-The C version buffered an entire `.pkg.tar.zst` in RAM to extract it, so
-`bpm install gcc` (≈200 MB uncompressed) hit ~246 MB RSS and was OOM-killed on
-small install VMs. Here extraction streams through the `zstd` + `tar` crates
-straight to disk — a 200 MB package installs in ~5 MB RSS. Memory safety and
-the streaming model come for free.
+Installs `.pkg.tar.zst` packages from an HTTP(S) repo. The repo `bpm.index`
+records each package's SHA-256; every download is verified against it, and the
+index is fetched over TLS. There is no index signing — integrity is the
+per-package checksum plus the transport.
+
+Extraction streams through the `zstd` + `tar` crates straight to disk, so even a
+~200 MB package (gcc) installs in ~5 MB RSS — no buffering the whole archive in
+memory. Files are written to a temp sibling and atomically renamed over the
+target, so bpm can replace an in-use file (including its own running binary)
+without ETXTBSY.
 
 ## Commands
 
 `install`/`in`, `remove`/`rm`, `update`/`up`, `upgrade`, `search`/`se`,
-`list`/`ls`, `info`, `files`, `owns`. `BPM_ROOT=<dir>` installs into a staging
-root (chrooting for scriptlets/ldconfig). `BPM_ALLOW_UNSIGNED` and
-`BPM_NO_SCRIPTLETS` are the same escape hatches as the C build.
+`list`/`ls`, `info`, `files`, `owns`, `clean`. `-f/--force` skips the
+space/conflict/reverse-dep checks. `BPM_ROOT=<dir>` installs into a staging root
+(chrooting for scriptlets/ldconfig). `BPM_NO_SCRIPTLETS` skips `.INSTALL` hooks.
 
 ## Dependencies
 
-`ureq` (rustls TLS), `zstd`, `tar`, `sha2`, `p256` (index signature). The
-release binary links only libc + libgcc_s; libzstd is statically bundled.
+`ureq` (rustls TLS), `zstd`, `tar`, `sha2`, `libc`. The release binary links
+only libc + libgcc_s; libzstd is statically bundled.
 
 ## Build
 
@@ -33,7 +35,5 @@ cargo test                   # vercmp parity tests
 ```
 
 Packaged for the repo by `packages/bpm/PKGBUILD` (built in the Arch container,
-`makedepends=rust`). Install it on a running system with `bpm install bpm`.
-
-The signing public key is baked into `src/sig.rs` and must match
-`../bpm/repokey.h`. Rotate both together (`tools/mkrepokey.sh` for the C header).
+`makedepends=rust`); also built into the image/initramfs by `tools/build-bpm.sh`.
+Install/update on a running system with `bpm install bpm`.

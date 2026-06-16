@@ -158,7 +158,6 @@ xorriso. Output: `blueberry-YYYYMMDD-x86_64.iso`.
 Override any variable on the command line:
 
 ```sh
-make ARCH=aarch64 CROSS_COMPILE=aarch64-linux-gnu- world
 make JOBS=16 kernel
 make run MEM=1G
 make test TIMEOUT=180
@@ -166,7 +165,7 @@ make test TIMEOUT=180
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ARCH` | `x86_64` | Target architecture (`x86_64`, `aarch64`) |
+| `ARCH` | `x86_64` | Target architecture (x86_64 only) |
 | `JOBS` | `nproc` | Parallel build jobs |
 | `DESTDIR` | `../blueberry-build/rootfs` | Install root |
 | `OBJDIR` | `../blueberry-build` | All build artefacts |
@@ -197,18 +196,6 @@ $EDITOR Make.local
 JOBS          = 16
 ARCH          = x86_64
 LINUX_VERSION = 7.0
-```
-
----
-
-## Cross-Compilation
-
-Cross-compiling for `aarch64`:
-
-```sh
-apt-get install gcc-aarch64-linux-gnu
-make world ARCH=aarch64 CROSS_COMPILE=aarch64-linux-gnu-
-make run   ARCH=aarch64          # boots under qemu-system-aarch64 (virt machine)
 ```
 
 ---

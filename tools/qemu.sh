@@ -8,7 +8,7 @@
 # Environment:
 #   BOOTDIR   directory with vmlinuz + initramfs.cpio.zst
 #             (default: ../blueberry-build/boot relative to this script)
-#   ARCH      x86_64 (default) or aarch64
+#   ARCH      x86_64 (default)
 #   MEM       guest RAM (default 512M)
 #   TIMEOUT   seconds before the test run is killed (default 90)
 
@@ -33,13 +33,8 @@ case "$ARCH" in
         # KVM is a big speedup when the host supports it; harmless to skip.
         [ -w /dev/kvm ] && MACHINE_ARGS+=(-enable-kvm -cpu host)
         ;;
-    aarch64)
-        QEMU=qemu-system-aarch64
-        MACHINE_ARGS=(-machine virt -cpu cortex-a57)
-        CONSOLE="ttyAMA0"
-        ;;
     *)
-        echo "qemu.sh: unsupported ARCH=$ARCH" >&2; exit 1 ;;
+        echo "qemu.sh: unsupported ARCH=$ARCH (x86_64 only)" >&2; exit 1 ;;
 esac
 
 # ── Prerequisites ─────────────────────────────────────────────────────────────

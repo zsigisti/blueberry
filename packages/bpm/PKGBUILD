@@ -5,9 +5,9 @@
 # the same container as every other package. The old binary can always install
 # this one — it is small — so even a memory-starved bpm can pull a fixed bpm.
 pkgname=bpm
-pkgver=1.4.1
+pkgver=1.5.0
 pkgrel=1
-pkgdesc='Blueberry Package Manager — streaming installs, signed index, post-install hooks (Rust)'
+pkgdesc='Blueberry Package Manager — streaming installs, SHA-256 verified, post-install hooks (Rust)'
 arch=('x86_64')
 url='https://github.com/zsigisti/blueberry'
 license=('MIT')

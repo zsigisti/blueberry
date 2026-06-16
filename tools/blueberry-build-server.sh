@@ -12,19 +12,17 @@
 #   blueberry-build-server.sh nano vim        # just these
 #   PULL=0 blueberry-build-server.sh          # use the local checkout as-is
 #                                             # (edit PKGBUILDs, build, repeat)
-#   ARCH=aarch64 blueberry-build-server.sh    # the separate aarch64 repo
 #
 # Env:
 #   REPO     path to the blueberry checkout         (default /opt/blueberry)
 #   GIT_URL  clone URL used if REPO is missing       (default the GitHub origin)
 #   BRANCH   git branch to track                     (default master)
 #   PULL     1 = git fetch+reset before building     (default 1; 0 = local only)
-#   ARCH / WEBROOT / CACHE / IMAGE / JOBS / BPM_SIGN_KEY
+#   WEBROOT / CACHE / IMAGE / JOBS
 #            passed straight through to blueberry-repo-sync.sh
 #
-# Requires on the host: git, podman (or docker), openssl, and the maintainer
-# signing key (default ~/.config/bpm/repo-signing-key.pem) so the index is
-# signed. Without the key the index is published UNSIGNED and clients reject it.
+# Requires on the host: git and podman (or docker). Integrity is the per-package
+# sha256 in the index; the index is served over TLS. No signing keys needed.
 set -eu
 
 REPO=${REPO:-/opt/blueberry}
@@ -50,5 +48,5 @@ fi
 # 2. Build whatever changed/missing and publish the signed repo. repo-sync is
 #    the engine: content-hash cache, build in an ephemeral container, prune
 #    superseded artifacts, regenerate + sign bpm.index.
-log "building + publishing (ARCH=${ARCH:-x86_64})"
+log "building + publishing"
 exec sh "$REPO/tools/blueberry-repo-sync.sh" "$@"

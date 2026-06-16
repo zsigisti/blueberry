@@ -1,5 +1,5 @@
 #!/bin/sh
-# blueberry-repo-sync — build changed packages and publish a signed bpm repo.
+# blueberry-repo-sync — build changed packages and publish the bpm repo.
 #
 # Incremental by content hash: a package is rebuilt only when the contents of
 # its packages/<name>/ directory change (PKGBUILD, .install, patches, ...).
@@ -8,47 +8,32 @@
 #
 # The build cache is a private directory, NEVER the webroot. The webroot is a
 # pure publish target: we copy the current artifacts in, prune superseded ones,
-# regenerate bpm.index and sign it. Nothing in the webroot is ever used to
-# decide what to (re)build, so a wiped or hand-edited webroot can't trigger a
-# full rebuild and a half-built artifact can never be served.
+# and regenerate bpm.index. Nothing in the webroot is ever used to decide what
+# to (re)build, so a wiped or hand-edited webroot can't trigger a full rebuild
+# and a half-built artifact can never be served.
+#
+# Integrity: the index records each package's sha256 and clients verify every
+# download against it. The index is served over TLS. There is no index signing.
 #
 # Usage:  blueberry-repo-sync [-n] [pkg...]
 #   With no package names, every packages/<name> is considered.
 #   -n / --dry-run : show what would build/publish, change nothing.
 #
-# Each architecture is built and published completely separately — its own
-# container image, build cache, webroot and signed index. An aarch64 box never
-# sees an x86_64 package and vice versa (no mixing). aarch64 builds run under
-# emulation, so the host needs qemu-user + binfmt registered once, e.g.:
-#   podman run --rm --privileged docker.io/multiarch/qemu-user-static --reset -p yes
-#
 # Env:
-#   ARCH      target architecture           (default x86_64; or aarch64)
-#   WEBROOT   publish dir served over HTTP   (default /var/www/html/$ARCH)
-#   CACHE     private build cache            (default /var/cache/blueberry-repo-sync/$ARCH)
+#   WEBROOT   publish dir served over HTTP   (default /srv/blueberry-repo)
+#   CACHE     private build cache            (default /var/cache/blueberry-repo-sync)
 #   ENGINE    podman|docker                  (default podman)
-#   IMAGE     build container                (default per ARCH)
-#   BPM_SIGN_KEY  index signing key  (default ~/.config/bpm/repo-signing-key.pem)
+#   IMAGE     build container                (default archlinux:latest)
 #   JOBS      makepkg parallelism            (default: all cores)
 
 set -eu
 
 TOPDIR=$(cd "$(dirname "$0")/.." && pwd)
-ARCH=${ARCH:-x86_64}
-WEBROOT=${WEBROOT:-/var/www/html/$ARCH}
-CACHE=${CACHE:-/var/cache/blueberry-repo-sync/$ARCH}
+WEBROOT=${WEBROOT:-/srv/blueberry-repo}
+CACHE=${CACHE:-/var/cache/blueberry-repo-sync}
 ENGINE=${ENGINE:-podman}
+IMAGE=${IMAGE:-docker.io/library/archlinux:latest}
 DRYRUN=0
-
-# Per-arch build container + emulation platform. x86_64 uses Arch proper; other
-# arches use an Arch Linux ARM image run through qemu (--platform), since Arch
-# proper has no arm64 build. (Build-time only — the produced Blueberry system
-# never depends on these repos.)
-case "$ARCH" in
-    x86_64)  IMAGE=${IMAGE:-docker.io/library/archlinux:latest}; PLATFORM='' ;;
-    aarch64) IMAGE=${IMAGE:-docker.io/menci/archlinuxarm:latest}; PLATFORM='linux/arm64' ;;
-    *) printf 'repo-sync: unsupported ARCH %s\n' "$ARCH" >&2; exit 2 ;;
-esac
 
 log() { printf '==> %s\n' "$*"; }
 err() { printf 'repo-sync: %s\n' "$*" >&2; }
@@ -130,10 +115,8 @@ done
 chown -R 0:0 /out
 [ -z "$fail" ] || { echo "repo-sync: build FAILED:$fail" >&2; exit 1; }
 '
-    log "building $ARCH in $ENGINE ($IMAGE${PLATFORM:+, $PLATFORM}), -j$jobs"
-    # shellcheck disable=SC2086
+    log "building in $ENGINE ($IMAGE), -j$jobs"
     "$ENGINE" run --rm --ipc=host --security-opt seccomp=unconfined \
-        ${PLATFORM:+--platform "$PLATFORM"} \
         -v "$TOPDIR:/repo:ro,z" -v "$BUILDOUT:/out:z" "$IMAGE" bash -euc "$SCRIPT"
 
     # Commit each fresh build into the cache under its content hash, and mark it
@@ -188,9 +171,9 @@ for p in $PKGS; do
 done
 log "published $published artifact(s) to $WEBROOT"
 
-# ── 4. regenerate + sign the index ───────────────────────────────────────────
+# ── 4. regenerate the index (name|version|filename|sha256|deps) ──────────────
 sh "$TOPDIR/tools/mkrepo.sh" "$WEBROOT"
 
-# SELinux contexts so the web server can read fresh files (Rocky/RHEL).
+# SELinux contexts so the web server can read fresh files (RHEL-family hosts).
 command -v restorecon >/dev/null 2>&1 && restorecon -RF "$WEBROOT" 2>/dev/null || true
 log "done"

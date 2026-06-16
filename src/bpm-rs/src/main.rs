@@ -7,8 +7,6 @@ mod index;
 mod net;
 mod pkg;
 mod repo;
-mod repokey;
-mod sig;
 mod vercmp;
 
 use config::Config;
@@ -233,7 +231,6 @@ fn cmd_update(cfg: &Config) -> Result<(), String> {
         let _ = std::fs::create_dir_all(parent);
     }
     let tmp = cfg.index.with_extension("repo");
-    let sigtmp = cfg.index.with_extension("sig");
 
     let mut combined = String::new();
     for line in conf.lines() {
@@ -247,9 +244,7 @@ fn cmd_update(cfg: &Config) -> Result<(), String> {
             None => continue,
         };
         let mut got = false;
-        for raw in it {
-            let url = index::expand_arch(raw);
-            let url = url.as_str();
+        for url in it {
             println!(":: syncing '{repo}' from {url}");
             if net::get(&format!("{url}/bpm.index"), &tmp).is_err() {
                 eprintln!("bpm: warning: mirror unreachable: {url}");
@@ -262,17 +257,9 @@ fn cmd_update(cfg: &Config) -> Result<(), String> {
                     continue;
                 }
             };
-            if sig::required() {
-                let ok = net::get(&format!("{url}/bpm.index.sig"), &sigtmp).is_ok()
-                    && std::fs::read(&sigtmp)
-                        .map(|s| sig::verify_index(&body, &s))
-                        .unwrap_or(false);
-                if !ok {
-                    eprintln!("bpm: warning: signature verification FAILED for '{repo}' from {url}");
-                    continue; // never trust an unsigned/invalid index
-                }
-            }
-            // append the repo as the 6th column on every line
+            // Integrity is per-package: every download is checked against the
+            // sha256 in the index (see repo::fetch), and the index itself is
+            // fetched over TLS. No index signing.
             for l in String::from_utf8_lossy(&body).lines() {
                 if l.is_empty() {
                     continue;
@@ -290,7 +277,6 @@ fn cmd_update(cfg: &Config) -> Result<(), String> {
         }
     }
     let _ = std::fs::remove_file(&tmp);
-    let _ = std::fs::remove_file(&sigtmp);
 
     let itmp = cfg.index.with_extension("tmp");
     std::fs::write(&itmp, &combined).map_err(|e| format!("cannot write index: {e}"))?;

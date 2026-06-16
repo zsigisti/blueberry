@@ -58,13 +58,6 @@ pub fn lookup(cfg: &Config, name: &str) -> Option<Entry> {
         .find_map(parse_line)
 }
 
-/// Expand `$arch` in a repo URL to this machine's architecture, so a single
-/// repos.conf (`.../$arch`) serves every arch and an aarch64 box can never pull
-/// x86_64 packages. std's ARCH is already "x86_64"/"aarch64".
-pub fn expand_arch(url: &str) -> String {
-    url.replace("$arch", std::env::consts::ARCH)
-}
-
 /// Mirror URLs for a repo, in order (first is primary).
 pub fn mirrors(cfg: &Config, repo: &str) -> Vec<String> {
     let txt = match fs::read_to_string(&cfg.conf) {
@@ -78,7 +71,7 @@ pub fn mirrors(cfg: &Config, repo: &str) -> Vec<String> {
         }
         let mut it = s.split_whitespace();
         if it.next() == Some(repo) {
-            return it.map(expand_arch).collect();
+            return it.map(|u| u.to_string()).collect();
         }
     }
     Vec::new()

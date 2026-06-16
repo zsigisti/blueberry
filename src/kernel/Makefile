@@ -15,12 +15,6 @@ CONFIG  := $(THISDIR)/config
 PATCHES := $(THISDIR)/patches
 
 KARCH   := $(ARCH)
-ifeq ($(ARCH),aarch64)
-  KARCH := arm64
-endif
-ifeq ($(ARCH),riscv64)
-  KARCH := riscv
-endif
 
 .PHONY: all modules_install _patch _configure
 

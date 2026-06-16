@@ -8,8 +8,9 @@ running entirely from RAM in QEMU.
 Linux 7.0 kernel · glibc · busybox · bash · runit init · Dropbear SSH · bpm packages
 ```
 
-It ships a native package manager (`bpm`) that installs from a **signed**
-repository, a guided disk **installer** (`blueberry-install`), and a growing
+It ships a native package manager (`bpm`, written in Rust) that installs from an
+HTTP(S) repository with per-package SHA-256 verification, a guided disk
+**installer** (`blueberry-install`), and a growing
 package set including the GNU **toolchain** (gcc, binutils, git, make).
 
 ---
@@ -48,7 +49,7 @@ busybox shell. No disk image, no install step, no network required.
 | Login shell | **bash 5.2** | Default interactive shell on installed systems |
 | Init | **runit 2.1.x** | Supervision tree, 35 KB, no DSL |
 | SSH | **Dropbear 2024.x** | Tiny static SSH server + client |
-| Packages | **bpm** | Native package manager; installs from a signed repo (`.pkg.tar.zst`) |
+| Packages | **bpm** | Native package manager (Rust); installs from an HTTP(S) repo (`.pkg.tar.zst`), per-package SHA-256 |
 | Installer | **blueberry-install** | Guided GPT/UEFI install: partition, format, GRUB, root password |
 | Kernel | **Linux 7.0** | Server profile: SATA/NVMe/USB, NICs, UEFI, serial console |
 | Distro model | **BSD-style monorepo** | `git clone` → `make world` → bootable; build output in `../blueberry-build/` |
@@ -75,10 +76,11 @@ cmdline (used by the QEMU end-to-end test).
 ### Packages
 
 `bpm update && bpm install <pkg>` pulls from the configured repo
-(`/etc/bpm/repos.conf`). The repo index is signed (ECDSA P-256, verified by a
-key baked into `bpm`); package files are anchored by SHA-256 in that signed
-index. Recipes live in [packages/](packages/); host the repo yourself with
-`tools/mkrepo.sh` or the `blueberry-repo-sync` service (see [doc/BPM.md](doc/BPM.md)).
+(`/etc/bpm/repos.conf`). Every package is verified against the SHA-256 recorded
+in the repo index, and the index is fetched over TLS (no index signing).
+Recipes live in [packages/](packages/); host the repo yourself with
+`tools/mkrepo.sh`, `tools/blueberry-repo-sync.sh`, or the one-command
+`tools/blueberry-build-server.sh` (see [doc/BPM.md](doc/BPM.md)).
 
 ---
 
@@ -94,13 +96,13 @@ src/
   init/             runit stage scripts + service dirs (disk-boot path)
   dropbear/         Dropbear SSH build rules
   initramfs/        /init live-CLI script, selftest, profile, udhcpc, Makefile
-  bpm/              Native package manager (C; vendored BearSSL for TLS + signing)
+  bpm-rs/           Native package manager (Rust): streaming installs, SHA-256
   installer/        blueberry-install — guided GPT/UEFI disk installer (C)
 
 packages/           bpm package recipes (PKGBUILD format)
 etc/                /etc skeleton (hostname, fstab, sysctl, accounts, bpm config)
-tools/              Host-only scripts: qemu.sh, mkiso.sh, mkdisk.sh,
-                    build-pkgs.sh, mkrepo.sh (repo index + signing), mkrepokey.sh
+tools/              Host-only scripts: qemu.sh, mkiso.sh, mkdisk.sh, build-pkgs.sh,
+                    mkrepo.sh, blueberry-repo-sync.sh, blueberry-build-server.sh
 doc/                Documentation
 ```
 

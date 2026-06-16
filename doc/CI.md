@@ -61,4 +61,3 @@ To add a check, edit `src/initramfs/selftest`, rebuild the initramfs
 
 - `make test TIMEOUT=<seconds>` — watchdog for slow/TCG hosts.
 - `make test MEM=1G` — give the guest more RAM.
-- `make test ARCH=aarch64` — boot under `qemu-system-aarch64`.
