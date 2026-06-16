@@ -20,7 +20,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define BPM_VERSION "1.0"
+#define BPM_VERSION "1.1"
 
 /* Resolved, absolute paths for the active root (see paths_init). */
 extern char *g_root;   /* "" for "/", else "/some/where" (no trailing slash) */

@@ -1,0 +1,31 @@
+# Maintainer: Blueberry Linux <packages@blueberry.linux>
+#
+# bpm packages itself so a running system can self-update:  bpm install bpm.
+# The source is the in-tree src/bpm (vendored BearSSL included), built in the
+# same container as every other package. The old binary can always install this
+# one — it is tiny — so even a memory-starved bpm can pull a fixed bpm.
+pkgname=bpm
+pkgver=1.1
+pkgrel=1
+pkgdesc='Blueberry Package Manager — streaming installs, signed index, post-install hooks'
+arch=('x86_64')
+url='https://github.com/zsigisti/blueberry'
+license=('MIT')
+depends=('glibc' 'zstd')
+# No source=(): built from the repo tree mounted into the build container.
+
+build() {
+  # startdir is packages/bpm; the manager lives at ../../src/bpm in the same
+  # checkout. Copy it in so makepkg's srcdir stays self-contained.
+  rm -rf bpmsrc
+  cp -r "$startdir/../../src/bpm" bpmsrc
+  make -C bpmsrc OBJDIR="$srcdir/obj" BPM_OUT="$srcdir/obj/bpm"
+}
+
+package() {
+  install -Dm755 "$srcdir/obj/bpm" "$pkgdir/usr/bin/bpm"
+  # Ship the default repo + provided config only if absent on the target
+  # (.INSTALL would clobber a user's edits otherwise — keep it declarative here).
+  install -Dm644 "$startdir/../../etc/bpm/repos.conf"  "$pkgdir/usr/share/bpm/repos.conf"
+  install -Dm644 "$startdir/../../etc/bpm/provided"    "$pkgdir/usr/share/bpm/provided"
+}
