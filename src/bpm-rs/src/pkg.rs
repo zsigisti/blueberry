@@ -208,11 +208,19 @@ pub fn install_file(cfg: &Config, path: &Path, force: bool) -> io::Result<()> {
             if let Some(parent) = full.parent() {
                 fs::create_dir_all(parent)?;
             }
-            let _ = fs::remove_file(&full);
-            let mut out = fs::File::create(&full)?;
-            io::copy(&mut e, &mut out)?; // streams in chunks
-            out.flush()?;
-            fs::set_permissions(&full, fs::Permissions::from_mode(mode))?;
+            // Write to a temp sibling, then atomically rename over the target.
+            // This is what lets bpm replace an in-use file — including its own
+            // running /usr/bin/bpm — without ETXTBSY, and never leaves a
+            // half-written file if interrupted.
+            let fname = full.file_name().and_then(|f| f.to_str()).unwrap_or("f");
+            let tmp = full.with_file_name(format!(".{fname}.bpm-new"));
+            {
+                let mut out = fs::File::create(&tmp)?;
+                io::copy(&mut e, &mut out)?; // streams in chunks
+                out.flush()?;
+            }
+            fs::set_permissions(&tmp, fs::Permissions::from_mode(mode))?;
+            fs::rename(&tmp, &full)?;
             files.push(rel);
         }
     }
