@@ -10,5 +10,12 @@ depends=('glibc')
 options=('!lto')
 source=("https://github.com/strace/strace/releases/download/v$pkgver/strace-$pkgver.tar.xz")
 sha256sums=('e209daf0ee038ca5adcc4c277e9273b4d51f46a2ff86da575d36742ac3508a17')
-build() { cd "$pkgname-$pkgver"; ./configure --prefix=/usr --enable-mpers=check; make; }
+build() {
+  cd "$pkgname-$pkgver"
+  # --enable-bundled=yes: use strace's bundled kernel headers; the container's
+  # linux-api-headers are newer than 6.13 expects and a struct-size static_assert
+  # (io_uring_buf_reg.resv) otherwise fails the build.
+  ./configure --prefix=/usr --enable-mpers=check --enable-bundled=yes
+  make
+}
 package() { cd "$pkgname-$pkgver"; make DESTDIR="$pkgdir" install; }
