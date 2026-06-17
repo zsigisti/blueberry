@@ -2,10 +2,10 @@
 //! against the bundled Mozilla roots, the same trust set as the system
 //! ca-certificates bundle. Streams the body to a file — never into RAM.
 
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io;
 use std::net::{SocketAddr, ToSocketAddrs};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use std::time::Duration;
 
@@ -32,14 +32,39 @@ fn agent() -> &'static ureq::Agent {
     })
 }
 
-/// GET `url` into `dest` (truncating). Returns Ok on a 2xx response.
+fn other(e: impl std::fmt::Display) -> io::Error {
+    io::Error::new(io::ErrorKind::Other, e.to_string())
+}
+
+/// GET `url` into `dest`. Downloads to `<dest>.part` and renames on success, so
+/// `dest` only ever exists complete. If a `.part` from an interrupted run is
+/// present, resume it with a Range request (the server may ignore it, in which
+/// case we restart). Returns Ok on success.
 pub fn get(url: &str, dest: &Path) -> io::Result<()> {
-    let resp = agent()
-        .get(url)
-        .call()
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+    let part = PathBuf::from(format!("{}.part", dest.display()));
+    let have = std::fs::metadata(&part).map(|m| m.len()).unwrap_or(0);
+
+    let (resp, append) = if have > 0 {
+        let r = agent()
+            .get(url)
+            .set("Range", &format!("bytes={have}-"))
+            .call()
+            .map_err(other)?;
+        let resumed = r.status() == 206; // 206 = partial; 200 = full, restart
+        (r, resumed)
+    } else {
+        (agent().get(url).call().map_err(other)?, false)
+    };
+
     let mut reader = resp.into_reader();
-    let mut out = File::create(dest)?;
+    let mut out = if append {
+        OpenOptions::new().append(true).open(&part)?
+    } else {
+        File::create(&part)?
+    };
     io::copy(&mut reader, &mut out)?;
+    out.sync_all()?;
+    drop(out);
+    std::fs::rename(&part, dest)?;
     Ok(())
 }

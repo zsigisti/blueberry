@@ -96,16 +96,124 @@ fn cmd_install(cfg: &Config, args: &[String]) -> Result<(), String> {
         return Err("usage: bpm install [-f] <name|file.pkg.tar.zst>...".into());
     }
     let mut seen = HashSet::new();
+    let mut plan: Vec<(index::Entry, bool)> = Vec::new();
+    let mut files: Vec<&String> = Vec::new();
     for a in &names {
         if a.contains(".pkg.tar.") {
-            let n = pkg::install_file(cfg, Path::new(a), force).map_err(|e| e.to_string())?;
-            db::mark_explicit(cfg, &n); // user named it explicitly
+            files.push(a);
         } else {
-            install_name(cfg, a, true, force, &mut seen)?;
+            resolve(cfg, a, true, &mut seen, &mut plan);
         }
+    }
+    if !plan.is_empty() {
+        // One disk-space check over the whole transitive set (index sizes).
+        if !force {
+            let need: u64 = plan.iter().map(|(e, _)| e.size).sum();
+            if need > 0 {
+                if let Some(free) = pkg::free_space(cfg) {
+                    if free < need {
+                        return Err(format!(
+                            "not enough space — need {} MiB, {} MiB free (use -f to override)",
+                            need / 1048576,
+                            free / 1048576
+                        ));
+                    }
+                }
+            }
+        }
+        let jobs = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(4)
+            .clamp(1, 8);
+        println!(":: downloading {} package(s) ({jobs} parallel)", plan.len());
+        let paths = parallel_fetch(cfg, &plan, jobs)?;
+        // Install in resolved order (dependencies before dependents).
+        for ((entry, explicit), path) in plan.iter().zip(paths.iter()) {
+            pkg::install_file(cfg, path, force).map_err(|e| e.to_string())?;
+            if *explicit {
+                db::mark_explicit(cfg, &entry.name);
+            }
+        }
+    }
+    for f in &files {
+        let n = pkg::install_file(cfg, Path::new(f), force).map_err(|e| e.to_string())?;
+        db::mark_explicit(cfg, &n);
     }
     pkg::run_ldconfig(cfg);
     Ok(())
+}
+
+/// Collect the transitive install set in dependency order (deps before
+/// dependents), skipping provided/already-installed packages. Pure resolution —
+/// no downloads — so the set can then be fetched in parallel.
+fn resolve(
+    cfg: &Config,
+    name: &str,
+    explicit: bool,
+    seen: &mut HashSet<String>,
+    plan: &mut Vec<(index::Entry, bool)>,
+) {
+    if !seen.insert(name.to_string()) {
+        return;
+    }
+    if !explicit && index::is_provided(cfg, name) {
+        return;
+    }
+    if db::is_installed(cfg, name) {
+        if explicit {
+            println!(":: {name} already installed");
+        }
+        return;
+    }
+    let entry = match index::lookup(cfg, name) {
+        Some(e) => e,
+        None => {
+            eprintln!("bpm: warning: {name} not in repo index — assuming provided by the base system");
+            return;
+        }
+    };
+    for dep in &entry.deps {
+        let dn = index::dep_name(dep);
+        if !dn.is_empty() {
+            resolve(cfg, dn, false, seen, plan);
+        }
+    }
+    plan.push((entry, explicit));
+}
+
+/// Download every package in `plan` concurrently (bounded by `jobs`), preserving
+/// order in the returned paths. Each fetch verifies its sha256 (repo::fetch).
+fn parallel_fetch(
+    cfg: &Config,
+    plan: &[(index::Entry, bool)],
+    jobs: usize,
+) -> Result<Vec<std::path::PathBuf>, String> {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Mutex;
+    let next = AtomicUsize::new(0);
+    let slots: Vec<Mutex<Option<Result<std::path::PathBuf, String>>>> =
+        (0..plan.len()).map(|_| Mutex::new(None)).collect();
+    std::thread::scope(|s| {
+        for _ in 0..jobs {
+            s.spawn(|| loop {
+                let i = next.fetch_add(1, Ordering::Relaxed);
+                if i >= plan.len() {
+                    break;
+                }
+                let r = repo::fetch(cfg, &plan[i].0);
+                *slots[i].lock().unwrap() = Some(r);
+            });
+        }
+    });
+    let mut paths = Vec::with_capacity(plan.len());
+    for slot in slots {
+        match slot.into_inner().unwrap() {
+            Some(Ok(p)) => paths.push(p),
+            Some(Err(e)) => return Err(e),
+            None => return Err("download did not complete".into()),
+        }
+    }
+    Ok(paths)
 }
 
 /// Resolve `name` from the repos and install it with its dependencies first.

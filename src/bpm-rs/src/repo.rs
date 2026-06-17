@@ -48,7 +48,13 @@ pub fn fetch(cfg: &Config, entry: &Entry) -> Result<PathBuf, String> {
     if !entry.sha256.is_empty() {
         match index::sha256_file(&out) {
             Ok(have) if have == entry.sha256 => {}
-            _ => return Err(format!("checksum mismatch for {}", entry.filename)),
+            _ => {
+                // Drop the bad artifact (and any partial) so the next run
+                // re-downloads from scratch instead of resuming corruption.
+                let _ = std::fs::remove_file(&out);
+                let _ = std::fs::remove_file(format!("{}.part", out.display()));
+                return Err(format!("checksum mismatch for {}", entry.filename));
+            }
         }
     }
     Ok(out)
