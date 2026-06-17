@@ -1,14 +1,14 @@
 # Maintainer: Blueberry Linux <packages@blueberry.linux>
 pkgname=wget
 pkgver=1.25.0
-pkgrel=2
+pkgrel=3
 pkgdesc='Network utility to retrieve files over HTTP(S) and FTP'
 arch=('x86_64')
 url='https://www.gnu.org/software/wget/'
 license=('GPL-3.0-or-later')
-# libidn2 (IDN host names) + e2fsprogs (libuuid, WARC records) are linked by
+# libidn2 (IDN host names) + util-linux (libuuid, WARC records) are linked by
 # wget; psl/pcre/metalink stay disabled.
-depends=('glibc' 'openssl' 'zlib' 'ca-certificates' 'libidn2' 'e2fsprogs')
+depends=('glibc' 'openssl' 'zlib' 'ca-certificates' 'libidn2' 'util-linux')
 makedepends=('pkgconf')
 source=("https://ftp.gnu.org/gnu/wget/wget-$pkgver.tar.gz")
 sha256sums=('766e48423e79359ea31e41db9e5c289675947a7fcf2efdcedb726ac9d0da3784')

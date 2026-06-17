@@ -1,15 +1,14 @@
 # Maintainer: Blueberry Linux <packages@blueberry.linux>
 pkgname=gptfdisk
 pkgver=1.0.10
-pkgrel=1
+pkgrel=2
 pkgdesc='GPT partition table manipulator (sgdisk, gdisk)'
 arch=('x86_64')
 url='https://www.rodsbooks.com/gdisk/'
 license=('GPL-2.0-or-later')
-# libuuid comes from e2fsprogs at runtime; util-linux only supplies uuid.h at
-# build time. cgdisk (curses) is skipped — the installer only needs sgdisk.
-depends=('glibc' 'gcc-libs' 'popt' 'e2fsprogs')
-makedepends=('util-linux')
+# libuuid comes from util-linux (canonical provider). cgdisk (curses) is
+# skipped — the installer only needs sgdisk.
+depends=('glibc' 'gcc-libs' 'popt' 'util-linux')
 source=("https://downloads.sourceforge.net/gptfdisk/gptfdisk-$pkgver.tar.gz")
 sha256sums=('2abed61bc6d2b9ec498973c0440b8b804b7a72d7144069b5a9209b2ad693a282')
 build() {

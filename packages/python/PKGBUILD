@@ -4,16 +4,16 @@
 # minimal config). A large build.
 pkgname=python
 pkgver=3.13.3
-pkgrel=2
+pkgrel=3
 pkgdesc='CPython — the Python programming language interpreter'
 arch=('x86_64')
 url='https://www.python.org/'
 license=('Python-2.0.1')
 # Stdlib C modules link these at runtime: ncurses (curses/_curses_panel),
 # readline (readline), gdbm (dbm.gnu), mpdecimal (_decimal), sqlite (sqlite3),
-# expat (pyexpat), e2fsprogs (libuuid → uuid).
+# expat (pyexpat), util-linux (libuuid → uuid).
 depends=('glibc' 'zlib' 'openssl' 'bzip2' 'libffi' 'xz'
-         'ncurses' 'readline' 'gdbm' 'mpdecimal' 'sqlite' 'expat' 'e2fsprogs')
+         'ncurses' 'readline' 'gdbm' 'mpdecimal' 'sqlite' 'expat' 'util-linux')
 provides=('python3')
 source=("https://www.python.org/ftp/python/$pkgver/Python-$pkgver.tar.xz")
 sha256sums=('40f868bcbdeb8149a3149580bb9bfd407b3321cd48f0be631af955ac92c0e041')
