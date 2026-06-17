@@ -214,7 +214,22 @@ CONFIG_CFS_BANDWIDTH=y
 CONFIG_RT_GROUP_SCHED=y
 CONFIG_BLK_CGROUP=y
 CONFIG_CGROUP_BPF=y
-# CONFIG_CGROUP_SYSTEMD is not set
+CONFIG_CGROUP_PIDS=y
+
+#
+# systemd requirements (PID 1). systemd needs name_to_handle_at (FHANDLE),
+# the unified cgroup v2 hierarchy (CGROUPS above), autofs for .automount units,
+# tmpfs xattrs/ACLs for /run + transient units, seccomp filtering for unit
+# sandboxing, kcmp, and DMI access. CRYPTO_HMAC backs systemd-cryptsetup/keys.
+#
+CONFIG_FHANDLE=y
+CONFIG_AUTOFS_FS=y
+CONFIG_TMPFS_XATTR=y
+CONFIG_SECCOMP=y
+CONFIG_SECCOMP_FILTER=y
+CONFIG_KCMP=y
+CONFIG_DMIID=y
+CONFIG_CRYPTO_HMAC=y
 
 #
 # BPF / eBPF
