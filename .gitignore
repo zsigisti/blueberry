@@ -18,3 +18,4 @@ serial.log
 *.img
 /iso/
 /disk/
+.idea/

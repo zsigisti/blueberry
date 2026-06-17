@@ -1,12 +1,13 @@
 # Maintainer: Blueberry Linux <packages@blueberry.linux>
 pkgname=logrotate
 pkgver=3.22.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Rotates, compresses, and mails system logs'
 arch=('x86_64')
 url='https://github.com/logrotate/logrotate'
 license=('GPL-2.0-or-later')
-depends=('glibc' 'popt')
+# acl (libacl): logrotate preserves ACLs when rotating log files.
+depends=('glibc' 'popt' 'acl')
 source=("https://github.com/logrotate/logrotate/releases/download/$pkgver/logrotate-$pkgver.tar.xz")
 sha256sums=('42b4080ee99c9fb6a7d12d8e787637d057a635194e25971997eebbe8d5e57618')
 build() { cd "$pkgname-$pkgver"; ./configure --prefix=/usr --with-state-file-path=/var/lib/logrotate/logrotate.status; make; }

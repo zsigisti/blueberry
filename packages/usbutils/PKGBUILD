@@ -1,12 +1,13 @@
 # Maintainer: Blueberry Linux <packages@blueberry.linux>
 pkgname=usbutils
 pkgver=018
-pkgrel=1
+pkgrel=2
 pkgdesc='USB device listing utility (lsusb)'
 arch=('x86_64')
 url='https://github.com/gregkh/usbutils'
 license=('GPL-2.0-or-later')
-depends=('glibc' 'libusb')
+# eudev (libudev): lsusb uses udev to enrich the device tree.
+depends=('glibc' 'libusb' 'eudev')
 makedepends=('meson' 'ninja' 'pkgconf')
 source=("https://mirrors.kernel.org/pub/linux/utils/usb/usbutils/usbutils-$pkgver.tar.xz")
 sha256sums=('83f68b59b58547589c00266e82671864627593ab4362d8c807f50eea923cad93')

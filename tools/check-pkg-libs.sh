@@ -53,6 +53,12 @@ for pkg in "$DIR"/*.pkg.tar.zst; do
         s=$(soname "$f"); [ -n "$s" ] && printf '%s\t%s\n' "$s" "$name" >> "$WORK/provided"
         for n in $(needed "$f"); do printf '%s\t%s\n' "$name" "$n" >> "$WORK/needs"; done
     done < <(find "$ex" -type f 2>/dev/null)
+    # ld.so/ldconfig also resolve a NEEDED entry by *filename* via the versioned
+    # symlinks a package ships (some libs, e.g. sqlite-autoconf, carry no
+    # DT_SONAME). Count every shipped libfoo.so* basename as provided too.
+    while IFS= read -r so; do
+        printf '%s\t%s\n' "${so##*/}" "$name" >> "$WORK/provided"
+    done < <(find "$ex" -name '*.so*' 2>/dev/null)
 done
 sort -u -o "$WORK/provided" "$WORK/provided"
 sort -u -o "$WORK/needs" "$WORK/needs"

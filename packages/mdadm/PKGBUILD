@@ -1,12 +1,13 @@
 # Maintainer: Blueberry Linux <packages@blueberry.linux>
 pkgname=mdadm
 pkgver=4.4
-pkgrel=1
+pkgrel=2
 pkgdesc='Tool for managing Linux software RAID arrays'
 arch=('x86_64')
 url='https://kernel.org/'
 license=('GPL-2.0-or-later')
-depends=('glibc')
+# eudev (libudev): mdadm links libudev for array/device event handling.
+depends=('glibc' 'eudev')
 options=('!lto')
 source=("https://www.kernel.org/pub/linux/utils/raid/mdadm/mdadm-$pkgver.tar.xz")
 sha256sums=('9b488f35ed153df99924b5fe41eed380e8512de8f18a118628cacdd681b1d573')

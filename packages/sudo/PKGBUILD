@@ -1,12 +1,13 @@
 # Maintainer: Blueberry Linux <packages@blueberry.linux>
 pkgname=sudo
 pkgver=1.9.16p2
-pkgrel=1
+pkgrel=2
 pkgdesc='Give certain users the ability to run some commands as root'
 arch=('x86_64')
 url='https://www.sudo.ws/sudo/'
 license=('custom')
-depends=('glibc')
+# openssl (libcrypto/libssl): message digest verification of sudoers commands.
+depends=('glibc' 'openssl')
 source=("https://www.sudo.ws/dist/sudo-$pkgver.tar.gz")
 sha256sums=('976aa56d3e3b2a75593307864288addb748c9c136e25d95a9cc699aafa77239c')
 build() {

@@ -1,12 +1,14 @@
 # Maintainer: Blueberry Linux <packages@blueberry.linux>
 pkgname=chrony
 pkgver=4.6.1
-pkgrel=2
+pkgrel=3
 pkgdesc='Versatile implementation of the Network Time Protocol (NTP)'
 arch=('x86_64')
 url='https://chrony-project.org/'
 license=('GPL-2.0-only')
-depends=('glibc' 'libcap')
+# libedit: chronyc's interactive line editing (configure auto-detects editline
+# since readline is disabled); the binary links libedit.so.0.
+depends=('glibc' 'libcap' 'libedit')
 source=("https://chrony-project.org/releases/chrony-$pkgver.tar.gz")
 sha256sums=('571ff73fbf0ae3097f0604eca2e00b1d8bb2e91affe1a3494785ff21d6199c5c')
 build() {

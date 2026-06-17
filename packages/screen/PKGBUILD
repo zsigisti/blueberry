@@ -1,7 +1,7 @@
 # Maintainer: Blueberry Linux <packages@blueberry.linux>
 pkgname=screen
 pkgver=5.0.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Full-screen window manager that multiplexes a physical terminal'
 arch=('x86_64')
 url='https://www.gnu.org/software/screen/'
@@ -11,7 +11,10 @@ source=("https://ftp.gnu.org/gnu/screen/screen-$pkgver.tar.gz")
 sha256sums=('f04a39d00a0e5c7c86a55338808903082ad5df4d73df1a2fd3425976aed94971')
 build() {
   cd "$pkgname-$pkgver"
-  ./configure --prefix=/usr --enable-colors256 --enable-rxvt_osc --enable-telnet
+  # --disable-pam: Blueberry has no PAM stack; screen falls back to crypt()
+  # password locking, so it doesn't link libpam.so.0.
+  ./configure --prefix=/usr --enable-colors256 --enable-rxvt_osc --enable-telnet \
+    --disable-pam
   make
 }
 package() { cd "$pkgname-$pkgver"; make DESTDIR="$pkgdir" install; }

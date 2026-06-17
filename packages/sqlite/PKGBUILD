@@ -1,13 +1,14 @@
 # Maintainer: Blueberry Linux <packages@blueberry.linux>
 pkgname=sqlite
 pkgver=3.49.1
-pkgrel=1
+pkgrel=2
 _srcver=3490100
 pkgdesc='Self-contained, serverless, zero-configuration SQL database engine'
 arch=('x86_64')
 url='https://sqlite.org/'
 license=('blessing')
-depends=('glibc' 'zlib')
+# readline: the sqlite3 CLI links libreadline.so.8 for interactive line editing.
+depends=('glibc' 'zlib' 'readline')
 provides=('libsqlite3.so')
 source=("https://sqlite.org/2025/sqlite-autoconf-$_srcver.tar.gz")
 sha256sums=('106642d8ccb36c5f7323b64e4152e9b719f7c0215acf5bfeac3d5e7f97b59254')

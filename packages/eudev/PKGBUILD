@@ -1,0 +1,29 @@
+# Maintainer: Blueberry Linux <packages@blueberry.linux>
+#
+# eudev — standalone udev fork providing libudev.so.1. Blueberry does not run
+# udevd (devtmpfs + runit handle devices), but several tools link libudev for
+# device enumeration: dhcpcd, mdadm, pciutils, usbutils.
+pkgname=eudev
+pkgver=3.2.14
+pkgrel=1
+pkgdesc='Standalone udev fork — provides libudev (no daemon run on Blueberry)'
+arch=('x86_64')
+url='https://github.com/eudev-project/eudev'
+license=('GPL-2.0-or-later')
+depends=('glibc')
+makedepends=('pkgconf' 'gperf')
+source=("https://github.com/eudev-project/eudev/releases/download/v$pkgver/eudev-$pkgver.tar.gz")
+sha256sums=('8da4319102f24abbf7fff5ce9c416af848df163b29590e666d334cc1927f006f')
+
+build() {
+  cd "$pkgname-$pkgver"
+  ./configure --prefix=/usr --sysconfdir=/etc --disable-static \
+    --disable-introspection --disable-manpages --enable-split-usr
+  make
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  make DESTDIR="$pkgdir" install
+  install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+}

@@ -1,12 +1,13 @@
 # Maintainer: Blueberry Linux <packages@blueberry.linux>
 pkgname=strace
 pkgver=6.13
-pkgrel=1
+pkgrel=2
 pkgdesc='A diagnostic, debugging and instructional userspace tracer'
 arch=('x86_64')
 url='https://strace.io/'
 license=('LGPL-2.1-or-later')
-depends=('glibc')
+# elfutils (libdw): symbol/source resolution for -k stack traces.
+depends=('glibc' 'elfutils')
 options=('!lto')
 source=("https://github.com/strace/strace/releases/download/v$pkgver/strace-$pkgver.tar.xz")
 sha256sums=('e209daf0ee038ca5adcc4c277e9273b4d51f46a2ff86da575d36742ac3508a17')
