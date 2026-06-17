@@ -349,10 +349,49 @@ CONFIG_PRINTK=y
 CONFIG_BUG=y
 
 #
+# Wireless (Realtek + Intel WiFi for laptops/desktops)
+#
+# Built-in (the kernel has no modules), so the cfg80211/mac80211 stack and the
+# NIC drivers are all =y. The drivers still load their firmware blobs from
+# /lib/firmware at runtime — install the matching firmware there for the device
+# to associate (the driver itself is present either way).
+#
+CONFIG_WIRELESS=y
+CONFIG_CFG80211=y
+CONFIG_MAC80211=y
+CONFIG_WLAN=y
+# Intel
+CONFIG_WLAN_VENDOR_INTEL=y
+CONFIG_IWLWIFI=y
+CONFIG_IWLMVM=y
+CONFIG_IWLDVM=y
+# Realtek — PCIe (rtlwifi legacy, rtw88, rtw89) + common USB dongles (rtl8xxxu)
+CONFIG_WLAN_VENDOR_REALTEK=y
+CONFIG_RTLWIFI=y
+CONFIG_RTL8192CE=y
+CONFIG_RTL8192SE=y
+CONFIG_RTL8192DE=y
+CONFIG_RTL8723AE=y
+CONFIG_RTL8723BE=y
+CONFIG_RTL8188EE=y
+CONFIG_RTL8821AE=y
+CONFIG_RTL8192EE=y
+CONFIG_RTW88=y
+CONFIG_RTW88_8822BE=y
+CONFIG_RTW88_8822CE=y
+CONFIG_RTW88_8821CE=y
+CONFIG_RTW88_8723DE=y
+CONFIG_RTW89=y
+CONFIG_RTW89_8852AE=y
+CONFIG_RTW89_8852BE=y
+CONFIG_RTW89_8852CE=y
+CONFIG_RTW89_8851BE=y
+CONFIG_RTL8XXXU=y
+
+#
 # Not on a server
 #
 # CONFIG_SOUND is not set
-# CONFIG_WIRELESS is not set
 # CONFIG_BLUETOOTH is not set
 # CONFIG_VIDEO_V4L2 is not set
 # CONFIG_DRM is not set
