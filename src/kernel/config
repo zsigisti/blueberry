@@ -6,8 +6,10 @@
 # General setup
 #
 CONFIG_LOCALVERSION="-blueberry"
-CONFIG_KERNEL_GZIP=y
+# Kernel image is self-decompressing; we build it zstd-compressed. Only one
+# KERNEL_* compressor is ever used, so don't drag in the gzip path too.
 CONFIG_KERNEL_ZSTD=y
+# CONFIG_KERNEL_GZIP is not set
 CONFIG_DEFAULT_HOSTNAME="blueberry"
 CONFIG_SWAP=y
 CONFIG_SYSVIPC=y
@@ -251,13 +253,16 @@ CONFIG_CRYPTO_USER_API_SKCIPHER=y
 #
 CONFIG_BLK_DEV_INITRD=y
 CONFIG_INITRAMFS_SOURCE=""
+# Blueberry's initramfs is always zstd (initramfs.cpio.zst). Keep gzip too as a
+# universal fallback for hand-built initrds; drop the bzip2/lzma/xz/lzo/lz4
+# decompressors — nothing we ship uses them.
 CONFIG_RD_GZIP=y
-CONFIG_RD_BZIP2=y
-CONFIG_RD_LZMA=y
-CONFIG_RD_XZ=y
-CONFIG_RD_LZO=y
-CONFIG_RD_LZ4=y
 CONFIG_RD_ZSTD=y
+# CONFIG_RD_BZIP2 is not set
+# CONFIG_RD_LZMA is not set
+# CONFIG_RD_XZ is not set
+# CONFIG_RD_LZO is not set
+# CONFIG_RD_LZ4 is not set
 
 #
 # Serial console (required for QEMU -nographic and headless VMs)
