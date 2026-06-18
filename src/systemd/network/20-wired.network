@@ -1,0 +1,21 @@
+# /etc/systemd/network/20-wired.network — Blueberry default wired networking.
+# Managed by systemd-networkd. DHCP (IPv4 + IPv6) on every wired interface.
+# For a static address, drop a higher-priority file (e.g. 10-static.network)
+# matching a specific Name= and set [Network] Address=/Gateway=/DNS=.
+[Match]
+Type=ether
+
+[Network]
+DHCP=yes
+IPv6AcceptRA=yes
+
+[DHCPv4]
+UseDNS=yes
+UseNTP=yes
+RouteMetric=10
+
+[DHCPv6]
+UseDNS=yes
+
+[IPv6AcceptRA]
+RouteMetric=10

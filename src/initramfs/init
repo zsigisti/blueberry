@@ -10,7 +10,8 @@
 #   root=<dev|LABEL|UUID> mount that device and switch_root into it instead
 #   rootfstype=<type>     filesystem type for root= (default: auto)
 #   rootflags=<flags>     mount flags for root= (default: ro)
-#   init=<path>           init to exec after switch_root (default: /sbin/runit-init)
+#   init=<path>           init to exec after switch_root (default: /sbin/init,
+#                         which points at runit-init or systemd per the image)
 #   quiet                 suppress the banner and most output
 #   debug                 verbose shell tracing
 
@@ -175,7 +176,9 @@ fi
 if [ -n "$ROOT" ]; then
     ROOTFSTYPE=$(cmdline rootfstype); : "${ROOTFSTYPE:=auto}"
     ROOTFLAGS=$(cmdline rootflags);   : "${ROOTFLAGS:=ro}"
-    INIT=$(cmdline init);             : "${INIT:=/sbin/runit-init}"
+    # /sbin/init is the init-agnostic entry point: runit images symlink it to
+    # runit-init, systemd images to /usr/lib/systemd/systemd. Either boots here.
+    INIT=$(cmdline init);             : "${INIT:=/sbin/init}"
     # Resolve UUID=/LABEL= to a device node (what the installer writes). Fall
     # back to the raw value if findfs can't (older mount handles some itself).
     case "$ROOT" in

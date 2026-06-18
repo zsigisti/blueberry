@@ -36,6 +36,21 @@ STAGEDIR    := $(DESTDIR)
 # it and supplies the terminfo database.
 BASE_PKGS   ?= ncurses bash
 
+# ── Init system selection ─────────────────────────────────────────────────────
+# INIT=runit   (default) busybox + runit + dropbear, tiny RAM-first image.
+# INIT=systemd full systemd PID 1 on the *installed* disk system: journald,
+#              logind, networkd/resolved/timesyncd, udevd + OpenSSH. The live
+#              initramfs stays busybox-based either way; only the installed
+#              rootfs (STAGEDIR) changes. The systemd runtime closure below is
+#              baked into the base image so PID 1 has everything it needs.
+INIT ?= runit
+SYSTEMD_BASE_PKGS := systemd util-linux libseccomp kmod dbus acl xz zstd lz4 \
+                     cryptsetup libcap libcap-ng readline file zlib bzip2 expat \
+                     attr device-mapper json-c openssl popt openssh
+ifeq ($(INIT),systemd)
+  BASE_PKGS += $(SYSTEMD_BASE_PKGS)
+endif
+
 LINUX_SRC      := $(OBJDIR_SRC)/linux-$(LINUX_VERSION)
 BUSYBOX_SRC    := $(OBJDIR_SRC)/busybox-$(BUSYBOX_VERSION)
 RUNIT_SRC      := $(OBJDIR_SRC)/runit-$(RUNIT_VERSION)
@@ -252,12 +267,25 @@ _do_install:
 	@rm -rf $(STAGEDIR)/usr/include $(STAGEDIR)/usr/share/man \
 	        $(STAGEDIR)/usr/share/info $(STAGEDIR)/usr/lib/pkgconfig
 	@find $(STAGEDIR)/usr/lib -name '*.a' -delete 2>/dev/null || true
+	@# Init-system integration on the installed rootfs.
+ifeq ($(INIT),systemd)
+	@echo "[install] INIT=systemd — installing systemd integration layer"
+	@$(MAKE) -C $(SRCDIR)/systemd STAGEDIR=$(STAGEDIR)
+	@# /sbin/init → systemd PID 1 (the initramfs execs /sbin/init on switch_root,
+	@# so this is the single indirection that selects the installed init system).
+	@mkdir -p $(STAGEDIR)/sbin
+	@ln -sf /usr/lib/systemd/systemd $(STAGEDIR)/sbin/init
+	@ln -sf /usr/lib/systemd/systemd $(STAGEDIR)/init
+endif
 	@# Bundle the glibc runtime into the rootfs (disk-boot path + external
-	@# prebuilt glibc software). bpm links libzstd, so include it too.
+	@# prebuilt glibc software). bpm links libzstd, so include it too. Missing
+	@# binaries (e.g. runit/dropbear on a systemd image) are skipped by the script.
 	@bash $(TOPDIR)/tools/bundle-glibc.sh $(STAGEDIR) \
 	    $(STAGEDIR)/bin/busybox \
 	    $(STAGEDIR)/sbin/runit-init \
 	    $(STAGEDIR)/usr/sbin/dropbearmulti \
+	    $(STAGEDIR)/usr/lib/systemd/systemd \
+	    $(STAGEDIR)/usr/sbin/sshd \
 	    $(STAGEDIR)/usr/bin/zstd \
 	    $(STAGEDIR)/usr/bin/bpm \
 	    $(STAGEDIR)/usr/bin/bash

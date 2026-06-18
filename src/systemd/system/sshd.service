@@ -1,0 +1,19 @@
+# /etc/systemd/system/sshd.service — OpenSSH server (Blueberry).
+# Replaces the runit/dropbear sshd. Host keys are generated on first start by
+# sshd-keygen.service. Runs in the foreground (-D) so systemd supervises it.
+[Unit]
+Description=OpenSSH server daemon
+Documentation=man:sshd(8) man:sshd_config(5)
+After=network.target sshd-keygen.service
+Wants=sshd-keygen.service
+
+[Service]
+ExecStartPre=/usr/sbin/sshd -t
+ExecStart=/usr/sbin/sshd -D
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=process
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

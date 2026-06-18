@@ -1,0 +1,15 @@
+# /etc/systemd/system/sshd-keygen.service — generate OpenSSH host keys once.
+# ssh-keygen -A creates any missing host keys in /etc/ssh; the ConditionPathExists
+# below makes this a no-op once an RSA key is present, so it only runs on first boot.
+[Unit]
+Description=Generate OpenSSH host keys
+ConditionPathExists=!/etc/ssh/ssh_host_rsa_key
+Before=sshd.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/ssh-keygen -A
+
+[Install]
+WantedBy=multi-user.target
