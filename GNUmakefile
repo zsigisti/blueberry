@@ -274,9 +274,15 @@ _do_install:
 ifeq ($(INIT),systemd)
 	@echo "[install] INIT=systemd — installing systemd integration layer"
 	@$(MAKE) -C $(SRCDIR)/systemd STAGEDIR=$(STAGEDIR)
+	@# Convert the rootfs to merged-usr (everything in /usr/bin + /usr/lib).
+	@# systemd 256 requires it: the glibc linker only searches /usr/lib and PID 1
+	@# has compiled-in /usr/sbin/{mount,sulogin} paths, so a split rootfs panics /
+	@# drops to emergency mode. /lib64 keeps the ELF interpreter and stays real.
+	@sh $(TOPDIR)/tools/usr-merge.sh $(STAGEDIR)
 	@# /sbin/init → systemd PID 1 (the initramfs execs /sbin/init on switch_root,
 	@# so this is the single indirection that selects the installed init system).
-	@mkdir -p $(STAGEDIR)/sbin
+	@# Absolute target: switch_root resolves it inside the new root, and the
+	@# initramfs accepts a symlink it can't pre-resolve (the `-L` check).
 	@ln -sf /usr/lib/systemd/systemd $(STAGEDIR)/sbin/init
 	@ln -sf /usr/lib/systemd/systemd $(STAGEDIR)/init
 endif

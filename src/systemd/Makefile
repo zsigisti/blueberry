@@ -32,6 +32,20 @@ all:
 	@# ── tmpfiles: sshd privsep dir ──────────────────────────────────────
 	@install -Dm644 $(THISDIR)/tmpfiles/blueberry.conf \
 	    $(STAGEDIR)/etc/tmpfiles.d/blueberry.conf
+	@# ── mask units that don't apply to a Blueberry image ────────────────
+	@# systemd-firstboot: interactive wizard (ConditionFirstBoot=yes) that
+	@#   blocks boot on the console; the installer provisions hostname/root pw.
+	@# ldconfig: the linker cache is prebuilt at image-assembly time and glibc
+	@#   ships no ldconfig binary in the image.
+	@# systemd-vconsole-setup: needs kbd (setfont/loadkeys), not shipped.
+	@mkdir -p $(STAGEDIR)/etc/systemd/system
+	@for u in systemd-firstboot.service ldconfig.service systemd-vconsole-setup.service; do \
+	    ln -sf /dev/null $(STAGEDIR)/etc/systemd/system/$$u; \
+	done
+	@# Default locale so nothing prompts; empty machine-id → systemd-machine-id
+	@# -setup commits a unique id on first boot (firstboot itself stays masked).
+	@printf 'LANG=C.UTF-8\n' > $(STAGEDIR)/etc/locale.conf
+	@: > $(STAGEDIR)/etc/machine-id
 	@# ── default target = multi-user (no graphical) ──────────────────────
 	@mkdir -p $(STAGEDIR)/etc/systemd/system
 	@ln -sf $(SYSTEMD_UNITDIR)/multi-user.target \

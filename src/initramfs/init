@@ -186,8 +186,12 @@ if [ -n "$ROOT" ]; then
             _dev=$(findfs "$ROOT" 2>/dev/null) && [ -n "$_dev" ] && ROOT="$_dev" ;;
     esac
     mkdir -p /mnt/root
+    # Accept the init if it's executable OR a symlink: an absolute symlink (e.g.
+    # systemd's /sbin/init -> /usr/lib/systemd/systemd) can't be -x tested from
+    # here because its target resolves against the initramfs root, not the
+    # mounted rootfs; switch_root resolves it correctly inside the new root.
     if mount -t "$ROOTFSTYPE" -o "$ROOTFLAGS" "$ROOT" /mnt/root 2>/dev/null \
-       && [ -x "/mnt/root$INIT" ]; then
+       && { [ -x "/mnt/root$INIT" ] || [ -L "/mnt/root$INIT" ]; }; then
         for d in proc sys dev run; do
             mkdir -p "/mnt/root/$d"
             mount --move "/$d" "/mnt/root/$d" 2>/dev/null
