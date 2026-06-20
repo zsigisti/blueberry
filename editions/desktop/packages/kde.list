@@ -1,0 +1,37 @@
+# kde.list — KDE Plasma 6 spin (the DEFAULT Blueberry Desktop experience).
+# Bundled on top of common.list. Self-hosted from packages/<name>.
+
+# ── Qt 6 ──────────────────────────────────────────────────────────────────────
+qt6-base
+qt6-declarative
+qt6-wayland
+qt6-svg
+qt6-multimedia
+qt6-5compat
+
+# ── KDE Frameworks 6 (core subset; expands as the tree fills in) ──────────────
+kf6-kcoreaddons
+kf6-kconfig
+kf6-kwidgetsaddons
+kf6-kio
+kf6-kservice
+kf6-kwindowsystem
+kf6-plasma
+
+# ── Plasma workspace ──────────────────────────────────────────────────────────
+plasma-workspace
+plasma-desktop
+kwin
+systemsettings
+plasma-nm              # NetworkManager applet
+plasma-pa              # PipeWire/PulseAudio applet
+powerdevil
+kscreen
+breeze
+breeze-gtk             # consistent GTK app theming inside Plasma
+sddm-kcm               # SDDM config module + Breeze greeter theme
+
+# ── Core apps ─────────────────────────────────────────────────────────────────
+dolphin                # file manager
+konsole                # terminal
+kate                   # editor

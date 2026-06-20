@@ -54,6 +54,15 @@ ifeq ($(INIT),systemd)
   BASE_PKGS += $(SYSTEMD_BASE_PKGS)
 endif
 
+# ── Desktop edition (Blueberry Desktop) ───────────────────────────────────────
+# Opt-in downstream edition: a GUI, user-oriented distro with Ubuntu-style
+# releases and a live Calamares installer (KDE Plasma default, GNOME optional).
+# Only active for `make desktop-*` goals or EDITION=desktop, so the minimal CLI
+# build is untouched otherwise. See editions/desktop/.
+ifneq ($(filter desktop desktop-%,$(MAKECMDGOALS))$(filter desktop,$(EDITION)),)
+  include $(TOPDIR)/editions/desktop/profile.mk
+endif
+
 LINUX_SRC      := $(OBJDIR_SRC)/linux-$(LINUX_VERSION)
 BUSYBOX_SRC    := $(OBJDIR_SRC)/busybox-$(BUSYBOX_VERSION)
 RUNIT_SRC      := $(OBJDIR_SRC)/runit-$(RUNIT_VERSION)
