@@ -1,0 +1,36 @@
+# Maintainer: Blueberry Linux <packages@blueberry.linux>
+pkgname=harfbuzz
+pkgver=10.1.0
+pkgrel=1
+pkgdesc='OpenType text shaping engine'
+arch=('x86_64')
+url='https://github.com/harfbuzz/harfbuzz'
+license=('MIT')
+depends=('glib2' 'freetype2' 'glibc')
+provides=('libharfbuzz.so' 'libharfbuzz-subset.so')
+# LTO breaks the C++ link (__gxx_personality_v0 undefined via the cc driver).
+# It comes from BOTH makepkg's CFLAGS (!lto strips it) and arch-meson's forced
+# -Db_lto=true (b_lto=false in build() overrides it) — both are needed.
+options=('!lto')
+# glib2-devel supplies glib-mkenums (Arch split it out of glib2).
+makedepends=('meson' 'ninja' 'python' 'glib2-devel')
+source=("https://github.com/harfbuzz/harfbuzz/releases/download/$pkgver/harfbuzz-$pkgver.tar.xz")
+sha256sums=('6ce3520f2d089a33cef0fc48321334b8e0b72141f6a763719aaaecd2779ecb82')
+
+build() {
+  # harfbuzz links its lib with the C driver (cc) and no libstdc++ by design.
+  # makepkg's default -fexceptions injects a __gxx_personality_v0 reference that
+  # then can't resolve -> strip it and force -fno-exceptions to match upstream.
+  export CXXFLAGS="${CXXFLAGS//-fexceptions/} -fno-exceptions"
+  arch-meson "$pkgname-$pkgver" build \
+    -D b_lto=false \
+    -D glib=enabled -D freetype=enabled -D cairo=disabled \
+    -D icu=disabled -D graphite2=disabled -D chafa=disabled \
+    -D tests=disabled -D docs=disabled -D introspection=disabled
+  meson compile -C build
+}
+
+package() {
+  meson install -C build --destdir "$pkgdir"
+  install -Dm644 "$pkgname-$pkgver/COPYING" "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+}
