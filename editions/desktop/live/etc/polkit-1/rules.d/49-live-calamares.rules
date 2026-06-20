@@ -1,0 +1,10 @@
+// 49-live-calamares.rules — let the live 'wheel' user run the installer without
+// a password prompt. Live session only; the installed system ships normal
+// polkit defaults (this file is not copied to the target by unpackfs's exclude).
+polkit.addRule(function(action, subject) {
+    if ((action.id == "org.freedesktop.policykit.exec" ||
+         action.id.indexOf("com.calamares") === 0) &&
+        subject.isInGroup("wheel")) {
+        return polkit.Result.YES;
+    }
+});

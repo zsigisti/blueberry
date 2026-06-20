@@ -7,6 +7,9 @@
 #
 # Kernel command-line parameters understood:
 #   bbtest                run the in-guest self-test, print result, power off
+#   blueberry.live=1      live desktop boot: mount the medium's squashfs as an
+#                         overlayfs root and switch_root into systemd (graphical)
+#   root=live:CDLABEL=ID  names the live medium for blueberry.live (else scanned)
 #   root=<dev|LABEL|UUID> mount that device and switch_root into it instead
 #   rootfstype=<type>     filesystem type for root= (default: auto)
 #   rootflags=<flags>     mount flags for root= (default: ro)
@@ -49,6 +52,7 @@ QUIET=$(cmdline quiet)
 DEBUG=$(cmdline debug)
 BBTEST=$(cmdline bbtest)
 BBINSTALL=$(cmdline bbinstall)
+LIVE=$(cmdline blueberry.live)
 ROOT=$(cmdline root)
 
 [ -n "$DEBUG" ] && set -x
@@ -170,10 +174,67 @@ if [ -n "$CRYPTDEV" ] && command -v cryptsetup >/dev/null 2>&1; then
     fi
 fi
 
+# ── Live desktop mode (squashfs + overlay) ────────────────────────────────────
+# `blueberry.live=1` (set by the desktop ISO's GRUB menu) boots the live image:
+# find the install medium, mount its read-only squashfs as the lower layer of an
+# overlayfs with a tmpfs upper, and switch_root into it so systemd reaches the
+# graphical target. The medium stays mounted at /run/live/medium so Calamares'
+# unpackfs can copy the squashfs to disk. root=live:CDLABEL=<volid> names it.
+if [ -n "$LIVE" ]; then
+    # Pull the volume label out of root=live:CDLABEL=<volid> (fallback: scan).
+    LABEL=""
+    case "$ROOT" in live:CDLABEL=*) LABEL=${ROOT#live:CDLABEL=} ;; esac
+    # Load the modules a live root needs if they aren't built in.
+    for m in loop squashfs overlay isofs cdrom sr_mod usb_storage; do
+        modprobe "$m" 2>/dev/null || true
+    done
+    mkdir -p /run/live/medium /run/live/rootfs.ro /run/live/overlay /mnt/root
+    # Locate the medium: by label first, else probe every block device for the
+    # live squashfs (handles USB sticks whose label differs from the ISO volid).
+    MEDIUM=""
+    if [ -n "$LABEL" ]; then
+        _d=$(findfs "LABEL=$LABEL" 2>/dev/null) && [ -b "$_d" ] && MEDIUM=$_d
+    fi
+    _try=0
+    while [ -z "$MEDIUM" ] && [ $_try -lt 20 ]; do
+        [ -x /bin/mdev ] && mdev -s 2>/dev/null
+        for _b in /dev/sr* /dev/sd* /dev/vd* /dev/nvme*n*; do
+            [ -b "$_b" ] || continue
+            if mount -t iso9660 -o ro "$_b" /run/live/medium 2>/dev/null \
+               || mount -o ro "$_b" /run/live/medium 2>/dev/null; then
+                [ -f /run/live/medium/live/filesystem.squashfs ] && { MEDIUM=$_b; break; }
+                umount /run/live/medium 2>/dev/null
+            fi
+        done
+        [ -n "$MEDIUM" ] && break
+        sleep 0.5; _try=$((_try + 1))
+    done
+    if [ -n "$MEDIUM" ]; then
+        mountpoint -q /run/live/medium 2>/dev/null \
+            || mount -o ro "$MEDIUM" /run/live/medium 2>/dev/null
+        if mount -t squashfs -o ro /run/live/medium/live/filesystem.squashfs \
+                 /run/live/rootfs.ro 2>/dev/null; then
+            mount -t tmpfs -o mode=0755 live-overlay /run/live/overlay
+            mkdir -p /run/live/overlay/upper /run/live/overlay/work
+            if mount -t overlay overlay \
+                 -o lowerdir=/run/live/rootfs.ro,upperdir=/run/live/overlay/upper,workdir=/run/live/overlay/work \
+                 /mnt/root 2>/dev/null; then
+                for d in proc sys dev run; do
+                    mkdir -p "/mnt/root/$d"
+                    mount --move "/$d" "/mnt/root/$d" 2>/dev/null
+                done
+                echo "BLUEBERRY_LIVE_BOOT=OK medium=$MEDIUM"
+                exec switch_root /mnt/root /sbin/init
+            fi
+        fi
+    fi
+    echo "init: live medium not found/usable — falling back to live CLI shell" >&2
+fi
+
 # ── Disk boot mode (optional) ─────────────────────────────────────────────────
 # If root= was given, mount it and hand off to the real init. Otherwise we
 # run as a live system entirely from RAM.
-if [ -n "$ROOT" ]; then
+if [ -n "$ROOT" ] && [ -z "$LIVE" ]; then
     ROOTFSTYPE=$(cmdline rootfstype); : "${ROOTFSTYPE:=auto}"
     ROOTFLAGS=$(cmdline rootflags);   : "${ROOTFLAGS:=ro}"
     # /sbin/init is the init-agnostic entry point: runit images symlink it to

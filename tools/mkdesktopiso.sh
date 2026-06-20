@@ -1,0 +1,150 @@
+#!/bin/bash
+# mkdesktopiso.sh — build a live, Calamares-installable Blueberry Desktop ISO.
+#
+# Unlike the CLI mkiso.sh (which boots a RAM-only shell), this produces a live
+# desktop: the kernel + initramfs mount a read-only squashfs of the full DE with
+# a tmpfs overlay, systemd reaches graphical.target, SDDM auto-logs into the
+# desktop, and "Install Blueberry Desktop" launches Calamares.
+#
+# Invoked by `make desktop-iso` (editions/desktop/profile.mk), which exports:
+#   DE BBD_NAME BBD_VERSION BBD_FULLVERSION BBD_CODENAME BBD_CHANNEL
+#   STAGEDIR DESKTOPDIR BOOTDIR ARCH
+#
+# Usage: tools/mkdesktopiso.sh <output.iso>
+set -euo pipefail
+
+OUTPUT=${1:?usage: $0 <output.iso>}
+: "${DE:=kde}" "${STAGEDIR:?}" "${DESKTOPDIR:?}" "${BOOTDIR:?}" "${ARCH:=x86_64}"
+: "${BBD_NAME:=Blueberry Desktop}" "${BBD_VERSION:=0.0}"
+: "${BBD_FULLVERSION:=$BBD_VERSION}" "${BBD_CODENAME:=}" "${BBD_CHANNEL:=stable}"
+
+log()  { printf '\033[1;35m==> %s\033[0m\n' "$*"; }
+warn() { printf '\033[1;33mWARN: %s\033[0m\n' "$*" >&2; }
+die()  { printf '\033[1;31mFATAL: %s\033[0m\n' "$*" >&2; exit 1; }
+
+# ── DE → display manager + live session mapping ───────────────────────────────
+case "$DE" in
+  kde)   DEFAULT_DM=sddm; LIVE_SESSION=plasma ;;
+  gnome) DEFAULT_DM=gdm;  LIVE_SESSION=gnome  ;;
+  *) die "unknown DE '$DE' (kde|gnome)" ;;
+esac
+VOLID="BLUEBERRY_$(echo "$BBD_VERSION" | tr -d .)"
+
+# ── Tool checks ───────────────────────────────────────────────────────────────
+command -v mksquashfs   >/dev/null || die "mksquashfs not found (squashfs-tools)"
+command -v grub-mkrescue >/dev/null || die "grub-mkrescue not found (grub2)"
+command -v xorriso      >/dev/null || die "xorriso not found"
+
+VMLINUZ="$BOOTDIR/vmlinuz"
+INITRD="$BOOTDIR/initramfs.cpio.zst"
+[ -f "$VMLINUZ" ] || die "kernel missing: $VMLINUZ (run 'make install')"
+[ -f "$INITRD"  ] || die "initramfs missing: $INITRD (run 'make install')"
+
+# ── Sanity: is the desktop actually staged? ───────────────────────────────────
+# The DE package tree is built incrementally; until SDDM and the compositor are
+# present the ISO will boot but not reach a graphical session. Be explicit.
+if [ ! -e "$STAGEDIR/usr/bin/sddm" ] && [ ! -e "$STAGEDIR/usr/bin/gdm" ]; then
+    warn "no display manager found in the staged rootfs ($STAGEDIR)."
+    warn "the $DE package tree is not built yet — this ISO will be a base"
+    warn "system with the live/installer scaffolding but no graphical session."
+    [ "${FORCE:-0}" = 1 ] || die "refusing to build a non-graphical 'desktop' ISO; set FORCE=1 to override."
+fi
+
+WORK=$(mktemp -d /tmp/bbd-iso.XXXXXX)
+trap 'rm -rf "$WORK"' EXIT
+LIVEROOT="$WORK/liveroot"
+ISO_ROOT="$WORK/iso"
+mkdir -p "$ISO_ROOT/boot/grub" "$ISO_ROOT/live" "$ISO_ROOT/EFI/BOOT"
+
+# ── Assemble the live root (hardlink-clone the staged rootfs, then overlay) ────
+log "cloning staged rootfs → live root"
+cp -al "$STAGEDIR" "$LIVEROOT" 2>/dev/null || cp -a "$STAGEDIR" "$LIVEROOT"
+
+log "laying down live-session overlay (DM=$DEFAULT_DM session=$LIVE_SESSION)"
+cp -a "$DESKTOPDIR/live/." "$LIVEROOT/"
+
+# Template the live session + DM placeholders.
+find "$LIVEROOT/etc/sddm.conf.d" -type f -exec \
+    sed -i "s/@@LIVE_SESSION@@/$LIVE_SESSION/g" {} + 2>/dev/null || true
+
+# ── Calamares config into the live root ───────────────────────────────────────
+log "installing Calamares config + branding"
+mkdir -p "$LIVEROOT/etc/calamares"
+cp -a "$DESKTOPDIR/calamares/settings.conf" "$LIVEROOT/etc/calamares/"
+cp -a "$DESKTOPDIR/calamares/modules"        "$LIVEROOT/etc/calamares/"
+cp -a "$DESKTOPDIR/calamares/branding"       "$LIVEROOT/etc/calamares/"
+# Substitute branding + DM tokens everywhere they appear.
+grep -rl '@@' "$LIVEROOT/etc/calamares" 2>/dev/null | while read -r f; do
+    sed -i \
+        -e "s/@@VERSION@@/$BBD_VERSION/g" \
+        -e "s/@@FULLVERSION@@/$BBD_FULLVERSION/g" \
+        -e "s/@@CODENAME@@/$BBD_CODENAME/g" \
+        -e "s/@@DEFAULT_DM@@/$DEFAULT_DM/g" \
+        "$f"
+done
+
+# ── systemd: boot to the graphical target, enable the DM ──────────────────────
+log "enabling graphical target + $DEFAULT_DM in the live root"
+ln -sf /usr/lib/systemd/system/graphical.target "$LIVEROOT/etc/systemd/system/default.target"
+mkdir -p "$LIVEROOT/etc/systemd/system/graphical.target.wants"
+ln -sf "/usr/lib/systemd/system/$DEFAULT_DM.service" \
+    "$LIVEROOT/etc/systemd/system/graphical.target.wants/$DEFAULT_DM.service"
+ln -sf /usr/lib/systemd/system/NetworkManager.service \
+    "$LIVEROOT/etc/systemd/system/multi-user.target.wants/NetworkManager.service" 2>/dev/null || true
+
+# Free-but-honest /etc/os-release so the live + installed system identify right.
+cat > "$LIVEROOT/etc/os-release" <<EOF
+NAME="$BBD_NAME"
+PRETTY_NAME="$BBD_NAME $BBD_FULLVERSION ($BBD_CODENAME)"
+ID=blueberry-desktop
+ID_LIKE=blueberry
+VERSION="$BBD_FULLVERSION"
+VERSION_ID="$BBD_VERSION"
+VERSION_CODENAME="$BBD_CODENAME"
+BUILD_ID="$BBD_CHANNEL"
+HOME_URL="https://repo.mmzsigmond.me"
+EOF
+cp -a "$LIVEROOT/etc/os-release" "$ISO_ROOT/" 2>/dev/null || true
+
+# ── Squash the live root ──────────────────────────────────────────────────────
+log "building squashfs (zstd) — this is the bulk of the build"
+mksquashfs "$LIVEROOT" "$ISO_ROOT/live/filesystem.squashfs" \
+    -comp zstd -Xcompression-level 19 -noappend -quiet \
+    -e boot/vmlinuz boot/initramfs.cpio.zst
+
+# ── Boot assets ───────────────────────────────────────────────────────────────
+cp "$VMLINUZ" "$ISO_ROOT/boot/vmlinuz"
+cp "$INITRD"  "$ISO_ROOT/boot/initramfs.cpio.zst"
+
+# ── GRUB menu (live: try + install) ───────────────────────────────────────────
+# blueberry.live=1 tells the initramfs to mount the squashfs + tmpfs overlay
+# instead of a disk root. CDLABEL lets it find the medium by volume id.
+cat > "$ISO_ROOT/boot/grub/grub.cfg" <<EOF
+set default=0
+set timeout=10
+set timeout_style=menu
+if [ "\$grub_platform" = "efi" ]; then set gfxpayload=keep; else set gfxpayload=text; fi
+
+menuentry "Try $BBD_NAME $BBD_FULLVERSION ($DE)" {
+    linux /boot/vmlinuz blueberry.live=1 root=live:CDLABEL=$VOLID console=tty0 quiet splash systemd.unified_cgroup_hierarchy=1
+    initrd /boot/initramfs.cpio.zst
+}
+menuentry "Install $BBD_NAME $BBD_FULLVERSION ($DE)" {
+    linux /boot/vmlinuz blueberry.live=1 blueberry.installer=1 root=live:CDLABEL=$VOLID console=tty0 quiet splash systemd.unified_cgroup_hierarchy=1
+    initrd /boot/initramfs.cpio.zst
+}
+menuentry "Try (safe graphics / nomodeset)" {
+    linux /boot/vmlinuz blueberry.live=1 root=live:CDLABEL=$VOLID console=tty0 nomodeset systemd.unified_cgroup_hierarchy=1
+    initrd /boot/initramfs.cpio.zst
+}
+EOF
+
+# ── Build the hybrid ISO ──────────────────────────────────────────────────────
+log "building hybrid BIOS+UEFI ISO: $OUTPUT"
+mkdir -p "$(dirname "$OUTPUT")"
+grub-mkrescue --output "$OUTPUT" "$ISO_ROOT" -- -volid "$VOLID" >/dev/null 2>&1 \
+    || grub-mkrescue --output "$OUTPUT" "$ISO_ROOT" -- -volid "$VOLID"
+
+log "ISO written: $OUTPUT ($(du -sh "$OUTPUT" | cut -f1))"
+log "Boot:  qemu-system-x86_64 -cdrom $OUTPUT -m 4096 -enable-kvm -vga virtio"
+log "USB:   dd if=$OUTPUT of=/dev/sdX bs=4M status=progress oflag=sync"
