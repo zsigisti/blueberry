@@ -1,0 +1,28 @@
+# Maintainer: Blueberry Linux <packages@blueberry.linux>
+pkgname=glib2
+pkgver=2.82.4
+pkgrel=1
+pkgdesc='Low-level core library for the GLib/GTK stack'
+arch=('x86_64')
+url='https://gitlab.gnome.org/GNOME/glib'
+license=('LGPL-2.1-or-later')
+depends=('pcre2' 'libffi' 'zlib' 'util-linux')
+provides=('libglib-2.0.so' 'libgobject-2.0.so' 'libgio-2.0.so'
+          'libgmodule-2.0.so' 'libgthread-2.0.so')
+makedepends=('meson' 'ninja' 'python' 'gettext')
+source=("https://download.gnome.org/sources/glib/${pkgver%.*}/glib-$pkgver.tar.xz")
+sha256sums=('37dd0877fe964cd15e9a2710b044a1830fb1bd93652a6d0cb6b8b2dff187c709')
+
+build() {
+  arch-meson "glib-$pkgver" build \
+    -D selinux=disabled -D man-pages=disabled -D documentation=false \
+    -D tests=false -D introspection=disabled -D dtrace=disabled \
+    -D systemtap=disabled -D sysprof=disabled
+  meson compile -C build
+}
+
+package() {
+  meson install -C build --destdir "$pkgdir"
+  install -Dm644 "glib-$pkgver/LICENSES/LGPL-2.1-or-later.txt" \
+    "$pkgdir/usr/share/licenses/$pkgname/LICENSE" 2>/dev/null || true
+}

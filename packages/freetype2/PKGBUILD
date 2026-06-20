@@ -1,0 +1,28 @@
+# Maintainer: Blueberry Linux <packages@blueberry.linux>
+pkgname=freetype2
+pkgver=2.13.3
+pkgrel=1
+pkgdesc='Font rasterization library'
+arch=('x86_64')
+url='https://www.freetype.org/'
+license=('custom')
+# zstd is host-provided; harfbuzz disabled here to break the freetype<->harfbuzz
+# build cycle (harfbuzz later builds against this freetype).
+depends=('zlib' 'bzip2' 'libpng' 'brotli' 'glibc')
+provides=('libfreetype.so')
+makedepends=('meson' 'ninja')
+source=("https://downloads.sourceforge.net/freetype/freetype-$pkgver.tar.xz")
+sha256sums=('0550350666d427c74daeb85d5ac7bb353acba5f76956395995311a9c6f063289')
+
+build() {
+  arch-meson "freetype-$pkgver" build \
+    -D harfbuzz=disabled -D png=enabled -D bzip2=enabled -D brotli=enabled \
+    -D zlib=enabled
+  meson compile -C build
+}
+
+package() {
+  meson install -C build --destdir "$pkgdir"
+  install -Dm644 "freetype-$pkgver/LICENSE.TXT" \
+    "$pkgdir/usr/share/licenses/$pkgname/LICENSE.TXT"
+}
