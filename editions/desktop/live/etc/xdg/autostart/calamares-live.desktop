@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Install Blueberry Desktop
+Comment=Launch the Blueberry Desktop installer
+Exec=sh -c 'test -e /run/live/medium && exec pkexec calamares'
+Icon=calamares
+Terminal=false
+# Only autostart inside the live session (the medium marker is absent on the
+# installed system, so this is a no-op there even if it lingers).
+X-GNOME-Autostart-enabled=true
+NoDisplay=false
