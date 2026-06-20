@@ -1,0 +1,44 @@
+# common.list — graphical base shared by every Blueberry Desktop spin.
+# Built from packages/<name> the same way as the base image (self-hosted; no
+# Arch mirrors). Lines starting with '#' and blank lines are ignored.
+#
+# This is the dependency closure the build server fills in incrementally; a
+# package listed here must have a packages/<name>/PKGBUILD before `desktop-iso`
+# can bundle it. Order is roughly bottom-up (libs before consumers).
+
+# ── Display / graphics stack ──────────────────────────────────────────────────
+wayland
+wayland-protocols
+libdrm
+mesa
+libglvnd
+vulkan-icd-loader
+xorg-xwayland          # X11 app compatibility under Wayland
+
+# ── Session / policy / login ──────────────────────────────────────────────────
+pam
+polkit
+xdg-desktop-portal
+xdg-utils
+sddm                   # display manager (default greeter for both spins)
+
+# ── Audio ─────────────────────────────────────────────────────────────────────
+pipewire
+wireplumber
+
+# ── Networking (desktop) ──────────────────────────────────────────────────────
+networkmanager
+
+# ── Bluetooth / printing ──────────────────────────────────────────────────────
+bluez
+cups
+
+# ── Fonts / theming base ──────────────────────────────────────────────────────
+fontconfig
+freetype2
+harfbuzz
+noto-fonts
+noto-fonts-emoji
+
+# ── Installer (live ISO only; not copied to the target) ───────────────────────
+calamares

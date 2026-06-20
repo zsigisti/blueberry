@@ -1,0 +1,64 @@
+# profile.mk — Blueberry Desktop edition build fragment.
+#
+# Included by the top-level GNUmakefile. Adds the desktop package sets and the
+# `desktop-iso` target, which produces a live, Calamares-installable ISO built
+# on the same base (kernel, glibc, systemd, bpm) as the CLI distro.
+#
+# The desktop edition implies INIT=systemd: GNOME and Plasma both require
+# logind/seat management, so selecting it here is non-negotiable.
+#
+# Usage:
+#   make desktop-iso              # KDE Plasma (default), current release
+#   make desktop-iso DE=gnome     # GNOME spin
+#   make desktop-iso DE=kde BBD_VERSION=26.04 BBD_CODENAME="Bright Bilberry"
+
+include $(TOPDIR)/editions/desktop/release.mk
+
+DESKTOPDIR := $(TOPDIR)/editions/desktop
+
+# ── Desktop environment selection ─────────────────────────────────────────────
+# KDE is the default per project decision; GNOME is the documented alternative.
+DE ?= kde
+ifeq ($(filter $(DE),kde gnome),)
+  $(error DE must be 'kde' or 'gnome' (got '$(DE)'))
+endif
+
+# A desktop is a graphical, logind-backed system: force systemd.
+INIT := systemd
+
+# ── Resolve the package closure from the manifests ────────────────────────────
+# Strip comments/blank lines from common.list + the chosen DE list.
+_list = $(shell sed -e 's/#.*//' -e '/^[[:space:]]*$$/d' $(1) 2>/dev/null)
+DESKTOP_COMMON_PKGS := $(call _list,$(DESKTOPDIR)/packages/common.list)
+DESKTOP_DE_PKGS     := $(call _list,$(DESKTOPDIR)/packages/$(DE).list)
+DESKTOP_PKGS        := $(DESKTOP_COMMON_PKGS) $(DESKTOP_DE_PKGS)
+
+# These add to the base image's BASE_PKGS so the installed system has the DE.
+BASE_PKGS += $(DESKTOP_PKGS)
+
+.PHONY: desktop-iso desktop-pkgs desktop-info
+
+desktop-info: desktop-version
+	@echo "  edition : $(DE)   init: $(INIT)"
+	@echo "  packages: $(words $(DESKTOP_PKGS)) ($(words $(DESKTOP_COMMON_PKGS)) common + $(words $(DESKTOP_DE_PKGS)) $(DE))"
+
+# Build (or skip-if-fresh) every desktop package into $(OBJDIR)/basepkgs.
+desktop-pkgs:
+	@echo "[desktop] building $(words $(DESKTOP_PKGS)) packages for the $(DE) spin"
+	@sh $(TOPDIR)/tools/build-pkgs.sh $(OBJDIR)/basepkgs $(DESKTOP_PKGS)
+
+# Full live ISO: base install (systemd) + DE + SDDM autostart → Calamares.
+desktop-iso: install
+	@echo "[desktop] assembling live ISO: $(BBD_NAME) $(BBD_FULLVERSION) ($(DE))"
+	@DE=$(DE) \
+	 BBD_NAME="$(BBD_NAME)" \
+	 BBD_VERSION="$(BBD_VERSION)" \
+	 BBD_FULLVERSION="$(BBD_FULLVERSION)" \
+	 BBD_CODENAME="$(BBD_CODENAME)" \
+	 BBD_CHANNEL="$(BBD_CHANNEL)" \
+	 STAGEDIR="$(STAGEDIR)" \
+	 DESKTOPDIR="$(DESKTOPDIR)" \
+	 BOOTDIR="$(BOOTDIR)" \
+	 ARCH="$(ARCH)" \
+	 bash $(TOPDIR)/tools/mkdesktopiso.sh \
+	    $(TOPDIR)/iso/blueberry-desktop-$(BBD_VERSION)-$(DE)-$(ARCH).iso

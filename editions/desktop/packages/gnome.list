@@ -1,0 +1,23 @@
+# gnome.list — GNOME spin (optional alternative; selectable at install time).
+# Bundled on top of common.list. Self-hosted from packages/<name>.
+
+# ── GLib / GTK 4 ──────────────────────────────────────────────────────────────
+glib2
+gobject-introspection
+gtk4
+libadwaita
+
+# ── GNOME shell + session ─────────────────────────────────────────────────────
+mutter
+gnome-shell
+gnome-session
+gnome-settings-daemon
+gnome-control-center
+gdm                    # GNOME uses GDM; SDDM (common.list) still works as fallback
+gnome-keyring
+xdg-desktop-portal-gnome
+
+# ── Core apps ─────────────────────────────────────────────────────────────────
+nautilus               # file manager
+gnome-terminal
+gnome-text-editor
