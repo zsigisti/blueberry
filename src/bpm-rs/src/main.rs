@@ -83,6 +83,10 @@ fn split_flags(args: &[String]) -> (bool, Vec<String>) {
     for a in args {
         match a.as_str() {
             "-f" | "--force" => force = true,
+            // -y/--yes is meaningful for confirmation prompts (autoremove);
+            // install/remove don't prompt, so accept and ignore it rather than
+            // mistaking it for a package name.
+            "-y" | "--yes" => {}
             _ => pos.push(a.clone()),
         }
     }
@@ -423,8 +427,8 @@ fn cmd_update(cfg: &Config) -> Result<(), String> {
         let mut got = false;
         for url in it {
             println!(":: syncing '{repo}' from {url}");
-            if net::get(&format!("{url}/bpm.index"), &tmp).is_err() {
-                eprintln!("bpm: warning: mirror unreachable: {url}");
+            if let Err(e) = net::get(&format!("{url}/bpm.index"), &tmp) {
+                eprintln!("bpm: warning: mirror unreachable: {url} ({e})");
                 continue;
             }
             let body = match std::fs::read(&tmp) {

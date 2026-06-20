@@ -35,7 +35,7 @@ pub fn fetch(cfg: &Config, entry: &Entry) -> Result<PathBuf, String> {
                 got = true;
                 break;
             }
-            Err(_) => eprintln!("bpm: warning: mirror unreachable: {m}"),
+            Err(e) => eprintln!("bpm: warning: mirror unreachable: {m} ({e})"),
         }
     }
     if !got {

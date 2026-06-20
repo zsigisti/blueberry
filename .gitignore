@@ -19,3 +19,6 @@ serial.log
 /iso/
 /disk/
 .idea/
+
+# KDE Dolphin folder metadata
+.directory
