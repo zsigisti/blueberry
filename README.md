@@ -108,9 +108,11 @@ src/
 
 packages/           bpm package recipes (PKGBUILD format)
 recipe-hub/         Self-hostable web app for community PKGBUILD submissions
+editions/desktop/   Blueberry Desktop: GUI edition, Ubuntu-style releases,
+                    live Calamares ISO (KDE Plasma default, GNOME optional)
 etc/                /etc skeleton (hostname, fstab, sysctl, accounts, bpm config)
 tools/              Host-only scripts: qemu.sh, mkiso.sh, mkdisk.sh, build-pkgs.sh,
-                    mkrepo.sh, blueberry-repo-sync.sh, blueberry-build-server.sh
+                    mkdesktopiso.sh, mkrepo.sh, blueberry-repo-sync.sh
 doc/                Documentation
 ```
 
@@ -124,6 +126,7 @@ QEMU ─► vmlinuz ─► initramfs /init (PID 1)
                      ├─ mount /proc /sys /dev, populate /dev (mdev)
                      ├─ bbtest on cmdline?    ─► run /etc/selftest, print result, halt
                      ├─ bbinstall on cmdline? ─► run blueberry-install unattended, halt
+                     ├─ blueberry.live=1?     ─► squashfs+overlay root, switch_root to systemd (Desktop)
                      ├─ root= on cmdline?     ─► resolve UUID, mount disk, switch_root to runit
                      └─ otherwise             ─► interactive login shell
 ```
@@ -148,6 +151,7 @@ QEMU ─► vmlinuz ─► initramfs /init (PID 1)
 | [doc/WEBSITE.md](doc/WEBSITE.md) | Build & deploy spec for the React site (self-hosted on Rocky/LAN) + release automation |
 | [doc/CONTRIBUTING.md](doc/CONTRIBUTING.md) | How to contribute |
 | [doc/SECURITY.md](doc/SECURITY.md) | Kernel hardening, SSH hardening |
+| [editions/desktop/README.md](editions/desktop/README.md) | Blueberry Desktop: GUI edition, release cadence, live Calamares ISO |
 
 ---
 
