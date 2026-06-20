@@ -1,0 +1,25 @@
+# Maintainer: Blueberry Linux <packages@blueberry.linux>
+pkgname=libxext
+pkgver=1.3.6
+pkgrel=1
+pkgdesc='X11 miscellaneous extensions library'
+arch=('x86_64')
+url='https://gitlab.freedesktop.org/xorg/lib'
+license=('MIT')
+depends=('libx11')
+provides=('libXext.so')
+makedepends=('xorg-util-macros' 'xorgproto' 'pkgconf')
+source=("https://www.x.org/releases/individual/lib/libXext-1.3.6.tar.xz")
+sha256sums=('edb59fa23994e405fdc5b400afdf5820ae6160b94f35e3dc3da4457a16e89753')
+
+build() {
+  cd "libXext-$pkgver"
+  ./configure --prefix=/usr --sysconfdir=/etc --disable-static
+  make
+}
+
+package() {
+  cd "libXext-$pkgver"
+  make DESTDIR="$pkgdir" install
+  install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+}

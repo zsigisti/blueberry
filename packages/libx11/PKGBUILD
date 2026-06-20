@@ -1,0 +1,26 @@
+# Maintainer: Blueberry Linux <packages@blueberry.linux>
+pkgname=libx11
+pkgver=1.8.10
+pkgrel=1
+pkgdesc='Core X11 protocol client library'
+arch=('x86_64')
+url='https://gitlab.freedesktop.org/xorg/lib/libx11'
+license=('MIT')
+depends=('libxcb' 'glibc')
+provides=('libX11.so' 'libX11-xcb.so')
+makedepends=('xorgproto' 'xtrans' 'xorg-util-macros' 'pkgconf')
+source=("https://www.x.org/releases/individual/lib/libX11-$pkgver.tar.xz")
+sha256sums=('2b3b3dad9347db41dca56beb7db5878f283bde1142f04d9f8e478af435dfdc53')
+
+build() {
+  cd "libX11-$pkgver"
+  ./configure --prefix=/usr --sysconfdir=/etc --disable-static \
+    --enable-xcb --disable-specs
+  make
+}
+
+package() {
+  cd "libX11-$pkgver"
+  make DESTDIR="$pkgdir" install
+  install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+}

@@ -1,0 +1,25 @@
+# Maintainer: Blueberry Linux <packages@blueberry.linux>
+pkgname=libxfixes
+pkgver=6.0.1
+pkgrel=1
+pkgdesc='X Fixes extension library'
+arch=('x86_64')
+url='https://gitlab.freedesktop.org/xorg/lib'
+license=('MIT')
+depends=('libx11')
+provides=('libXfixes.so')
+makedepends=('xorg-util-macros' 'xorgproto' 'pkgconf')
+source=("https://www.x.org/releases/individual/lib/libXfixes-6.0.1.tar.xz")
+sha256sums=('b695f93cd2499421ab02d22744458e650ccc88c1d4c8130d60200213abc02d58')
+
+build() {
+  cd "libXfixes-$pkgver"
+  ./configure --prefix=/usr --sysconfdir=/etc --disable-static
+  make
+}
+
+package() {
+  cd "libXfixes-$pkgver"
+  make DESTDIR="$pkgdir" install
+  install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+}

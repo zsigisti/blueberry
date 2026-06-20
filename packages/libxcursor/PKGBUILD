@@ -1,0 +1,25 @@
+# Maintainer: Blueberry Linux <packages@blueberry.linux>
+pkgname=libxcursor
+pkgver=1.2.2
+pkgrel=1
+pkgdesc='X cursor management library'
+arch=('x86_64')
+url='https://gitlab.freedesktop.org/xorg/lib'
+license=('MIT')
+depends=('libxrender' 'libxfixes')
+provides=('libXcursor.so')
+makedepends=('xorg-util-macros' 'xorgproto' 'pkgconf')
+source=("https://www.x.org/releases/individual/lib/libXcursor-1.2.2.tar.xz")
+sha256sums=('53d071bd2cc56e517a30998d5e685c8a74556ddada43c6985d14da9a023a88ee')
+
+build() {
+  cd "libXcursor-$pkgver"
+  ./configure --prefix=/usr --sysconfdir=/etc --disable-static
+  make
+}
+
+package() {
+  cd "libXcursor-$pkgver"
+  make DESTDIR="$pkgdir" install
+  install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+}
