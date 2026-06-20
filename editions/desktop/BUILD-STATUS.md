@@ -61,10 +61,11 @@ Re-enables x11/glx in libxkbcommon, libglvnd; precondition for xorg-xwayland.
 | Package | Status | Notes |
 |---|---|---|
 | libxshmfence | ✅ | DRI3 fence (mesa dep) |
-| llvm | 🔨 | recipe ready, building (X86;AMDGPU dylib, multi-hour) |
-| mesa | 🔨 | recipe ready (Wayland+x11; llvmpipe/radeonsi/iris) — needs llvm |
-| vulkan-icd-loader | ⬜ | |
-| xorg-xwayland | ⬜ | |
+| llvm | ✅ | X86;AMDGPU shared libLLVM dylib (115M) |
+| vulkan-headers | ✅ | |
+| vulkan-icd-loader | ✅ | libvulkan.so, wayland/xcb/xlib WSI |
+| mesa | ✅ | llvmpipe+softpipe software GL (Wayland+x11). radeonsi/iris + Vulkan deferred (LLVM-19 Triple API / libclc) |
+| xorg-xwayland | ⬜ | X11 app compat under Wayland |
 
 ## Layer 5 — toolkits
 Qt 6 (qt6-base → qt6-declarative/wayland/svg/multimedia/5compat) · GTK 4 /
