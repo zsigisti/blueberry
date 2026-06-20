@@ -1,0 +1,39 @@
+# branding.desc — Blueberry Desktop look for Calamares.
+# Installed to /etc/calamares/branding/blueberry/.
+---
+componentName: blueberry
+
+# Strings substituted into installer pages. @@VERSION@@ etc. are filled in by
+# tools/mkdesktopiso.sh from release.mk at ISO build time.
+strings:
+    productName:         Blueberry Desktop
+    shortProductName:    Blueberry
+    version:             "@@VERSION@@"
+    shortVersion:        "@@VERSION@@"
+    versionedName:       "Blueberry Desktop @@FULLVERSION@@ (@@CODENAME@@)"
+    shortVersionedName:  "Blueberry @@VERSION@@"
+    bootloaderEntryName:  Blueberry
+    productUrl:          https://repo.mmzsigmond.me
+    supportUrl:          https://repo.mmzsigmond.me
+    releaseNotesUrl:     https://repo.mmzsigmond.me
+
+# Window behaviour.
+windowExpanding:  normal
+windowSize:       800px,520px
+windowPlacement:  center
+
+# Brand colours (blueberry indigo).
+style:
+   sidebarBackground:    "#2a1a4a"
+   sidebarText:          "#ffffff"
+   sidebarTextSelect:    "#5b8def"
+   sidebarTextHighlight: "#5b8def"
+
+images:
+    productLogo:    "logo.png"
+    productIcon:    "logo.png"
+    productWelcome: "welcome.png"
+
+slideshow: "show.qml"
+
+slideshowAPI: 2
