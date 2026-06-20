@@ -68,8 +68,19 @@ Re-enables x11/glx in libxkbcommon, libglvnd; precondition for xorg-xwayland.
 | xorg-xwayland | ⬜ | X11 app compat under Wayland |
 
 ## Layer 5 — toolkits
-Qt 6 (qt6-base → qt6-declarative/wayland/svg/multimedia/5compat) · GTK 4 /
-libadwaita — ⬜. Qt6-base is the gateway to SDDM, Calamares, and Plasma.
+Qt 6 prerequisites — all ✅: xcb-util, xcb-util-image, xcb-util-keysyms,
+xcb-util-renderutil, xcb-util-wm, xcb-util-cursor, double-conversion, md4c,
+libb2 (+ libxkbcommon rebuilt with X11).
+
+| Package | Status | Notes |
+|---|---|---|
+| qt6-base | ✅ | Core/Gui/Widgets/Network/DBus, xcb + wayland platforms |
+| qt6-declarative | ⬜ | QML/Quick — needed by Plasma, SDDM greeters |
+| qt6-wayland | ⬜ | Qt Wayland platform integration |
+| qt6-svg / qt6-5compat / qt6-multimedia | ⬜ | |
+| gtk4 / libadwaita | ⬜ | GNOME toolkit |
+
+Qt6-base is the gateway to SDDM, Calamares, and Plasma.
 
 ## Layer 6 — desktop
 KDE Frameworks 6 (~80 pkgs) → Plasma (kwin, plasma-workspace, …) → apps.
