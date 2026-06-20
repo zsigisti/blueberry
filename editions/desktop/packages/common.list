@@ -6,14 +6,29 @@
 # package listed here must have a packages/<name>/PKGBUILD before `desktop-iso`
 # can bundle it. Order is roughly bottom-up (libs before consumers).
 
+# ── Foundation libraries (layer 0/1 — built & verified from source) ───────────
+# Bottom-up order: these underpin the whole graphical stack. zlib/zstd/xz are
+# host-provided (etc/bpm/provided), so they are not listed here.
+libpng
+libjpeg-turbo
+pixman
+libxml2
+libpciaccess
+freetype2
+glib2
+fontconfig
+harfbuzz
+xkeyboard-config
+libxkbcommon
+
 # ── Display / graphics stack ──────────────────────────────────────────────────
 wayland
 wayland-protocols
 libdrm
-mesa
 libglvnd
+mesa                   # needs LLVM (heavy) — build-server layer
 vulkan-icd-loader
-xorg-xwayland          # X11 app compatibility under Wayland
+xorg-xwayland          # X11 app compatibility under Wayland (needs xcb sub-layer)
 
 # ── Session / policy / login ──────────────────────────────────────────────────
 pam

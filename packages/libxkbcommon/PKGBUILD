@@ -1,0 +1,27 @@
+# Maintainer: Blueberry Linux <packages@blueberry.linux>
+pkgname=libxkbcommon
+pkgver=1.7.0
+pkgrel=1
+pkgdesc='Keyboard handling library using XKB data (Wayland)'
+arch=('x86_64')
+url='https://xkbcommon.org/'
+license=('MIT')
+# Wayland-only build for now: x11/xcb support is added once the libxcb sub-layer
+# is packaged. xkeyboard-config supplies the runtime keymap data.
+depends=('xkeyboard-config' 'libxml2' 'glibc')
+provides=('libxkbcommon.so')
+makedepends=('meson' 'ninja' 'bison' 'wayland' 'wayland-protocols')
+source=("https://xkbcommon.org/download/libxkbcommon-$pkgver.tar.xz")
+sha256sums=('65782f0a10a4b455af9c6baab7040e2f537520caa2ec2092805cdfd36863b247')
+
+build() {
+  arch-meson "$pkgname-$pkgver" build \
+    -D enable-docs=false -D enable-x11=false -D enable-wayland=true \
+    -D xkb-config-root=/usr/share/X11/xkb
+  meson compile -C build
+}
+
+package() {
+  meson install -C build --destdir "$pkgdir"
+  install -Dm644 "$pkgname-$pkgver/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
