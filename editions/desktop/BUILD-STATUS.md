@@ -4,7 +4,7 @@ Tracks the self-hosted graphical stack as it is built from source into
 `packages/`. The framework (release cadence, Calamares, live ISO, initramfs
 live-boot) is **complete**; this file tracks the **package tree** that fills it.
 
-Legend: ✅ built & verified in the Arch build container · ⬜ recipe TODO
+Legend: ✅ built & verified · 🔨 recipe written, building/queued · ⬜ recipe TODO
 
 ## Layer 0 — foundation (no graphics deps)
 | Package | Status | Notes |
@@ -60,10 +60,11 @@ Re-enables x11/glx in libxkbcommon, libglvnd; precondition for xorg-xwayland.
 ## Layer 4 — GPU / GL
 | Package | Status | Notes |
 |---|---|---|
-| llvm | ⬜ | heavy (~multi-hour) — mesa dep |
-| mesa | ⬜ | Wayland+EGL first; GLX after layer 3 |
+| libxshmfence | ✅ | DRI3 fence (mesa dep) |
+| llvm | 🔨 | recipe ready, building (X86;AMDGPU dylib, multi-hour) |
+| mesa | 🔨 | recipe ready (Wayland+x11; llvmpipe/radeonsi/iris) — needs llvm |
 | vulkan-icd-loader | ⬜ | |
-| xorg-xwayland | ⬜ | after layer 3 |
+| xorg-xwayland | ⬜ | |
 
 ## Layer 5 — toolkits
 Qt 6 (qt6-base → qt6-declarative/wayland/svg/multimedia/5compat) · GTK 4 /

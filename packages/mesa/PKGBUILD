@@ -1,0 +1,36 @@
+# Maintainer: Blueberry Linux <packages@blueberry.linux>
+pkgname=mesa
+pkgver=24.3.4
+pkgrel=1
+pkgdesc='Open-source OpenGL/Vulkan/EGL implementation (Gallium: llvmpipe, radeonsi, iris)'
+arch=('x86_64')
+url='https://www.mesa3d.org/'
+license=('MIT')
+depends=('libdrm' 'wayland' 'libxcb' 'libx11' 'libxext' 'libxfixes' 'libxrandr'
+         'libxshmfence' 'expat' 'zlib' 'llvm' 'libglvnd' 'elfutils' 'glibc')
+provides=('libgbm.so' 'libEGL_mesa.so' 'libGLX_mesa.so' 'libvulkan_intel.so'
+          'libvulkan_radeon.so' 'libxatracker.so' 'opengl-driver')
+makedepends=('meson' 'ninja' 'python' 'wayland-protocols' 'glslang'
+             'llvm' 'libxml2' 'python-mako' 'pkgconf')
+source=("https://archive.mesa3d.org/mesa-$pkgver.tar.xz")
+sha256sums=('e641ae27191d387599219694560d221b7feaa91c900bcec46bf444218ed66025')
+
+build() {
+  # Wayland-first build. Gallium llvmpipe (software) + radeonsi/r300/r600
+  # (AMD) + iris/crocus (Intel); Vulkan for amd+intel. GLVND-based GL.
+  arch-meson "$pkgname-$pkgver" build \
+    -D platforms=wayland,x11 \
+    -D gallium-drivers=llvmpipe,radeonsi,r600,iris,crocus,zink,softpipe \
+    -D vulkan-drivers=amd,intel \
+    -D glx=dri -D egl=enabled -D gbm=enabled -D opengl=true -D gles2=enabled \
+    -D glvnd=enabled -D llvm=enabled -D shared-llvm=enabled \
+    -D video-codecs= -D valgrind=disabled -D libunwind=disabled \
+    -D lmsensors=disabled -D build-tests=false
+  meson compile -C build
+}
+
+package() {
+  meson install -C build --destdir "$pkgdir"
+  install -Dm644 "$pkgname-$pkgver/docs/license.rst" \
+    "$pkgdir/usr/share/licenses/$pkgname/license.rst" 2>/dev/null || true
+}
