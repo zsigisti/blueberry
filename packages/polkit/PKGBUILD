@@ -1,0 +1,29 @@
+# Maintainer: Blueberry Linux <packages@blueberry.linux>
+pkgname=polkit
+pkgver=126
+pkgrel=1
+pkgdesc='Application development toolkit for controlling system-wide privileges'
+arch=('x86_64')
+url='https://github.com/polkit-org/polkit'
+license=('LGPL-2.0-or-later')
+depends=('glib2' 'expat' 'pam' 'duktape' 'systemd')
+provides=('libpolkit-gobject-1.so' 'libpolkit-agent-1.so')
+# duktape present (+ no mozjs) makes polkit 126 pick the duktape JS backend.
+makedepends=('meson' 'ninja' 'gettext' 'glib2-devel' 'duktape')
+source=("https://github.com/polkit-org/polkit/archive/$pkgver/polkit-$pkgver.tar.gz")
+sha256sums=('2814a7281989f6baa9e57bd33bbc5e148827e2721ccef22aaf28ab2b376068e8')
+
+build() {
+  arch-meson "$pkgname-$pkgver" build \
+    -D authfw=pam \
+    -D introspection=false -D man=false -D gtk_doc=false \
+    -D tests=false -D examples=false \
+    -D session_tracking=logind \
+    -D systemdsystemunitdir=/usr/lib/systemd/system
+  meson compile -C build
+}
+
+package() {
+  meson install -C build --destdir "$pkgdir"
+  install -Dm644 "$pkgname-$pkgver/COPYING" "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+}

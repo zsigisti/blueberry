@@ -1,0 +1,27 @@
+# Maintainer: Blueberry Linux <packages@blueberry.linux>
+pkgname=pam
+pkgver=1.7.0
+pkgrel=1
+pkgdesc='Pluggable Authentication Modules library'
+arch=('x86_64')
+url='https://github.com/linux-pam/linux-pam'
+license=('BSD-3-Clause')
+depends=('glibc' 'gdbm')
+provides=('libpam.so' 'libpamc.so' 'libpam_misc.so')
+makedepends=('meson' 'ninja' 'flex' 'bison')
+source=("https://github.com/linux-pam/linux-pam/releases/download/v$pkgver/Linux-PAM-$pkgver.tar.xz")
+sha256sums=('57dcd7a6b966ecd5bbd95e1d11173734691e16b68692fa59661cdae9b13b1697')
+
+build() {
+  # nis/audit/selinux off to keep the closure small; pam_userdb uses gdbm
+  # (a Blueberry package). The 'db' option has no "disabled" choice.
+  arch-meson "Linux-PAM-$pkgver" build \
+    -D docs=disabled -D selinux=disabled -D nis=disabled \
+    -D audit=disabled -D db=gdbm -D econf=disabled
+  meson compile -C build
+}
+
+package() {
+  meson install -C build --destdir "$pkgdir"
+  install -Dm644 "Linux-PAM-$pkgver/COPYING" "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+}
