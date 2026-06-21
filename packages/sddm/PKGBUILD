@@ -19,6 +19,7 @@ build() {
     -D CMAKE_BUILD_TYPE=Release \
     -D CMAKE_INSTALL_PREFIX=/usr \
     -D CMAKE_POLICY_VERSION_MINIMUM=3.5 \
+    -D BUILD_WITH_QT6=ON \
     -D BUILD_MAN_PAGES=ON \
     -D ENABLE_JOURNALD=ON \
     -D DBUS_CONFIG_DIR=/usr/share/dbus-1/system.d \
