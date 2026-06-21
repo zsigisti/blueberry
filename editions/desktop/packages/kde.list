@@ -10,13 +10,13 @@ qt6-multimedia
 qt6-5compat
 
 # ── KDE Frameworks 6 (core subset; expands as the tree fills in) ──────────────
-kf6-kcoreaddons
-kf6-kconfig
-kf6-kwidgetsaddons
-kf6-kio
-kf6-kservice
-kf6-kwindowsystem
-kf6-plasma
+kcoreaddons
+kconfig
+kwidgetsaddons
+kio
+kservice
+kwindowsystem
+libplasma
 
 # ── Plasma workspace ──────────────────────────────────────────────────────────
 plasma-workspace

@@ -35,6 +35,7 @@ pam
 polkit
 xdg-desktop-portal
 xdg-utils
+systemd
 sddm                   # display manager (default greeter for both spins)
 
 # ── Audio ─────────────────────────────────────────────────────────────────────
