@@ -7,7 +7,7 @@ arch=('any')
 url='https://community.kde.org/Frameworks'
 license=('BSD-3-Clause')
 depends=('cmake')
-makedepends=('cmake' 'ninja' 'python')
+makedepends=('qt6-tools' 'qt6-declarative' 'cmake' 'ninja' 'python')
 source=("https://download.kde.org/stable/frameworks/${pkgver%.*}/extra-cmake-modules-$pkgver.tar.xz")
 sha256sums=('f3b5af578017a6a0f127fb1c31609db2e4f016e99b900d5a11f6ffb6c55006a3')
 

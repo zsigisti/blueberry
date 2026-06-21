@@ -7,7 +7,7 @@ arch=('x86_64')
 url='https://community.kde.org/Frameworks'
 license=('LGPL-2.1-or-later')
 depends=('qt6-base' 'karchive' )
-makedepends=('extra-cmake-modules' 'cmake' 'ninja' 'python' 'qt6-base' 'karchive' )
+makedepends=('qt6-tools' 'qt6-declarative' 'extra-cmake-modules' 'cmake' 'ninja' 'python' 'qt6-base' 'karchive' )
 options=('!lto')
 source=("https://download.kde.org/stable/frameworks/${pkgver%.*}/kimageformats-$pkgver.tar.xz")
 sha256sums=('6a9f40936ba946279063cbdaea473b9eb735b53047b0124c88aca7db17ccabac')
@@ -19,7 +19,8 @@ build() {
     -D KDE_INSTALL_LIBDIR=lib \
     -D KDE_INSTALL_USE_QT_SYS_PATHS=ON \
     -D BUILD_TESTING=OFF \
-    -D BUILD_QCH=OFF
+    -D BUILD_QCH=OFF \
+    -D BUILD_PYTHON_BINDINGS=OFF
   cmake --build build
 }
 

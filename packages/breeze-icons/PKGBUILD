@@ -7,7 +7,7 @@ arch=('any')
 url='https://community.kde.org/Frameworks'
 license=('LGPL-2.1-or-later')
 depends=()
-makedepends=('extra-cmake-modules' 'cmake' 'ninja' 'python' 'qt6-base')
+makedepends=('qt6-tools' 'qt6-declarative' 'extra-cmake-modules' 'cmake' 'ninja' 'python' 'qt6-base')
 source=("https://download.kde.org/stable/frameworks/${pkgver%.*}/breeze-icons-$pkgver.tar.xz")
 sha256sums=('bc8c2337802837ff1809269a8e4c4311b93e7e90c78ab4fe2a86cf5300ffd414')
 
