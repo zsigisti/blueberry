@@ -1,4 +1,4 @@
-# Maintainer: Blueberry Linux <packages@blueberry.linux>
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 pkgname=krunner
 pkgver=6.27.0
 pkgrel=1
@@ -6,7 +6,7 @@ pkgdesc='KDE: parallelized query/launcher framework'
 arch=('x86_64')
 url='https://community.kde.org/Frameworks'
 license=('LGPL-2.1-or-later')
-depends=('qt6-base' 'qt6-declarative' 'kconfig' 'kcoreaddons' 'ki18n' 'kio' )
+depends=('qt6-base' 'qt6-declarative' 'kconfig' 'kcoreaddons' 'ki18n' 'kio'  'kitemmodels')
 makedepends=('qt6-tools' 'qt6-declarative' 'extra-cmake-modules' 'cmake' 'ninja' 'python' 'qt6-base' 'qt6-declarative' )
 options=('!lto')
 source=("https://download.kde.org/stable/frameworks/${pkgver%.*}/krunner-$pkgver.tar.xz")

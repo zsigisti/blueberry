@@ -1,4 +1,4 @@
-# Maintainer: Blueberry Linux <packages@blueberry.linux>
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 pkgname=kidletime
 pkgver=6.27.0
 pkgrel=1
@@ -7,7 +7,7 @@ arch=('x86_64')
 url='https://community.kde.org/Frameworks'
 license=('LGPL-2.1-or-later')
 depends=('qt6-base' 'qt6-wayland' 'wayland' )
-makedepends=('qt6-tools' 'qt6-declarative' 'extra-cmake-modules' 'cmake' 'ninja' 'python' 'qt6-base' 'qt6-wayland' 'wayland-protocols' )
+makedepends=('plasma-wayland-protocols' 'qt6-tools' 'qt6-declarative' 'extra-cmake-modules' 'cmake' 'ninja' 'python' 'qt6-base' 'qt6-wayland' 'wayland-protocols' )
 options=('!lto')
 source=("https://download.kde.org/stable/frameworks/${pkgver%.*}/kidletime-$pkgver.tar.xz")
 sha256sums=('2cb0196ee3bb1b60be9bad14b4d04dfaf53b3d0017cd459083035c715910551b')
