@@ -72,15 +72,20 @@ Qt 6 prerequisites — all ✅: xcb-util, xcb-util-image, xcb-util-keysyms,
 xcb-util-renderutil, xcb-util-wm, xcb-util-cursor, double-conversion, md4c,
 libb2 (+ libxkbcommon rebuilt with X11).
 
+Qt 6 stack pinned to **6.11.1** (matches Arch build deps; modules must compile
+against an exact-version qt6-base).
+
 | Package | Status | Notes |
 |---|---|---|
-| qt6-base | ✅ | Core/Gui/Widgets/Network/DBus, xcb + wayland platforms |
-| qt6-declarative | ⬜ | QML/Quick — needed by Plasma, SDDM greeters |
-| qt6-wayland | ⬜ | Qt Wayland platform integration |
+| qt6-base | ✅ | 6.11.1 — Core/Gui/Widgets/Network/DBus, xcb + wayland platforms |
+| qt6-shadertools | ✅ | 6.11.1 — Qt Quick shader tooling (glslang; GCC16 cstdint fix) |
+| qt6-declarative | ✅ | 6.11.1 — QML/Quick, needed by Plasma + SDDM greeters |
+| qt6-wayland | ✅ | 6.11.1 — Qt Wayland platform integration |
 | qt6-svg / qt6-5compat / qt6-multimedia | ⬜ | |
 | gtk4 / libadwaita | ⬜ | GNOME toolkit |
 
-Qt6-base is the gateway to SDDM, Calamares, and Plasma.
+Qt6-base is the gateway to SDDM, Calamares, and Plasma. With qt6-declarative +
+qt6-wayland live, SDDM and the Calamares installer are now buildable.
 
 ## Layer 6 — desktop
 KDE Frameworks 6 (~80 pkgs) → Plasma (kwin, plasma-workspace, …) → apps.
