@@ -1,4 +1,4 @@
-# Maintainer: Blueberry Linux <packages@blueberry.linux>
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 #
 # mpdecimal — correctly-rounded arbitrary precision decimal arithmetic. Python's
 # _decimal C module links libmpdec.so.4.

@@ -1,4 +1,4 @@
-# Maintainer: Blueberry Linux <packages@blueberry.linux>
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 #
 # GNU readline — line editing + history. Used by sqlite, python, gdbm, etc.
 pkgname=readline

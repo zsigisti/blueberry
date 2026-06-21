@@ -1,4 +1,4 @@
-# Maintainer: Blueberry Linux <packages@blueberry.linux>
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 #
 # libedit — BSD line-editing library (readline-compatible API). Used by chrony's
 # chronyc interactive prompt.

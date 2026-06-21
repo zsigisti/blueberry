@@ -1,4 +1,4 @@
-# Maintainer: Blueberry Linux <packages@blueberry.linux>
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 #
 # libcap-ng — easier POSIX capabilities. tcpdump uses it to drop privileges.
 pkgname=libcap-ng

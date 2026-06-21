@@ -1,4 +1,4 @@
-# Maintainer: Blueberry Linux <packages@blueberry.linux>
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 # Full OpenSSH (sshd, ssh, scp, sftp) for deployments that need more than the
 # base image's Dropbear — certificates, sftp-server, full config surface.
 pkgname=openssh

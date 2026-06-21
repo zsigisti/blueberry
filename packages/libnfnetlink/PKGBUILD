@@ -1,4 +1,4 @@
-# Maintainer: Blueberry Linux <packages@blueberry.linux>
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 #
 # libnfnetlink — low-level netlink helper for the netfilter libraries. Required
 # by libnetfilter_conntrack and the legacy iptables conntrack matches.

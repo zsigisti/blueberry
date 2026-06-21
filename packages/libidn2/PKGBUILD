@@ -1,4 +1,4 @@
-# Maintainer: Blueberry Linux <packages@blueberry.linux>
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 #
 # GNU libidn2 — internationalized domain names (IDNA2008). wget links it.
 pkgname=libidn2

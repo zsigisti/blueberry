@@ -1,4 +1,4 @@
-# Maintainer: Blueberry Linux <packages@blueberry.linux>
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 #
 # The Blueberry kernel as an updatable package. The kernel is monolithic (no
 # loadable modules — CONFIG_MODULES is off), and the initramfs is pure

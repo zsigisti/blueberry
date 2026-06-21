@@ -1,4 +1,4 @@
-# Maintainer: Blueberry Linux <packages@blueberry.linux>
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 #
 # bpm packages itself so a running system can self-update:  bpm install bpm.
 # Source is the in-tree Rust crate src/bpm-rs (the streaming rewrite); built in

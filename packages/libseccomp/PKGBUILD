@@ -1,4 +1,4 @@
-# Maintainer: Blueberry Linux <packages@blueberry.linux>
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 #
 # libseccomp — high-level interface to the kernel's seccomp syscall filtering.
 # Needed by `file` (its libmagic sandbox) and useful to container/runtime tools.

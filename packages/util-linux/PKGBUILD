@@ -1,4 +1,4 @@
-# Maintainer: Blueberry Linux <packages@blueberry.linux>
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 #
 # util-linux — core system utilities and the canonical libuuid / libblkid /
 # libmount / libfdisk / libsmartcols libraries that systemd links. On Blueberry
