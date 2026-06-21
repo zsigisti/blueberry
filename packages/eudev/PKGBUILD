@@ -1,4 +1,4 @@
-# Maintainer: Blueberry Linux <packages@blueberry.linux>
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 #
 # eudev — standalone udev fork providing libudev.so.1. Blueberry does not run
 # udevd (devtmpfs + runit handle devices), but several tools link libudev for

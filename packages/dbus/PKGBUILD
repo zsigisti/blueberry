@@ -1,4 +1,4 @@
-# Maintainer: Blueberry Linux <packages@blueberry.linux>
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 #
 # D-Bus — the system message bus. Required by systemd (org.freedesktop.systemd1)
 # and most service IPC; systemd-logind cannot start without the system bus.

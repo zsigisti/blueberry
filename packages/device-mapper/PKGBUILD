@@ -1,4 +1,4 @@
-# Maintainer: Blueberry Linux <packages@blueberry.linux>
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 # libdevmapper + dmsetup, built from the LVM2 source (just the device-mapper
 # parts). Needed by cryptsetup to drive the kernel dm-crypt target.
 pkgname=device-mapper

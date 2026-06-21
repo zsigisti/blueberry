@@ -1,4 +1,4 @@
-# Maintainer: Blueberry Linux <packages@blueberry.linux>
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 pkgname=libxi
 pkgver=1.8.2
 pkgrel=1

@@ -1,4 +1,4 @@
-# Maintainer: Blueberry Linux <packages@blueberry.linux>
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 # Meta-package: pulls the GNU toolchain for building software on Blueberry.
 # `bpm install base-devel glibc` gives a complete C/C++ dev environment —
 # glibc is listed explicitly because the base image already provides its

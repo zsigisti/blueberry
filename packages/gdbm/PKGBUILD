@@ -1,4 +1,4 @@
-# Maintainer: Blueberry Linux <packages@blueberry.linux>
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 #
 # GNU dbm — key/value database. Ships the libgdbm_compat (ndbm/dbm) shim that
 # python's dbm.gnu module links.

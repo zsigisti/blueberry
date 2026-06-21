@@ -1,4 +1,4 @@
-# Maintainer: Blueberry Linux <packages@blueberry.linux>
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 #
 # elfutils — ELF/DWARF libraries. Provides libelf, libdw (strace stack unwind)
 # and the libdebuginfod client (binutils links libdebuginfod.so.1).

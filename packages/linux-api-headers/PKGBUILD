@@ -1,4 +1,4 @@
-# Maintainer: Blueberry Linux <packages@blueberry.linux>
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 # Sanitized Linux kernel headers (UAPI) for userspace compilation. Matches the
 # Blueberry kernel (Linux 7.0). Half of the on-device dev SDK — pair with glibc.
 pkgname=linux-api-headers

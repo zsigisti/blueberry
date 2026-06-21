@@ -1,4 +1,4 @@
-# Maintainer: Blueberry Linux <packages@blueberry.linux>
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 # cryptsetup — LUKS full-disk encryption. Uses the OpenSSL crypto backend and
 # cryptsetup's built-in argon2 (no external libargon2 / libgcrypt needed).
 pkgname=cryptsetup

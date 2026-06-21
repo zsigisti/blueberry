@@ -1,4 +1,4 @@
-# Maintainer: Blueberry Linux <packages@blueberry.linux>
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 #
 # libnetfilter_conntrack — userspace API to the in-kernel connection tracking
 # table. Needed by iptables' conntrack/state/NAT-helper matches.

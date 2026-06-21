@@ -1,4 +1,4 @@
-# Maintainer: Blueberry Linux <packages@blueberry.linux>
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 # CPython — the reference Python interpreter. Built against the base libraries
 # already packaged for Blueberry (zlib, openssl, bzip2, libffi via gdbm-less
 # minimal config). A large build.

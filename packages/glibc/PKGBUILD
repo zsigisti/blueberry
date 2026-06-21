@@ -1,4 +1,4 @@
-# Maintainer: Blueberry Linux <packages@blueberry.linux>
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 # The GNU C Library — full dev tree (headers + crt objects + linker scripts +
 # static libs + the shared libraries). Version-matched to the runtime glibc
 # that the base image bundles (2.43), so installing this completes the on-device

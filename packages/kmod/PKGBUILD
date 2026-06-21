@@ -1,4 +1,4 @@
-# Maintainer: Blueberry Linux <packages@blueberry.linux>
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 #
 # kmod — kernel module tools + libkmod. The Blueberry kernel is modless, so the
 # tools are mostly inert, but pciutils links libkmod.so.2 to map devices to
