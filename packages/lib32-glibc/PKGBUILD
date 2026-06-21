@@ -31,7 +31,6 @@ build() {
     --host=i686-pc-linux-gnu \
     --with-headers=/usr/include \
     --enable-kernel=5.4 \
-    --enable-cet \
     --enable-bind-now \
     --enable-stack-protector=strong \
     --disable-profile \
