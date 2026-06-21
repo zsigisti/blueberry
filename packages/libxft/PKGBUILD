@@ -1,0 +1,23 @@
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
+pkgname=libxft
+pkgver=2.3.9
+pkgrel=1
+pkgdesc='X FreeType interface library'
+arch=('x86_64')
+url='https://www.freedesktop.org/'
+license=('LGPL-2.1-or-later')
+depends=('fontconfig' 'freetype2' 'libx11' 'libxrender' )
+makedepends=('pkgconf' 'xorgproto' )
+options=('!lto')
+source=("libXft-2.3.9.tar.xz::https://www.x.org/releases/individual/lib/libXft-2.3.9.tar.xz")
+sha256sums=('60a25b78945ed6932635b3bb1899a517d31df7456e69867ffba27f89ff3976f5')
+
+build() {
+  cd "libXft-2.3.9"
+  ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var 
+  make
+}
+
+package() {
+  cd "libXft-2.3.9"; make DESTDIR="$pkgdir" install
+}

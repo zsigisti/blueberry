@@ -1,0 +1,23 @@
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
+pkgname=libxtst
+pkgver=1.2.5
+pkgrel=1
+pkgdesc='X11 Testing Resource extension library'
+arch=('x86_64')
+url='https://www.freedesktop.org/'
+license=('LGPL-2.1-or-later')
+depends=('libx11' 'libxext' 'libxi' )
+makedepends=('pkgconf' 'xorgproto' )
+options=('!lto')
+source=("libXtst-1.2.5.tar.xz::https://www.x.org/releases/individual/lib/libXtst-1.2.5.tar.xz")
+sha256sums=('b50d4c25b97009a744706c1039c598f4d8e64910c9fde381994e1cae235d9242')
+
+build() {
+  cd "libXtst-1.2.5"
+  ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var 
+  make
+}
+
+package() {
+  cd "libXtst-1.2.5"; make DESTDIR="$pkgdir" install
+}

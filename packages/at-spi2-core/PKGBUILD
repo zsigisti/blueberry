@@ -1,0 +1,23 @@
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
+pkgname=at-spi2-core
+pkgver=2.60.4
+pkgrel=1
+pkgdesc='Assistive Technology Service Provider Interface (accessibility)'
+arch=('x86_64')
+url='https://www.freedesktop.org/'
+license=('LGPL-2.1-or-later')
+depends=('glib2' 'dbus' 'libx11' 'libxtst' 'libxi' )
+makedepends=('meson' 'ninja' 'pkgconf' )
+options=('!lto')
+source=("at-spi2-core-2.60.4.tar.xz::https://download.gnome.org/sources/at-spi2-core/2.60/at-spi2-core-2.60.4.tar.xz")
+sha256sums=('1a1f5ba9805917f41fc6aa6823dcf887a291d607a427e2d5afb6b5dfa65070c7')
+
+build() {
+  arch-meson() { meson setup "$@"; }
+  meson setup at-spi2-core-2.60.4 build --prefix=/usr --buildtype=release -Dwerror=false -Dintrospection=disabled -Ddocs=false -Dtests=false
+  meson compile -C build
+}
+
+package() {
+  meson install -C build --destdir "$pkgdir"
+}
