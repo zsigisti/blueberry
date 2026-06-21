@@ -22,7 +22,8 @@ build() {
     -D BUILD_TESTING=OFF \
     -D BUILD_QCH=OFF \
     -D BUILD_PYTHON_BINDINGS=OFF \
-    -D FORCE_NOT_REQUIRED_DEPENDENCIES="KDcrawQt6;kImageAnnotator-Qt6"
+    -D FORCE_NOT_REQUIRED_DEPENDENCIES="KDcrawQt6" \
+    -D GWENVIEW_IMAGEANNOTATOR=OFF
   cmake --build build
 }
 
