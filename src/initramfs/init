@@ -188,7 +188,12 @@ if [ -n "$LIVE" ]; then
     for m in loop squashfs overlay isofs cdrom sr_mod usb_storage; do
         modprobe "$m" 2>/dev/null || true
     done
-    mkdir -p /run/live/medium /run/live/rootfs.ro /run/live/overlay /mnt/root
+    # IMPORTANT: keep the overlay backing OUTSIDE /run. Mounting it under /run and
+    # then `mount --move /run` into the new root nests the overlay's own
+    # upperdir/lowerdir inside the overlay → an inconsistent mount that makes
+    # switch_root fail (kernel panic "Attempted to kill init"). /live is a
+    # top-level initramfs dir that is never moved into the new root.
+    mkdir -p /live/medium /live/rootfs.ro /live/overlay /mnt/root
     # Locate the medium: by label first, else probe every block device for the
     # live squashfs (handles USB sticks whose label differs from the ISO volid).
     MEDIUM=""
@@ -200,29 +205,37 @@ if [ -n "$LIVE" ]; then
         [ -x /bin/mdev ] && mdev -s 2>/dev/null
         for _b in /dev/sr* /dev/sd* /dev/vd* /dev/nvme*n*; do
             [ -b "$_b" ] || continue
-            if mount -t iso9660 -o ro "$_b" /run/live/medium 2>/dev/null \
-               || mount -o ro "$_b" /run/live/medium 2>/dev/null; then
-                [ -f /run/live/medium/live/filesystem.squashfs ] && { MEDIUM=$_b; break; }
-                umount /run/live/medium 2>/dev/null
+            if mount -t iso9660 -o ro "$_b" /live/medium 2>/dev/null \
+               || mount -o ro "$_b" /live/medium 2>/dev/null; then
+                [ -f /live/medium/live/filesystem.squashfs ] && { MEDIUM=$_b; break; }
+                umount /live/medium 2>/dev/null
             fi
         done
         [ -n "$MEDIUM" ] && break
         sleep 0.5; _try=$((_try + 1))
     done
     if [ -n "$MEDIUM" ]; then
-        mountpoint -q /run/live/medium 2>/dev/null \
-            || mount -o ro "$MEDIUM" /run/live/medium 2>/dev/null
-        if mount -t squashfs -o ro /run/live/medium/live/filesystem.squashfs \
-                 /run/live/rootfs.ro 2>/dev/null; then
-            mount -t tmpfs -o mode=0755 live-overlay /run/live/overlay
-            mkdir -p /run/live/overlay/upper /run/live/overlay/work
+        mountpoint -q /live/medium 2>/dev/null \
+            || mount -o ro "$MEDIUM" /live/medium 2>/dev/null
+        if mount -t squashfs -o ro /live/medium/live/filesystem.squashfs \
+                 /live/rootfs.ro 2>/dev/null; then
+            mount -t tmpfs -o mode=0755 live-overlay /live/overlay
+            mkdir -p /live/overlay/upper /live/overlay/work
             if mount -t overlay overlay \
-                 -o lowerdir=/run/live/rootfs.ro,upperdir=/run/live/overlay/upper,workdir=/run/live/overlay/work \
+                 -o lowerdir=/live/rootfs.ro,upperdir=/live/overlay/upper,workdir=/live/overlay/work \
                  /mnt/root 2>/dev/null; then
-                for d in proc sys dev run; do
+                # Move only the API filesystems; leave /run so systemd mounts a
+                # fresh one. The overlay backing lives in /live (the initramfs
+                # root), which the kernel keeps referenced after switch_root.
+                for d in proc sys dev; do
                     mkdir -p "/mnt/root/$d"
                     mount --move "/$d" "/mnt/root/$d" 2>/dev/null
                 done
+                # Preserve the install medium for Calamares' unpackfs. systemd
+                # mounts /run as tmpfs at boot, so stage the bind under /lib/live
+                # (persisted in the overlay upper) instead of /run.
+                mkdir -p /mnt/root/lib/live/medium
+                mount --bind /live/medium /mnt/root/lib/live/medium 2>/dev/null
                 echo "BLUEBERRY_LIVE_BOOT=OK medium=$MEDIUM"
                 exec switch_root /mnt/root /sbin/init
             fi
