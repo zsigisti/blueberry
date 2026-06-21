@@ -1,4 +1,4 @@
-# Maintainer: Blueberry Linux <packages@blueberry.linux>
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 pkgname=kguiaddons
 pkgver=6.27.0
 pkgrel=1
@@ -7,7 +7,7 @@ arch=('x86_64')
 url='https://community.kde.org/Frameworks'
 license=('LGPL-2.1-or-later')
 depends=('qt6-base' 'qt6-wayland' 'wayland' )
-makedepends=('qt6-tools' 'qt6-declarative' 'extra-cmake-modules' 'cmake' 'ninja' 'python' 'qt6-base' 'qt6-wayland' 'wayland-protocols' )
+makedepends=('plasma-wayland-protocols' 'qt6-tools' 'qt6-declarative' 'extra-cmake-modules' 'cmake' 'ninja' 'python' 'qt6-base' 'qt6-wayland' 'wayland-protocols' )
 options=('!lto')
 source=("https://download.kde.org/stable/frameworks/${pkgver%.*}/kguiaddons-$pkgver.tar.xz")
 sha256sums=('29b043480c45d3e51c57cac74fd83589cc7729c907a6585b72880cbf07feaf82')
