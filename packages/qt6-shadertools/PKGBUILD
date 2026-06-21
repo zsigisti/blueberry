@@ -1,6 +1,6 @@
 # Maintainer: Blueberry Linux <packages@blueberry.linux>
 pkgname=qt6-shadertools
-pkgver=6.8.1
+pkgver=6.11.1
 pkgrel=1
 pkgdesc='Qt 6 tools and APIs for working with shaders (required by Qt Quick)'
 arch=('x86_64')
@@ -11,7 +11,7 @@ depends=('qt6-base')
 makedepends=('cmake' 'ninja' 'python' 'qt6-base' 'perl')
 options=('!lto')
 source=("https://download.qt.io/official_releases/qt/${pkgver%.*}/$pkgver/submodules/qtshadertools-everywhere-src-$pkgver.tar.xz")
-sha256sums=('55b70cd632473a8043c74ba89310f7ba9c5041d253bc60e7ae1fa789169c4846')
+sha256sums=('2075052f9b23bcf9de045bbd180037084942f82cce870aab14a1454902c982fc')
 
 build() {
   # GCC 16 dropped the transitive <cstdint> include that bundled glslang's

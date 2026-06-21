@@ -1,6 +1,6 @@
 # Maintainer: Blueberry Linux <packages@blueberry.linux>
 pkgname=qt6-wayland
-pkgver=6.8.1
+pkgver=6.11.1
 pkgrel=1
 pkgdesc='Qt 6 Wayland platform plugin and compositor APIs'
 arch=('x86_64')
@@ -14,7 +14,7 @@ makedepends=('cmake' 'ninja' 'python' 'qt6-base' 'qt6-declarative'
              'wayland-protocols' 'vulkan-headers' 'perl')
 options=('!lto')
 source=("https://download.qt.io/official_releases/qt/${pkgver%.*}/$pkgver/submodules/qtwayland-everywhere-src-$pkgver.tar.xz")
-sha256sums=('2226fbde4e2ddd12f8bf4b239c8f38fd706a54e789e63467dfddc77129eca203')
+sha256sums=('95788aa502f75441d4edf65932b235f76523084e13dbbb7b9ee2d207b32bd9b3')
 
 build() {
   cmake -S "qtwayland-everywhere-src-$pkgver" -B build -G Ninja \

@@ -1,6 +1,6 @@
 # Maintainer: Blueberry Linux <packages@blueberry.linux>
 pkgname=qt6-base
-pkgver=6.8.1
+pkgver=6.11.1
 pkgrel=1
 pkgdesc='Qt 6 base toolkit: Core, Gui, Widgets, Network, DBus, the xcb + wayland platforms'
 arch=('x86_64')
@@ -22,7 +22,7 @@ makedepends=('cmake' 'ninja' 'python' 'vulkan-headers' 'wayland-protocols'
              'libxkbcommon' 'libxkbcommon-x11' 'pkgconf' 'perl')
 options=('!lto')
 source=("https://download.qt.io/official_releases/qt/${pkgver%.*}/$pkgver/submodules/qtbase-everywhere-src-$pkgver.tar.xz")
-sha256sums=('40b14562ef3bd779bc0e0418ea2ae08fa28235f8ea6e8c0cb3bce1d6ad58dcaf')
+sha256sums=('d9594a31228aa23ad6b531719a29b45f0f3989fe6c136d45767ea179f233c1ac')
 
 build() {
   # System libraries everywhere (self-hosted from packages/), no bundled copies.
