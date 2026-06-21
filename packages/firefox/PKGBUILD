@@ -1,0 +1,31 @@
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
+# Binary repackage of Mozilla's official Firefox build (no source compile).
+pkgname=firefox
+pkgver=152.0.1
+pkgrel=1
+pkgdesc='Mozilla Firefox web browser (official binary, self-contained)'
+arch=('x86_64')
+url='https://www.mozilla.org/firefox/'
+license=('MPL-2.0')
+# Firefox bundles most of its libs; these are the system libs it dlopen()s.
+depends=('gtk3' 'glib2' 'dbus' 'fontconfig' 'freetype2' 'libx11' 'libxcb'
+         'libxext' 'libxrandr' 'libxcomposite' 'libxdamage' 'libxfixes'
+         'mesa' 'pango' 'cairo' 'gdk-pixbuf2' 'alsa-lib' 'libpulse' 'ffmpeg')
+options=(!strip !debug)
+source=("firefox-$pkgver.tar.xz::https://ftp.mozilla.org/pub/firefox/releases/$pkgver/linux-x86_64/en-US/firefox-$pkgver.tar.xz"
+        'firefox.desktop')
+sha256sums=('SKIP' 'SKIP')
+
+package() {
+  install -d "$pkgdir/opt" "$pkgdir/usr/bin" "$pkgdir/usr/share/applications"
+  cp -a firefox "$pkgdir/opt/firefox"
+  ln -s /opt/firefox/firefox "$pkgdir/usr/bin/firefox"
+  # icons from the bundle
+  for s in 16 32 48 64 128; do
+    if [ -f "firefox/browser/chrome/icons/default/default$s.png" ]; then
+      install -Dm644 "firefox/browser/chrome/icons/default/default$s.png" \
+        "$pkgdir/usr/share/icons/hicolor/${s}x${s}/apps/firefox.png"
+    fi
+  done
+  install -Dm644 "$srcdir/firefox.desktop" "$pkgdir/usr/share/applications/firefox.desktop"
+}

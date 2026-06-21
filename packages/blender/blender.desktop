@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Blender
+GenericName=3D Creation Suite
+Exec=blender %f
+Icon=blender
+Type=Application
+Categories=Graphics;3DGraphics;
+MimeType=application/x-blender;
+Terminal=false

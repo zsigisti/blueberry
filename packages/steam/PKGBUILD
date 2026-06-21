@@ -1,0 +1,20 @@
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
+# Valve's Steam bootstrapper (downloads its own runtime on first launch).
+# NOTE: full functionality needs a 32-bit multilib layer (TODO in Blueberry).
+pkgname=steam
+pkgver=1.0.0.83
+pkgrel=1
+pkgdesc='Valve Steam client bootstrapper (needs 32-bit multilib at runtime)'
+arch=('x86_64')
+url='https://store.steampowered.com/'
+license=('custom')
+depends=('glibc' 'libx11' 'libxcb' 'mesa' 'libglvnd' 'zenity')
+optdepends=('multilib: 32-bit libraries required for the Steam runtime')
+options=(!strip)
+source=("steam.tar.gz::https://repo.steampowered.com/steam/archive/precise/steam_latest.tar.gz")
+sha256sums=('SKIP')
+package() {
+  # The bootstrapper tarball ships a Debian-style tree (usr/ + etc/).
+  cp -a steam/* "$pkgdir/" 2>/dev/null || cp -a ./* "$pkgdir/"
+  rm -f "$pkgdir/PKGBUILD"
+}
