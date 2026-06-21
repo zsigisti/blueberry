@@ -1,5 +1,5 @@
 # Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
-pkgname=polkit-kde-agent-1
+pkgname=polkit-kde-agent
 pkgver=6.7.0
 pkgrel=1
 pkgdesc='KDE: PolicyKit authentication agent (password prompts)'
@@ -7,7 +7,8 @@ arch=('x86_64')
 url='https://kde.org/plasma-desktop/'
 license=('GPL-2.0-or-later')
 depends=('kcoreaddons' 'kcrash' 'kdbusaddons' 'ki18n' 'kiconthemes' 'kwidgetsaddons' 'kwindowsystem' 'knotifications' 'polkit-qt6' 'qt6-base' 'qt6-declarative' )
-makedepends=('extra-cmake-modules' 'cmake' 'ninja' 'python' 'qt6-base' 'qt6-declarative' 'qt6-tools' 'polkit-qt6' )
+provides=('polkit-kde-agent-1')
+makedepends=('kdoctools' 'extra-cmake-modules' 'cmake' 'ninja' 'python' 'qt6-base' 'qt6-declarative' 'qt6-tools' 'polkit-qt6' )
 options=('!lto')
 source=("https://download.kde.org/stable/plasma/6.7.0/polkit-kde-agent-1-$pkgver.tar.xz")
 sha256sums=('0f27ff2aa3610418620c42804b9c3dc22f6979e5c03822f93979d44fbed1dabf')
