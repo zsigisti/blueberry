@@ -1,7 +1,7 @@
 # Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 # Spotify's official Linux client (extracted from the vendor .deb).
 pkgname=spotify
-pkgver=1.2.63.394
+pkgver=1.2.92.147
 pkgrel=1
 pkgdesc='Spotify music streaming client (official binary)'
 arch=('x86_64')
@@ -11,7 +11,7 @@ depends=('gtk3' 'glib2' 'nss' 'alsa-lib' 'libpulse' 'libxcb' 'libx11'
          'libxext' 'libxrandr' 'libxcomposite' 'libxdamage' 'libxfixes'
          'mesa' 'libxshmfence' 'ffmpeg' 'openssl')
 options=(!strip !debug)
-_deb=spotify-client_${pkgver}.g7e3d287d_amd64.deb
+_deb=spotify-client_${pkgver}.g5b8f9367_amd64.deb
 source=("$_deb::https://repository.spotify.com/pool/non-free/s/spotify-client/$_deb")
 sha256sums=('SKIP')
 package() {
