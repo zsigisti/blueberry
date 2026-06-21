@@ -22,7 +22,7 @@ build() {
     -D BUILD_TESTING=OFF \
     -D BUILD_QCH=OFF \
     -D BUILD_PYTHON_BINDINGS=OFF \
-    -D FORCE_NOT_REQUIRED_DEPENDENCIES="LibSpectre;DjVuLibre;EPub;QMobipocket6"
+    -D FORCE_NOT_REQUIRED_DEPENDENCIES="LibSpectre;DjVuLibre;EPub;QMobipocket6;Discount"
   cmake --build build
 }
 
