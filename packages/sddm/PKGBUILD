@@ -1,0 +1,42 @@
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
+pkgname=sddm
+pkgver=0.21.0
+pkgrel=1
+pkgdesc='Simple Desktop Display Manager — the Qt-based login screen (Blueberry Desktop default)'
+arch=('x86_64')
+url='https://github.com/sddm/sddm'
+license=('GPL-2.0-or-later')
+depends=('bash' 'glibc' 'libxau' 'libxcb' 'pam' 'qt6-base' 'qt6-declarative'
+         'systemd' 'xorg-xauth')
+makedepends=('extra-cmake-modules' 'cmake' 'ninja' 'python' 'qt6-base'
+             'qt6-declarative' 'qt6-tools' 'pam' 'python-docutils')
+backup=('usr/lib/sddm/sddm.conf.d/default.conf' 'etc/pam.d/sddm')
+source=("https://github.com/sddm/sddm/archive/v$pkgver/sddm-$pkgver.tar.gz")
+sha256sums=('f895de2683627e969e4849dbfbbb2b500787481ca5ba0de6d6dfdae5f1549abf')
+
+build() {
+  cmake -S "sddm-$pkgver" -B build -G Ninja \
+    -D CMAKE_BUILD_TYPE=Release \
+    -D CMAKE_INSTALL_PREFIX=/usr \
+    -D BUILD_MAN_PAGES=ON \
+    -D ENABLE_JOURNALD=ON \
+    -D DBUS_CONFIG_DIR=/usr/share/dbus-1/system.d \
+    -D RUNTIME_DIR=/run/sddm \
+    -D SYSTEMD_SYSTEM_UNIT_DIR=/usr/lib/systemd/system \
+    -D SYSTEMD_SYSUSERS_DIR=/usr/lib/sysusers.d \
+    -D SYSTEMD_TMPFILES_DIR=/usr/lib/tmpfiles.d
+  cmake --build build
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+  # Default to the Wayland session and Breeze theme for a seamless first boot.
+  install -d "$pkgdir/usr/lib/sddm/sddm.conf.d"
+  cat > "$pkgdir/usr/lib/sddm/sddm.conf.d/default.conf" <<'EOF'
+[Theme]
+Current=breeze
+
+[General]
+GreeterEnvironment=QT_WAYLAND_SHELL_INTEGRATION=layer-shell
+EOF
+}
