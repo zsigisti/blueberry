@@ -1,0 +1,37 @@
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
+# The Calamares installer — Blueberry Desktop's graphical "try then install" tool.
+pkgname=calamares
+pkgver=3.3.14
+pkgrel=1
+pkgdesc='Distribution-independent graphical system installer (Blueberry Desktop)'
+arch=('x86_64')
+url='https://calamares.io/'
+license=('GPL-3.0-or-later')
+depends=('qt6-base' 'qt6-svg' 'qt6-declarative' 'qt6-5compat' 'yaml-cpp'
+         'kcoreaddons' 'kconfig' 'ki18n' 'kservice' 'kpackage' 'kwidgetsaddons'
+         'kio' 'kcrash' 'solid' 'kpmcore' 'polkit-qt6' 'boost-libs' 'python'
+         'squashfs-tools' 'rsync' 'dosfstools' 'e2fsprogs' 'cryptsetup'
+         'gptfdisk' 'parted' 'libpwquality' 'icu')
+makedepends=('extra-cmake-modules' 'cmake' 'ninja' 'qt6-tools' 'qt6-declarative'
+             'yaml-cpp' 'boost' 'kcoreaddons' 'ki18n' 'kpmcore' 'polkit-qt6'
+             'python')
+options=('!lto')
+source=("https://github.com/calamares/calamares/releases/download/v$pkgver/calamares-$pkgver.tar.gz")
+sha256sums=('5547f80db067dea923ae693ba6bb88eb2b2eeac1da3ebec42fce453e31c290c0')
+
+build() {
+  cmake -S "calamares-$pkgver" -B build -G Ninja \
+    -D CMAKE_BUILD_TYPE=Release \
+    -D CMAKE_INSTALL_PREFIX=/usr \
+    -D CMAKE_INSTALL_LIBDIR=lib \
+    -D WITH_QT6=ON \
+    -D INSTALL_CONFIG=ON \
+    -D INSTALL_POLKIT=ON \
+    -D BUILD_TESTING=OFF \
+    -D WEBVIEW_FORCE_WEBKIT=OFF
+  cmake --build build
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+}

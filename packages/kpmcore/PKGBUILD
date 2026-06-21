@@ -1,0 +1,30 @@
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
+pkgname=kpmcore
+pkgver=26.04.2
+pkgrel=1
+pkgdesc='KDE: library for partition management (Calamares/KDE Partition Manager backend)'
+arch=('x86_64')
+url='https://kde.org/plasma-desktop/'
+license=('GPL-2.0-or-later')
+depends=('qt6-base' 'kcoreaddons' 'ki18n' 'kwidgetsaddons' 'kauth' 'util-linux' 'parted' 'libatasmart' 'polkit-qt6' )
+makedepends=('extra-cmake-modules' 'cmake' 'ninja' 'python' 'qt6-base' 'qt6-declarative' 'qt6-tools' 'parted' 'libatasmart' 'polkit-qt6' 'kdoctools' )
+options=('!lto')
+source=("https://download.kde.org/stable/release-service/26.04.2/src/kpmcore-$pkgver.tar.xz")
+sha256sums=('38ad9c1b52115858cd78fe76355d81bb4db84ad2c31b0933bcf58f4c85b51023')
+
+build() {
+  cmake -S "kpmcore-$pkgver" -B build -G Ninja \
+    -D CMAKE_BUILD_TYPE=Release \
+    -D CMAKE_INSTALL_PREFIX=/usr \
+    -D KDE_INSTALL_LIBDIR=lib \
+    -D KDE_INSTALL_LIBEXECDIR=lib \
+    -D KDE_INSTALL_USE_QT_SYS_PATHS=ON \
+    -D BUILD_TESTING=OFF \
+    -D BUILD_QCH=OFF \
+    -D BUILD_PYTHON_BINDINGS=OFF
+  cmake --build build
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+}
