@@ -34,6 +34,10 @@ done
 echo "build-pkgs: building$need"
 SCRIPT='
 set -eu
+# Enable [multilib] so lib32-* recipes can pull the 32-bit toolchain
+# (lib32-glibc, gcc-multilib) as build deps. Harmless for 64-bit-only builds.
+grep -q "^\[multilib\]" /etc/pacman.conf || \
+  printf "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n" >> /etc/pacman.conf
 pacman -Syu --noconfirm --needed base-devel git >/dev/null 2>&1
 # Arch ships MAKEFLAGS commented out, so makepkg builds single-threaded by
 # default — gcc then takes hours. Use every core, and skip debug packages
