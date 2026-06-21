@@ -1,0 +1,30 @@
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
+pkgname=kwayland
+pkgver=6.7.0
+pkgrel=1
+pkgdesc='KDE: Qt-style client/server Wayland wrappers'
+arch=('x86_64')
+url='https://kde.org/plasma-desktop/'
+license=('GPL-2.0-or-later')
+depends=('qt6-base' 'wayland' )
+makedepends=('extra-cmake-modules' 'cmake' 'ninja' 'python' 'qt6-base' 'qt6-declarative' 'qt6-tools' 'wayland-protocols' 'plasma-wayland-protocols' 'qt6-wayland' )
+options=('!lto')
+source=("https://download.kde.org/stable/plasma/6.7.0/kwayland-$pkgver.tar.xz")
+sha256sums=('8621d17e9100be60ea340235208d044fd02931dbef76a32d9a477de31c8e33f4')
+
+build() {
+  cmake -S "kwayland-$pkgver" -B build -G Ninja \
+    -D CMAKE_BUILD_TYPE=Release \
+    -D CMAKE_INSTALL_PREFIX=/usr \
+    -D KDE_INSTALL_LIBDIR=lib \
+    -D KDE_INSTALL_LIBEXECDIR=lib \
+    -D KDE_INSTALL_USE_QT_SYS_PATHS=ON \
+    -D BUILD_TESTING=OFF \
+    -D BUILD_QCH=OFF \
+    -D BUILD_PYTHON_BINDINGS=OFF
+  cmake --build build
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+}
