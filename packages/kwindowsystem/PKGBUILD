@@ -1,0 +1,28 @@
+# Maintainer: Blueberry Linux <packages@blueberry.linux>
+pkgname=kwindowsystem
+pkgver=6.27.0
+pkgrel=1
+pkgdesc='KDE: window system abstraction (X11/Wayland)'
+arch=('x86_64')
+url='https://community.kde.org/Frameworks'
+license=('LGPL-2.1-or-later')
+depends=('qt6-base' 'qt6-declarative' 'qt6-wayland' 'libxkbcommon' 'libxcb' )
+makedepends=('extra-cmake-modules' 'cmake' 'ninja' 'python' 'qt6-base' 'qt6-declarative' 'qt6-wayland' 'wayland-protocols' )
+options=('!lto')
+source=("https://download.kde.org/stable/frameworks/${pkgver%.*}/kwindowsystem-$pkgver.tar.xz")
+sha256sums=('401e5700ab36530a605410464268bf726c898da42c6f7d7bf05a9db00ccfe172')
+
+build() {
+  cmake -S "kwindowsystem-$pkgver" -B build -G Ninja \
+    -D CMAKE_BUILD_TYPE=Release \
+    -D CMAKE_INSTALL_PREFIX=/usr \
+    -D KDE_INSTALL_LIBDIR=lib \
+    -D KDE_INSTALL_USE_QT_SYS_PATHS=ON \
+    -D BUILD_TESTING=OFF \
+    -D BUILD_QCH=OFF
+  cmake --build build
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+}
