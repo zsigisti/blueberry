@@ -36,7 +36,7 @@ DESKTOP_PKGS        := $(DESKTOP_COMMON_PKGS) $(DESKTOP_DE_PKGS)
 # These add to the base image's BASE_PKGS so the installed system has the DE.
 BASE_PKGS += $(DESKTOP_PKGS)
 
-.PHONY: desktop-iso desktop-pkgs desktop-info
+.PHONY: desktop-iso desktop-pkgs desktop-stage desktop-info
 
 desktop-info: desktop-version
 	@echo "  edition : $(DE)   init: $(INIT)"
@@ -47,8 +47,15 @@ desktop-pkgs:
 	@echo "[desktop] building $(words $(DESKTOP_PKGS)) packages for the $(DE) spin"
 	@sh $(TOPDIR)/tools/build-pkgs.sh $(OBJDIR)/basepkgs $(DESKTOP_PKGS)
 
-# Full live ISO: base install (systemd) + DE + SDDM autostart → Calamares.
-desktop-iso: install
+# Layer the graphical package closure onto the base rootfs (resolves deps from
+# the repo index and extracts each package payload into $(STAGEDIR)).
+desktop-stage: install
+	@echo "[desktop] staging $(words $(DESKTOP_PKGS)) packages (+deps) into the rootfs"
+	@STAGEDIR="$(STAGEDIR)" PKGDIR="$(OBJDIR)/basepkgs" \
+	 bash $(TOPDIR)/tools/stage-desktop.sh $(DESKTOP_PKGS)
+
+# Full live ISO: base install (systemd) + DE closure + SDDM autostart → Calamares.
+desktop-iso: desktop-stage
 	@echo "[desktop] assembling live ISO: $(BBD_NAME) $(BBD_FULLVERSION) ($(DE))"
 	@DE=$(DE) \
 	 BBD_NAME="$(BBD_NAME)" \
