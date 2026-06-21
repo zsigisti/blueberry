@@ -18,6 +18,7 @@ build() {
   cmake -S "sddm-$pkgver" -B build -G Ninja \
     -D CMAKE_BUILD_TYPE=Release \
     -D CMAKE_INSTALL_PREFIX=/usr \
+    -D CMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -D BUILD_MAN_PAGES=ON \
     -D ENABLE_JOURNALD=ON \
     -D DBUS_CONFIG_DIR=/usr/share/dbus-1/system.d \
