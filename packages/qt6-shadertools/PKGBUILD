@@ -1,0 +1,31 @@
+# Maintainer: Blueberry Linux <packages@blueberry.linux>
+pkgname=qt6-shadertools
+pkgver=6.8.1
+pkgrel=1
+pkgdesc='Qt 6 tools and APIs for working with shaders (required by Qt Quick)'
+arch=('x86_64')
+url='https://www.qt.io/'
+license=('LGPL-3.0-only')
+depends=('qt6-base')
+# qt6-base is pulled from Arch repos at build time; resolved from Blueberry mirror at install.
+makedepends=('cmake' 'ninja' 'python' 'qt6-base' 'perl')
+options=('!lto')
+source=("https://download.qt.io/official_releases/qt/${pkgver%.*}/$pkgver/submodules/qtshadertools-everywhere-src-$pkgver.tar.xz")
+sha256sums=('55b70cd632473a8043c74ba89310f7ba9c5041d253bc60e7ae1fa789169c4846')
+
+build() {
+  cmake -S "qtshadertools-everywhere-src-$pkgver" -B build -G Ninja \
+    -D CMAKE_BUILD_TYPE=Release \
+    -D CMAKE_INSTALL_PREFIX=/usr \
+    -D INSTALL_LIBDIR=/usr/lib \
+    -D INSTALL_ARCHDATADIR=/usr/lib/qt6 \
+    -D QT_BUILD_EXAMPLES=OFF \
+    -D QT_BUILD_TESTS=OFF
+  cmake --build build
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+  install -Dm644 "qtshadertools-everywhere-src-$pkgver/LICENSES/LGPL-3.0-only.txt" \
+    "$pkgdir/usr/share/licenses/$pkgname/LICENSE" 2>/dev/null || true
+}
