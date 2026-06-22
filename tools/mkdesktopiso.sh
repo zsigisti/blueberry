@@ -83,8 +83,15 @@ grep -rl '@@' "$LIVEROOT/etc/calamares" 2>/dev/null | while read -r f; do
         "$f"
 done
 
-# ── systemd: boot to the graphical target, enable the DM ──────────────────────
-log "enabling graphical target + $DEFAULT_DM in the live root"
+# ── systemd: /sbin/init, the graphical target, the DM ─────────────────────────
+# The live-boot initramfs does `switch_root /mnt/root /sbin/init`, so a desktop
+# (always systemd) rootfs MUST have /sbin/init → systemd. The base `install`
+# may have staged a runit or no /sbin/init; force the systemd entry point here.
+log "wiring /sbin/init → systemd + graphical target + $DEFAULT_DM"
+[ -x "$LIVEROOT/usr/lib/systemd/systemd" ] || die "no systemd in the staged rootfs ($LIVEROOT/usr/lib/systemd/systemd)"
+mkdir -p "$LIVEROOT/sbin"
+ln -sf /usr/lib/systemd/systemd "$LIVEROOT/sbin/init"
+ln -sf /usr/lib/systemd/systemd "$LIVEROOT/usr/sbin/init" 2>/dev/null || true
 ln -sf /usr/lib/systemd/system/graphical.target "$LIVEROOT/etc/systemd/system/default.target"
 mkdir -p "$LIVEROOT/etc/systemd/system/graphical.target.wants"
 ln -sf "/usr/lib/systemd/system/$DEFAULT_DM.service" \
