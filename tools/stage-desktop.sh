@@ -90,6 +90,25 @@ log "staged $staged/${#closure[@]} packages into $STAGEDIR"
 [ -e "$STAGEDIR/usr/bin/sddm" ] || [ -e "$STAGEDIR/usr/bin/gdm" ] \
     || warn "no display manager in the rootfs — check that sddm/gdm are in the closure"
 
+# ── Resolve stale base-bundle libs shadowing the staged ones ──────────────────
+# The base rootfs bundles a few old util-linux libraries in /usr/lib (e.g.
+# libblkid.so.1.0 with no version symbols). The full util-linux package staged
+# here installs the proper, versioned copies to /lib. Because /lib and /usr/lib
+# are separate dirs (not merged-usr) and /usr/lib sorts first in the cache, the
+# stale copy shadows the good one — and systemd's libsystemd-shared needs the
+# versioned blkid symbols, so PID 1 dies. For every util-linux soname present in
+# /lib, drop the stale /usr/lib duplicate and point it at the /lib version.
+if [ -d "$STAGEDIR/lib" ] && [ -d "$STAGEDIR/usr/lib" ]; then
+    for soname in libblkid.so.1 libmount.so.1 libuuid.so.1 libsmartcols.so.1 libfdisk.so.1; do
+        if [ -e "$STAGEDIR/lib/$soname" ]; then
+            real=$(readlink "$STAGEDIR/lib/$soname" 2>/dev/null || echo "$soname")
+            rm -f "$STAGEDIR/usr/lib/$soname" "$STAGEDIR/usr/lib/$real"
+            ln -sf "/lib/$soname" "$STAGEDIR/usr/lib/$soname"
+            log "  deduped $soname → /lib (dropped stale /usr/lib copy)"
+        fi
+    done
+fi
+
 # ── Rebuild the dynamic-linker cache for the whole desktop closure ────────────
 # The base rootfs ships an ld.so.cache for ~35 libs only. After layering hundreds
 # of desktop libraries the cache is stale, and systemd's private libs in
