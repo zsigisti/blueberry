@@ -89,4 +89,23 @@ done
 log "staged $staged/${#closure[@]} packages into $STAGEDIR"
 [ -e "$STAGEDIR/usr/bin/sddm" ] || [ -e "$STAGEDIR/usr/bin/gdm" ] \
     || warn "no display manager in the rootfs — check that sddm/gdm are in the closure"
+
+# ── Rebuild the dynamic-linker cache for the whole desktop closure ────────────
+# The base rootfs ships an ld.so.cache for ~35 libs only. After layering hundreds
+# of desktop libraries the cache is stale, and systemd's private libs in
+# /usr/lib/systemd are NOT found transitively (libsystemd-core has no RUNPATH) —
+# so systemd (PID 1) exits 127 and the boot panics. Ensure the systemd lib dir is
+# on the loader path and regenerate the cache rooted at the staged rootfs.
+log "refreshing ld.so.cache for the desktop closure"
+mkdir -p "$STAGEDIR/etc/ld.so.conf.d"
+printf '/usr/lib\n/usr/lib/systemd\n/lib\n/usr/local/lib\n' \
+    > "$STAGEDIR/etc/ld.so.conf.d/blueberry-desktop.conf"
+[ -f "$STAGEDIR/etc/ld.so.conf" ] || echo 'include /etc/ld.so.conf.d/*.conf' > "$STAGEDIR/etc/ld.so.conf"
+if command -v ldconfig >/dev/null 2>&1; then
+    ldconfig -r "$STAGEDIR" 2>/dev/null \
+        && log "ld.so.cache rebuilt ($(wc -c <"$STAGEDIR/etc/ld.so.cache" 2>/dev/null) bytes)" \
+        || warn "ldconfig -r failed; systemd may not start"
+else
+    warn "ldconfig not on host — cannot rebuild the rootfs cache"
+fi
 log "desktop staging complete"
