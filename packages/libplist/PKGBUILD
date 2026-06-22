@@ -1,0 +1,15 @@
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
+pkgname=libplist
+pkgver=2.7.0
+pkgrel=1
+pkgdesc='Apple property list library'
+arch=('x86_64')
+url='https://blueberry.linux/'
+license=('custom')
+depends=('glibc' )
+makedepends=('' )
+options=('!lto')
+source=("libplist-2.7.0.tar.bz2::https://github.com/libimobiledevice/libplist/releases/download/2.7.0/libplist-2.7.0.tar.bz2")
+sha256sums=('7ac42301e896b1ebe3c654634780c82baa7cb70df8554e683ff89f7c2643eb8b')
+build() { cd "libplist-2.7.0"; ./configure --prefix=/usr --libdir=/usr/lib --without-cython; make; }
+package() { cd "libplist-2.7.0"; make DESTDIR="$pkgdir" install; }

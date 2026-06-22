@@ -1,0 +1,15 @@
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
+pkgname=yaml-cpp
+pkgver=0.8.0
+pkgrel=1
+pkgdesc='YAML parser for C++ (Calamares)'
+arch=('x86_64')
+url='https://blueberry.linux/'
+license=('custom')
+depends=('gcc-libs' 'glibc' )
+makedepends=('cmake' 'ninja' )
+options=('!lto')
+source=("yaml-cpp-0.8.0.tar.gz::https://github.com/jbeder/yaml-cpp/archive/0.8.0/yaml-cpp-0.8.0.tar.gz")
+sha256sums=('fbe74bbdcee21d656715688706da3c8becfd946d92cd44705cc6098bb23b3a16')
+build() { cmake -S "yaml-cpp-0.8.0" -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DYAML_BUILD_SHARED_LIBS=ON -DYAML_CPP_BUILD_TESTS=OFF; cmake --build build; }
+package() { DESTDIR="$pkgdir" cmake --install build; }

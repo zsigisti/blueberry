@@ -1,0 +1,15 @@
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
+pkgname=lmdb
+pkgver=0.9.35
+pkgrel=1
+pkgdesc='Lightning Memory-mapped DB (baloo)'
+arch=('x86_64')
+url='https://blueberry.linux/'
+license=('custom')
+depends=('glibc' )
+makedepends=('' )
+options=('!lto')
+source=("openldap-LMDB_0.9.35.tar.gz::https://git.openldap.org/openldap/openldap/-/archive/LMDB_0.9.35/openldap-LMDB_0.9.35.tar.gz")
+sha256sums=('0d090c6a7c85a4f31a2ab0d734554c21097f24752393a190b0e51996b08f48c4')
+build() { cd "openldap-LMDB_0.9.35/libraries/liblmdb"; ./configure --prefix=/usr --libdir=/usr/lib ; make; }
+package() { cd "openldap-LMDB_0.9.35/libraries/liblmdb"; make DESTDIR="$pkgdir" install; }
