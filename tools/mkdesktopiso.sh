@@ -94,9 +94,36 @@ done
 # may have staged a runit or no /sbin/init; force the systemd entry point here.
 log "wiring /sbin/init → systemd + graphical target + $DEFAULT_DM"
 [ -x "$LIVEROOT/usr/lib/systemd/systemd" ] || die "no systemd in the staged rootfs ($LIVEROOT/usr/lib/systemd/systemd)"
-mkdir -p "$LIVEROOT/sbin"
+mkdir -p "$LIVEROOT/sbin" "$LIVEROOT/usr/sbin"
 ln -sf /usr/lib/systemd/systemd "$LIVEROOT/sbin/init"
 ln -sf /usr/lib/systemd/systemd "$LIVEROOT/usr/sbin/init" 2>/dev/null || true
+
+# Merged-/usr for sbin: systemd unit ExecStarts use absolute /usr/sbin paths
+# (mount, sulogin, …) but util-linux installs to /usr/bin. Link every /usr/bin
+# tool into /usr/sbin when missing so remount-fs, sulogin, swap, etc. work.
+log "merging /usr/bin → /usr/sbin (mount, sulogin, …)"
+for b in "$LIVEROOT"/usr/bin/*; do
+    [ -e "$b" ] || continue
+    n=$(basename "$b")
+    [ -e "$LIVEROOT/usr/sbin/$n" ] || ln -sf "../bin/$n" "$LIVEROOT/usr/sbin/$n"
+done
+# /sbin tools too (some units use /sbin/<x>); /sbin already holds init.
+for b in "$LIVEROOT"/usr/bin/*; do
+    [ -e "$b" ] || continue
+    n=$(basename "$b")
+    [ -e "$LIVEROOT/sbin/$n" ] || ln -sf "/usr/bin/$n" "$LIVEROOT/sbin/$n"
+done
+
+# Live image is "already set up": preset a machine-id and mask the interactive
+# first-boot wizard, or systemd-firstboot blocks on a TTY prompt and drops the
+# whole boot into emergency mode before reaching the display manager.
+log "disabling systemd-firstboot for the live session"
+systemd-machine-id-setup --root="$LIVEROOT" >/dev/null 2>&1 \
+    || (head -c16 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$LIVEROOT/etc/machine-id")
+ln -sf /dev/null "$LIVEROOT/etc/systemd/system/systemd-firstboot.service"
+: > "$LIVEROOT/etc/locale.conf"; echo "LANG=C.UTF-8" > "$LIVEROOT/etc/locale.conf"
+echo "blueberry" > "$LIVEROOT/etc/hostname"
+
 ln -sf /usr/lib/systemd/system/graphical.target "$LIVEROOT/etc/systemd/system/default.target"
 mkdir -p "$LIVEROOT/etc/systemd/system/graphical.target.wants"
 ln -sf "/usr/lib/systemd/system/$DEFAULT_DM.service" \
@@ -138,11 +165,11 @@ set timeout_style=menu
 if [ "\$grub_platform" = "efi" ]; then set gfxpayload=keep; else set gfxpayload=text; fi
 
 menuentry "Try $BBD_NAME $BBD_FULLVERSION ($DE)" {
-    linux /boot/vmlinuz blueberry.live=1 root=live:CDLABEL=$VOLID console=tty0 quiet splash systemd.unified_cgroup_hierarchy=1
+    linux /boot/vmlinuz blueberry.live=1 root=live:CDLABEL=$VOLID console=tty0 quiet splash systemd.firstboot=0 systemd.unified_cgroup_hierarchy=1
     initrd /boot/initramfs.cpio.zst
 }
 menuentry "Install $BBD_NAME $BBD_FULLVERSION ($DE)" {
-    linux /boot/vmlinuz blueberry.live=1 blueberry.installer=1 root=live:CDLABEL=$VOLID console=tty0 quiet splash systemd.unified_cgroup_hierarchy=1
+    linux /boot/vmlinuz blueberry.live=1 blueberry.installer=1 root=live:CDLABEL=$VOLID console=tty0 quiet splash systemd.firstboot=0 systemd.unified_cgroup_hierarchy=1
     initrd /boot/initramfs.cpio.zst
 }
 menuentry "Try (safe graphics / nomodeset)" {
