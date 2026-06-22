@@ -99,12 +99,15 @@ log "staged $staged/${#closure[@]} packages into $STAGEDIR"
 # versioned blkid symbols, so PID 1 dies. For every util-linux soname present in
 # /lib, drop the stale /usr/lib duplicate and point it at the /lib version.
 if [ -d "$STAGEDIR/lib" ] && [ -d "$STAGEDIR/usr/lib" ]; then
-    for soname in libblkid.so.1 libmount.so.1 libuuid.so.1 libsmartcols.so.1 libfdisk.so.1; do
-        if [ -e "$STAGEDIR/lib/$soname" ]; then
-            real=$(readlink "$STAGEDIR/lib/$soname" 2>/dev/null || echo "$soname")
-            rm -f "$STAGEDIR/usr/lib/$soname" "$STAGEDIR/usr/lib/$real"
-            ln -sf "/lib/$soname" "$STAGEDIR/usr/lib/$soname"
-            log "  deduped $soname → /lib (dropped stale /usr/lib copy)"
+    for base in libblkid.so libmount.so libuuid.so libsmartcols.so libfdisk.so; do
+        if [ -e "$STAGEDIR/lib/$base.1" ] || ls "$STAGEDIR/lib/$base".* >/dev/null 2>&1; then
+            # Remove the stale /usr/lib copies entirely — both the soname symlink
+            # AND the actual versioned library file (e.g. libblkid.so.1.0), or
+            # ldconfig will just rescan the leftover file and recreate the link.
+            rm -f "$STAGEDIR/usr/lib/$base" "$STAGEDIR/usr/lib/$base".*
+            # Point the soname at the /lib (util-linux, versioned) copy.
+            [ -e "$STAGEDIR/lib/$base.1" ] && ln -sf "/lib/$base.1" "$STAGEDIR/usr/lib/$base.1"
+            log "  deduped $base.* → /lib (purged stale /usr/lib files)"
         fi
     done
 fi
