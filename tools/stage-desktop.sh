@@ -90,6 +90,24 @@ log "staged $staged/${#closure[@]} packages into $STAGEDIR"
 [ -e "$STAGEDIR/usr/bin/sddm" ] || [ -e "$STAGEDIR/usr/bin/gdm" ] \
     || warn "no display manager in the rootfs — check that sddm/gdm are in the closure"
 
+# ── systemd owns udev/libudev: re-extract it LAST so it wins over eudev ────────
+# Some KDE deps (solid → eudev) pull eudev, whose older udevadm/libudev (v251)
+# overwrites systemd's own (v256) depending on extraction order. On a systemd
+# image systemd's udev MUST win, or systemd-udevd.service dies (status=2) and the
+# desktop never reaches a graphical session. Re-extract systemd over the closure.
+sysd_pkg=""
+for cand in "$PKGDIR"/systemd-[0-9]*.pkg.tar.zst; do [ -f "$cand" ] && sysd_pkg="$cand"; done
+if [ -z "$sysd_pkg" ]; then
+    sysd_file=$(file_field systemd)
+    [ -n "$sysd_file" ] && [ -f "$WORK/$sysd_file" ] && sysd_pkg="$WORK/$sysd_file"
+fi
+if [ -n "$sysd_pkg" ] && [ -f "$sysd_pkg" ]; then
+    log "re-asserting systemd's udev/libudev over the closure ($(basename "$sysd_pkg"))"
+    bsdtar -xpf "$sysd_pkg" -C "$STAGEDIR" \
+        --exclude '.PKGINFO' --exclude '.BUILDINFO' --exclude '.MTREE' \
+        --exclude '.INSTALL' --exclude '.CHANGELOG' 2>/dev/null || warn "systemd re-extract failed"
+fi
+
 # ── Resolve stale base-bundle libs shadowing the staged ones ──────────────────
 # The base rootfs bundles a few old util-linux libraries in /usr/lib (e.g.
 # libblkid.so.1.0 with no version symbols). The full util-linux package staged
