@@ -9,16 +9,16 @@ arch     = ["x86_64"]
 depends  = ["glibc"]
 makedepends = ["gcc", "make"]
 
-[[sources]]
+[[source]]
 url    = "https://ftp.gnu.org/gnu/hello/hello-2.12.1.tar.gz"
 sha256 = "8d99142afd92576f30b0cd7cb42a8dc6809998bc5d607d88761f512e26c7db20"
 
+[steps]
 build = '''
   cd "hello-$version"
   ./configure --prefix=/usr
   make
 '''
-
 package = '''
   cd "hello-$version"
   make DESTDIR="$pkgdir" install

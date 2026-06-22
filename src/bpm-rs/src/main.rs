@@ -103,7 +103,7 @@ fn cmd_install(cfg: &Config, args: &[String]) -> Result<(), String> {
     let mut plan: Vec<(index::Entry, bool)> = Vec::new();
     let mut files: Vec<&String> = Vec::new();
     for a in &names {
-        if a.contains(".pkg.tar.") {
+        if a.contains(".pkg.tar.") || a.ends_with(".bpm") {
             files.push(a);
         } else {
             resolve(cfg, a, true, &mut seen, &mut plan);

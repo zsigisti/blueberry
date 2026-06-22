@@ -31,12 +31,94 @@ fn avail_bytes(path: &Path) -> Option<u64> {
 fn is_meta(name: &str) -> bool {
     matches!(
         name,
-        ".PKGINFO" | ".MTREE" | ".BUILDINFO" | ".INSTALL" | ".CHANGELOG"
+        ".PKGINFO" | ".MTREE" | ".BUILDINFO" | ".INSTALL" | ".CHANGELOG" | ".BPM"
     )
 }
 
 fn strip_dot(rel: &str) -> &str {
     rel.strip_prefix("./").unwrap_or(rel)
+}
+
+/// Translate a native `.BPM` TOML manifest into the internal (.PKGINFO, .INSTALL)
+/// pair the rest of the installer already understands, so the streaming install
+/// path is identical for both `.pkg.tar.zst` and `.bpm`. Parses only the small,
+/// fixed subset `bpmbuild` emits (scalars, string arrays, a [scripts] table) —
+/// no general TOML library is pulled in.
+fn bpm_manifest_to_pkginfo(toml: &str) -> (String, Option<String>) {
+    let unquote = |v: &str| -> String {
+        let v = v.trim();
+        if v.len() >= 2 && v.starts_with('"') && v.ends_with('"') {
+            v[1..v.len() - 1].replace("\\\"", "\"").replace("\\\\", "\\")
+        } else {
+            v.to_string()
+        }
+    };
+    let array_items = |v: &str| -> Vec<String> {
+        let v = v.trim();
+        let inner = v.strip_prefix('[').and_then(|s| s.strip_suffix(']')).unwrap_or("");
+        inner
+            .split(',')
+            .map(|x| unquote(x))
+            .filter(|x| !x.is_empty())
+            .collect()
+    };
+
+    let mut pkginfo = String::new();
+    let mut scripts: Vec<(String, String)> = Vec::new();
+    let mut in_scripts = false;
+
+    for line in toml.lines() {
+        let l = line.trim();
+        if l.is_empty() || l.starts_with('#') {
+            continue;
+        }
+        if l.starts_with('[') {
+            in_scripts = l == "[scripts]";
+            continue;
+        }
+        let (k, v) = match l.split_once('=') {
+            Some((k, v)) => (k.trim(), v.trim()),
+            None => continue,
+        };
+        if in_scripts {
+            scripts.push((k.to_string(), unquote(v)));
+            continue;
+        }
+        match k {
+            "name" => pkginfo.push_str(&format!("pkgname = {}\n", unquote(v))),
+            "version" => {
+                // fold release into pkgver as ver-rel when present (set later).
+                pkginfo.push_str(&format!("pkgver = {}\n", unquote(v)));
+            }
+            "installed_size" => pkginfo.push_str(&format!("size = {}\n", v.trim())),
+            "arch" => pkginfo.push_str(&format!("arch = {}\n", unquote(v))),
+            "summary" => pkginfo.push_str(&format!("pkgdesc = {}\n", unquote(v))),
+            "depends" => {
+                for d in array_items(v) {
+                    pkginfo.push_str(&format!("depend = {d}\n"));
+                }
+            }
+            "provides" => {
+                for p in array_items(v) {
+                    pkginfo.push_str(&format!("provides = {p}\n"));
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // Synthesise an .INSTALL-style script: each [scripts] entry becomes a shell
+    // function the existing run_hook() sources and calls (post_install, …).
+    let install = if scripts.is_empty() {
+        None
+    } else {
+        let mut s = String::new();
+        for (hook, body) in &scripts {
+            s.push_str(&format!("{hook}() {{\n{body}\n}}\n"));
+        }
+        Some(s)
+    };
+    (pkginfo, install)
 }
 
 /// Run a `/bin/sh -c` command inside the install root. Chroots into `dest` when
@@ -107,9 +189,21 @@ pub fn install_file(cfg: &Config, path: &Path, force: bool) -> io::Result<String
         }
 
         if is_meta(&rel) {
-            if rel == ".PKGINFO" && info.is_none() {
-                let mut s = String::new();
-                e.read_to_string(&mut s)?;
+            if (rel == ".PKGINFO" || rel == ".BPM") && info.is_none() {
+                let mut raw = String::new();
+                e.read_to_string(&mut raw)?;
+                // A native .bpm carries TOML; translate it into the .PKGINFO
+                // shape (and pull out its install scriptlet). A legacy
+                // .pkg.tar.zst .PKGINFO is used as-is.
+                let s = if rel == ".BPM" {
+                    let (pkginfo, bpm_script) = bpm_manifest_to_pkginfo(&raw);
+                    if script.is_none() {
+                        script = bpm_script;
+                    }
+                    pkginfo
+                } else {
+                    raw
+                };
                 let pkgname = index::pkginfo_field(&s, "pkgname");
                 version = index::pkginfo_field(&s, "pkgver");
 

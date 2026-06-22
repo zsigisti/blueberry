@@ -99,7 +99,8 @@ def main():
     log(f"building {name} {version}-{release} ({arch_tag}) in {work}")
 
     # ── sources: fetch, verify, auto-extract tarballs ─────────────────────────
-    for s in recipe.get("sources", []):
+    sources = recipe.get("source", []) or recipe.get("sources", [])
+    for s in sources:
         url = s["url"]
         fn = url.split("/")[-1].split("::")[-1]
         dest = os.path.join(srcdir, fn)
@@ -136,8 +137,9 @@ def main():
 
 
 def pkg_step(recipe, key):
-    # build/package may live at top level or under [package].
-    return recipe.get(key) or (recipe.get("package", {}) or {}).get(key) or ""
+    # Build/package shell steps live in the [steps] table (an explicit table
+    # avoids the TOML collision between a `package` key and the [package] table).
+    return (recipe.get("steps", {}) or {}).get(key, "") or ""
 
 
 def write_bpm(recipe, pkg, name, version, release, arch_tag, pkgdir, out_dir):

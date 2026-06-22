@@ -11,16 +11,16 @@ depends     = ["glibc"]
 makedepends = ["gcc", "make"]
 provides    = ["libz.so"]
 
-[[sources]]
+[[source]]
 url    = "https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz"
 sha256 = "9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23"
 
+[steps]
 build = '''
   cd "zlib-$version"
   ./configure --prefix=/usr
   make
 '''
-
 package = '''
   cd "zlib-$version"
   make DESTDIR="$pkgdir" install
