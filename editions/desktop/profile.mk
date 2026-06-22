@@ -47,11 +47,19 @@ desktop-pkgs:
 	@echo "[desktop] building $(words $(DESKTOP_PKGS)) packages for the $(DE) spin"
 	@sh $(TOPDIR)/tools/build-pkgs.sh $(OBJDIR)/basepkgs $(DESKTOP_PKGS)
 
-# Layer the graphical package closure onto the base rootfs (resolves deps from
-# the repo index and extracts each package payload into $(STAGEDIR)).
+# The desktop gets its OWN rootfs, cloned from the clean base, so layering the
+# graphical (systemd, no-busybox) closure never clobbers the CLI/initramfs rootfs
+# at $(STAGEDIR). The initramfs is built once from the base; the ISO squashes
+# this desktop rootfs.
+DESKTOP_STAGEDIR := $(OBJDIR)/desktop-rootfs
+
+# Layer the graphical package closure onto a clone of the base rootfs.
 desktop-stage: install
-	@echo "[desktop] staging $(words $(DESKTOP_PKGS)) packages (+deps) into the rootfs"
-	@STAGEDIR="$(STAGEDIR)" PKGDIR="$(OBJDIR)/basepkgs" \
+	@echo "[desktop] cloning base rootfs → $(DESKTOP_STAGEDIR)"
+	@rm -rf $(DESKTOP_STAGEDIR)
+	@cp -al $(STAGEDIR) $(DESKTOP_STAGEDIR) 2>/dev/null || cp -a $(STAGEDIR) $(DESKTOP_STAGEDIR)
+	@echo "[desktop] staging $(words $(DESKTOP_PKGS)) packages (+deps) into $(DESKTOP_STAGEDIR)"
+	@STAGEDIR="$(DESKTOP_STAGEDIR)" PKGDIR="$(OBJDIR)/basepkgs" \
 	 bash $(TOPDIR)/tools/stage-desktop.sh $(DESKTOP_PKGS)
 
 # Full live ISO: base install (systemd) + DE closure + SDDM autostart → Calamares.
@@ -63,7 +71,7 @@ desktop-iso: desktop-stage
 	 BBD_FULLVERSION="$(BBD_FULLVERSION)" \
 	 BBD_CODENAME="$(BBD_CODENAME)" \
 	 BBD_CHANNEL="$(BBD_CHANNEL)" \
-	 STAGEDIR="$(STAGEDIR)" \
+	 STAGEDIR="$(DESKTOP_STAGEDIR)" \
 	 DESKTOPDIR="$(DESKTOPDIR)" \
 	 BOOTDIR="$(BOOTDIR)" \
 	 ARCH="$(ARCH)" \
