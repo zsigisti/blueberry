@@ -237,7 +237,9 @@ if [ -n "$LIVE" ]; then
                 mkdir -p /mnt/root/lib/live/medium
                 mount --bind /live/medium /mnt/root/lib/live/medium 2>/dev/null
                 echo "BLUEBERRY_LIVE_BOOT=OK medium=$MEDIUM"
-                exec switch_root /mnt/root /sbin/init
+                # Honor an init= override (e.g. init=/bin/bash) for live rescue.
+                LIVEINIT=$(cmdline init); : "${LIVEINIT:=/sbin/init}"
+                exec switch_root /mnt/root "$LIVEINIT"
             fi
         fi
     fi
