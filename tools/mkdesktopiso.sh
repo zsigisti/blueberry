@@ -50,15 +50,20 @@ if [ ! -e "$STAGEDIR/usr/bin/sddm" ] && [ ! -e "$STAGEDIR/usr/bin/gdm" ]; then
     [ "${FORCE:-0}" = 1 ] || die "refusing to build a non-graphical 'desktop' ISO; set FORCE=1 to override."
 fi
 
-WORK=$(mktemp -d /tmp/bbd-iso.XXXXXX)
+# Put WORK on the SAME filesystem as the output ISO so the hardlink-clone of the
+# (multi-GB) rootfs is fast and, crucially, doesn't fall back to a cross-fs copy
+# that nests the source dir inside liveroot.
+WORK=$(mktemp -d "$(dirname "$OUTPUT")/.bbd-iso.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
 LIVEROOT="$WORK/liveroot"
 ISO_ROOT="$WORK/iso"
-mkdir -p "$ISO_ROOT/boot/grub" "$ISO_ROOT/live" "$ISO_ROOT/EFI/BOOT"
+mkdir -p "$ISO_ROOT/boot/grub" "$ISO_ROOT/live" "$ISO_ROOT/EFI/BOOT" "$LIVEROOT"
 
 # ── Assemble the live root (hardlink-clone the staged rootfs, then overlay) ────
+# Copy CONTENTS (note the trailing /.) into the pre-created LIVEROOT so a fallback
+# plain copy can never nest "$STAGEDIR" as a subdirectory.
 log "cloning staged rootfs → live root"
-cp -al "$STAGEDIR" "$LIVEROOT" 2>/dev/null || cp -a "$STAGEDIR" "$LIVEROOT"
+cp -al "$STAGEDIR/." "$LIVEROOT/" 2>/dev/null || cp -a "$STAGEDIR/." "$LIVEROOT/"
 
 log "laying down live-session overlay (DM=$DEFAULT_DM session=$LIVE_SESSION)"
 cp -a "$DESKTOPDIR/live/." "$LIVEROOT/"
