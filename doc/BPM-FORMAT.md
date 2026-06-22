@@ -3,6 +3,13 @@
 > **Status: EXPERIMENTAL — `feature/bpm-pkg-format` branch only.**
 > Not used by the production build/repo until it is proven 100%. Production
 > still uses `PKGBUILD` + `.pkg.tar.zst`.
+>
+> **Prototype verified end-to-end** (zlib + hello): recipe → `bpmbuild` → `.bpm`
+> → `bpmrepo.sh` index → `bpm update` → `bpm install <name>` (sha256-verified,
+> scriptlets run, deps resolved) → `bpm list`/`remove`. The PKGBUILD→bpm.toml
+> converter cleanly translates all 303 existing recipes; a converted zlib recipe
+> builds and installs identically. Remaining before any production flip: build
+> the **whole** package set to `.bpm` and install-verify a desktop closure.
 
 This replaces the two Arch-derived pieces Blueberry currently borrows:
 
@@ -42,17 +49,19 @@ makedepends = ["gcc", "make"]
 provides    = ["libz.so"]
 options     = []            # e.g. ["!lto", "!strip"]
 
-[[sources]]
+[[source]]
 url    = "https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz"
 sha256 = "9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23"
 
-# Imperative steps. Provided env: $srcdir $pkgdir $name $version $release $arch.
+# Imperative steps live in [steps] (an explicit table — a top-level `package`
+# key would collide with the [package] table). Env: $srcdir $pkgdir $name
+# $version $release $arch.
+[steps]
 build = '''
   cd "zlib-$version"
   ./configure --prefix=/usr
   make
 '''
-
 package = '''
   cd "zlib-$version"
   make DESTDIR="$pkgdir" install
