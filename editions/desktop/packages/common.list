@@ -14,6 +14,7 @@ libjpeg-turbo
 pixman
 libxml2
 libpciaccess
+coreutils                   # cat/ls/cp/tail/tty/env/sleep — base CLI tools (no busybox)
 freetype2
 glib2
 glibc-locales               # en_US.UTF-8 locale-archive
