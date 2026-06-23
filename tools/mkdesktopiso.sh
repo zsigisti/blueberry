@@ -212,7 +212,10 @@ if [ "${XDG_VTNR:-0}" = "1" ] && [ -z "$WAYLAND_DISPLAY" ] && [ -z "$DISPLAY" ];
     export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
     export LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe KWIN_DRM_USE_QPAINTER=1
     export XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=KDE
-    exec dbus-run-session startplasma-wayland > "$HOME/.plasma.log" 2>&1
+    # Mirror the session log to a host-shared 9p dir when present (diagnostics),
+    # else to the home dir. `live` cannot write /dev/ttyS0 directly.
+    _plog="$HOME/.plasma.log"; [ -w /run/plog ] && _plog=/run/plog/plasma.log
+    exec dbus-run-session startplasma-wayland > "$_plog" 2>&1
 fi
 EOF
 chown -R 1000:1000 "$LIVEROOT/home/live" 2>/dev/null || true
