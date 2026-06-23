@@ -11,28 +11,36 @@ Download a release ISO, or build one:
 ```sh
 make desktop-iso                 # KDE Plasma (default)
 make desktop-iso DE=gnome        # GNOME spin
-# → ../blueberry-build/blueberry-desktop-<version>-x86_64.iso
+# → iso/blueberry-desktop-<version>-kde-x86_64.iso
 ```
 
 Write it to a USB stick (replace `sdX` with your device):
 
 ```sh
-sudo dd if=blueberry-desktop-*.iso of=/dev/sdX bs=4M status=progress oflag=sync
+sudo dd if=iso/blueberry-desktop-*.iso of=/dev/sdX bs=4M status=progress oflag=sync
 ```
 
-Or test it in a VM:
+Or test it in a VM — `make run-desktop` is the easy path:
 
 ```sh
-qemu-system-x86_64 -enable-kvm -m 4G -smp 4 \
-  -drive file=blueberry-desktop-*.iso,media=cdrom -vga virtio -display gtk
+make run-desktop
+# equivalent to:
+qemu-system-x86_64 -enable-kvm -cpu host -m 4G -smp 4 \
+  -cdrom iso/blueberry-desktop-*.iso -vga virtio
 ```
+
+> **`-cpu host` is required.** The live desktop renders with software OpenGL
+> (Mesa llvmpipe), which needs AVX; the default `qemu64` CPU lacks it and the
+> screen stays black.
 
 ## 2. Boot the live session
 
 The ISO boots through GRUB → kernel → initramfs, which mounts the squashfs root
 as a read-only lower layer with a tmpfs upper layer (so the live session is
-writable but disposable). SDDM then **auto-logs into Plasma**. You are now in
-the full desktop — browse the web, open apps, check that your hardware works.
+writable but disposable). systemd reaches `graphical.target` and **SDDM shows
+the KDE Plasma (Wayland) greeter** — log in as **`live`** (no password).
+
+![Blueberry Desktop — SDDM Breeze greeter](images/desktop-greeter.png)
 
 > **Try before you install.** Wi-Fi, trackpad, display scaling, sound — verify
 > them in the live session. What works live will work installed.

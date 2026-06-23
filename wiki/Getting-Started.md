@@ -8,7 +8,7 @@ The fastest taste of the Server edition. You need a Linux host with a C
 compiler, `curl`, `zstd`, `cpio`, and `qemu`.
 
 ```sh
-git clone https://github.com/mmzsigmond/blueberry.git
+git clone https://github.com/zsigisti/blueberry.git
 cd blueberry
 make _check_tools     # verify prerequisites
 make world            # build kernel + initramfs + userland (~minutes)
@@ -19,36 +19,32 @@ You land in an interactive shell with networking up. `Ctrl-A X` quits QEMU.
 Nothing touches your disk. See [Building From Source](Building-From-Source) for
 every make target.
 
-## 2. Install the Desktop from a live ISO
+## 2. Boot a full edition ISO
 
-The full GUI experience: boot a live KDE Plasma session, try it, then install
-with Calamares.
-
-```sh
-make desktop-iso                  # build the live ISO (KDE, the default)
-# → ../blueberry-build/blueberry-desktop-<version>-x86_64.iso
-```
-
-Write it to a USB stick and boot, or test in QEMU:
+Both editions build a live ISO and have one-command **run** (QEMU window) and
+**test** (headless pass/fail) targets:
 
 ```sh
-qemu-system-x86_64 -enable-kvm -m 4G -smp 4 \
-  -drive file=../blueberry-build/blueberry-desktop-*.iso,media=cdrom \
-  -vga virtio -display gtk
+make server-iso   && make run-server      # systemd Server CLI
+make desktop-iso  && make run-desktop      # KDE Plasma Desktop
 ```
 
-The live session auto-logs into Plasma; double-click **Install Blueberry
-Desktop** to launch Calamares. Full walkthrough:
-[Installing Blueberry Desktop](Installing-Blueberry-Desktop).
+The Server ISO boots **systemd** to a multi-user login (autologin root):
 
-## 3. Install the Server to disk
+![Blueberry Server — systemd live CLI](images/server-console.png)
 
-```sh
-make iso                          # build the Server install ISO
-```
+The Desktop ISO boots into the **KDE Plasma (Wayland) greeter** — log in as
+`live` (no password):
 
-Boot it and run `blueberry-install` — a guided GPT/UEFI installer. Full
-walkthrough: [Installing Blueberry Server](Installing-Blueberry-Server).
+![Blueberry Desktop — SDDM greeter](images/desktop-greeter.png)
+
+> **QEMU note:** software rendering (llvmpipe) needs AVX, so the desktop must be
+> booted with **`-cpu host`** — `make run-desktop` does this for you. A bare
+> `qemu … -cpu qemu64` shows a black screen.
+
+To install the Desktop with Calamares, see
+[Installing Blueberry Desktop](Installing-Blueberry-Desktop); to install the
+Server to disk, see [Installing Blueberry Server](Installing-Blueberry-Server).
 
 ## After installing
 

@@ -1,11 +1,16 @@
-# Init System — runit
+# Init Systems — systemd (default) and runit
 
 ## 1. Overview
 
-Blueberry Linux uses **runit** as its default init system. runit is a
-UNIX init scheme with service supervision, written by Gerrit Pape. It is
-~35 KB, dependency-free, and has been the default init of Void Linux since
-2008.
+Blueberry runs **systemd** as PID 1 by default (`INIT=systemd`) on both editions
+— journald, logind (the seats/sessions the GUI needs), networkd/resolved/
+timesyncd, and OpenSSH. The integration layer is in `src/systemd/`;
+`make server-iso` builds a live systemd Server ISO.
+
+A minimal **runit** build remains available with `INIT=runit` for RAM-first /
+embedded use; the rest of this document describes that scheme. runit is a UNIX
+init scheme with service supervision by Gerrit Pape — ~35 KB, dependency-free,
+the default init of Void Linux since 2008.
 
 The entire init system is three shell scripts and one binary (`runsvdir`).
 There is no binary logging format, no socket activation, no unit file parser.

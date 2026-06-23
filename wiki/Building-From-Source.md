@@ -22,24 +22,44 @@ All build output goes to `../blueberry-build/` — **never** inside the tree.
 ```sh
 make world          # kernel + busybox + runit + dropbear + initramfs
 make kernel         # just the kernel
-make run            # boot the live CLI in QEMU
-make test           # headless boot self-test (CI uses this)
-make iso            # Server install ISO
+make install        # stage the rootfs (INIT=systemd by default)
+make iso            # busybox live-CLI / installer ISO
+make server-iso     # systemd Server live ISO  → iso/blueberry-server-x86_64.iso
 make disk           # raw disk image
 ```
 
-Tunables live in `Make.config` (arch, component versions, parallel jobs).
+### Run & test
+
+| Target | What it does |
+|--------|--------------|
+| `make run`          | boot the initramfs live CLI (interactive) |
+| `make test`         | headless initramfs self-test (CI smoke) |
+| `make run-server`   | boot the **Server** ISO in a QEMU window |
+| `make test-server`  | boot Server ISO headless, assert `multi-user.target` |
+| `make run-desktop`  | boot the **Desktop** ISO in a QEMU window |
+| `make test-desktop` | boot Desktop ISO headless, assert `graphical.target` |
+
+`run-*`/`test-*` build the ISO only if it's missing, and boot with `-cpu host`
+(required for the desktop's software GL). Tunables live in `Make.config`
+(arch, component versions, parallel jobs). `INIT=systemd` is the default;
+`INIT=runit` builds the minimal RAM-first image.
 
 ## Packages
 
+The native package format is **`.bpm`** (declarative `bpm.toml` recipes — see
+[Package Management](Package-Management) and [Creating Packages](Creating-Packages)).
+New packages should be authored as `bpm.toml`.
+
 ```sh
-ENGINE=podman tools/build-pkgs.sh <out-dir> <pkg>...   # build specific packages
+ENGINE=podman tools/build-bpm.sh  <out-dir> <pkg>...   # build .bpm   (recipes: bpm.toml)
+ENGINE=podman tools/build-pkgs.sh <out-dir> <pkg>...   # build .pkg.tar.zst (legacy PKGBUILD)
 ```
 
-Builds run in an ephemeral Arch container. Long builds survive the shell with:
+Both run in an ephemeral Arch container (the self-hosted toolchain). Long builds
+survive the shell with:
 
 ```sh
-setsid bash -c 'ENGINE=podman tools/build-pkgs.sh OUT pkg... > LOG 2>&1' </dev/null &
+setsid bash -c 'ENGINE=podman tools/build-bpm.sh OUT pkg... > LOG 2>&1' </dev/null &
 ```
 
 ## Desktop edition
@@ -72,8 +92,8 @@ See [Hosting a Mirror](Hosting-a-Mirror).
 
 ```
 ../blueberry-build/
-├── basepkgs/         built .pkg.tar.zst artifacts
-├── initramfs/        staged initramfs
+├── basepkgs/         built package artifacts (.bpm / .pkg.tar.zst)
+├── desktop-rootfs/   staged Desktop rootfs (squashed into the live ISO)
 ├── boot/             kernel + initramfs images
 └── *.log             build logs
 ```

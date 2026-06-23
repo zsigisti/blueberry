@@ -28,7 +28,7 @@ its spins from one tree. You pick the edition; the base — kernel, glibc, the
 |---|---|---|
 | **Audience** | Servers, headless boxes, builders | Workstations, laptops, daily drivers |
 | **Interface** | Live CLI (busybox + bash) | KDE Plasma 6 (default) · GNOME (optional) |
-| **Init** | runit (default) or systemd | systemd |
+| **Init** | systemd (default) · runit (`INIT=runit`) | systemd |
 | **Release model** | **Rolling** — always latest | **Stable releases** — `YY.04` / `YY.10`, Ubuntu-style |
 | **Kernel** | **Rolling** `linux` package — `bpm upgrade` moves it forward | **Pinned per release** — *not* a rolling package; a new kernel arrives with the next release |
 | **Install** | `blueberry-install` (guided CLI) | **Live Calamares ISO** — boot, try, install |
@@ -74,7 +74,7 @@ A minimal, rolling CLI system in the BSD tradition: clone the tree, build a
 world, boot it from RAM.
 
 ```sh
-git clone https://github.com/mmzsigmond/blueberry.git
+git clone https://github.com/zsigisti/blueberry.git
 cd blueberry
 make _check_tools     # verify compiler, curl, zstd, cpio, qemu
 make world            # kernel + busybox + runit + dropbear + initramfs
@@ -96,7 +96,7 @@ Unattended installs work via the `bbinstall` kernel cmdline.
 | C library | **glibc** | Binary compatibility with prebuilt glibc software |
 | Core utils | **busybox 1.36** | One binary, 300+ applets, standalone `/bin/sh` |
 | Shell | **bash 5.2** | Default interactive shell on installs |
-| Init | **runit** (or `INIT=systemd`) | 35 KB supervision tree, no DSL |
+| Init | **systemd** (default) · runit (`INIT=runit`) | journald/logind/networkd; runit for RAM-first builds |
 | SSH | **Dropbear** | Tiny static SSH server + client |
 | Kernel | **Linux 7.0** | SATA/NVMe/USB, NICs, UEFI, serial console |
 
@@ -111,8 +111,9 @@ same base, same `bpm`, same mirror.
 
 ### The install experience
 
-1. **Boot the live ISO.** SDDM auto-logs into a full Plasma session running from
-   a squashfs+overlay root — the real desktop, not a stripped installer shell.
+1. **Boot the live ISO.** systemd reaches `graphical.target` and SDDM shows the
+   KDE Plasma (Wayland) greeter — log in as `live` (no password) — running from
+   a squashfs+overlay root, the real desktop, not a stripped installer shell.
 2. **Try it.** Browse the web, open Dolphin, poke around — nothing is written to
    disk yet.
 3. **Install Blueberry Desktop.** A welcome icon launches **Calamares**: a
@@ -163,7 +164,8 @@ bpm search plasma
 bpm upgrade                # roll userspace forward (kernel too, on Server)
 ```
 
-- **Recipes:** [`packages/`](packages/) — `PKGBUILD` format, one dir per package.
+- **Recipes:** [`packages/`](packages/) — declarative `bpm.toml` (native `.bpm`;
+  legacy `PKGBUILD` still supported), one dir per package.
 - **Mirror:** `https://repo.mmzsigmond.me/` — ~280 packages, ed25519-signed index.
 - **Host your own:** `tools/mkrepo.sh`, `tools/blueberry-repo-sync.sh`, or the
   one-command `tools/blueberry-build-server.sh` (see [doc/BPM.md](doc/BPM.md)).

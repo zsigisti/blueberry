@@ -12,7 +12,7 @@
 ## 2. Development Setup
 
 ```sh
-git clone https://github.com/mmzsigmond/blueberry.git
+git clone https://github.com/zsigisti/blueberry.git
 cd blueberry
 
 # Check build prerequisites

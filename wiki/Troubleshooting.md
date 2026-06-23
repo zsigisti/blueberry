@@ -6,7 +6,9 @@ Common problems and fixes, grouped by area. See also the [FAQ](FAQ).
 
 | Symptom | Try |
 |---|---|
-| Black screen after the live login | Boot the **nomodeset** GRUB entry; or pick the **X11** session in the SDDM gear menu |
+| **Black screen in QEMU** (no greeter) | Add **`-cpu host`** — software GL (llvmpipe) needs AVX, which the default `qemu64` CPU lacks. `make run-desktop` already does this. |
+| Black screen on real hardware after login | Boot the **safe graphics / nomodeset** GRUB entry; ensure your GPU's kernel module/firmware is present |
+| Greeter shows but logging in returns to the greeter | Known limitation: the live autologin→Plasma seat/DRM hand-off; the greeter renders and is usable, full-session work is in progress |
 | Live session won't boot at all | Re-write the USB with `oflag=sync`; verify the ISO checksum; try another port/stick |
 | "Cannot find live medium" | The USB label must match `root=live:CDLABEL=...`; re-flash with `dd` (not a file copy) |
 | No Wi-Fi in the live session | Load firmware if your card needs it; connect from the Plasma system tray |

@@ -1,8 +1,51 @@
 # Creating Packages
 
-Every package in Blueberry is a recipe in [`packages/<name>/PKGBUILD`](../packages).
-The format is the familiar `PKGBUILD`; the build runs in an ephemeral container
-via `tools/build-pkgs.sh`.
+A package is a recipe in [`packages/<name>/`](../packages). The forward format is
+the declarative **`bpm.toml`**, built into a native `.bpm` via
+`tools/build-bpm.sh`. The legacy `PKGBUILD` → `.pkg.tar.zst` flow
+(`tools/build-pkgs.sh`) still works for the existing tree, but **new recipes
+should be `bpm.toml`**. `tools/pkgbuild2bpm` converts an existing PKGBUILD.
+
+## Anatomy of a `bpm.toml` recipe
+
+```toml
+# packages/hello/bpm.toml
+[package]
+name     = "hello"
+version  = "2.12.1"
+release  = 1
+summary  = "GNU Hello — example package"
+license  = ["GPL-3.0-or-later"]
+arch     = ["x86_64"]
+depends     = ["glibc"]            # runtime — Blueberry package names
+makedepends = ["cmake", "ninja"]  # build-only — pulled from Arch in the container
+enable      = ["hello.service"]   # optional: systemd units to enable on install
+
+[[source]]
+url    = "https://ftp.gnu.org/gnu/hello/hello-2.12.1.tar.gz"
+sha256 = "..."                     # pin the source (or "SKIP")
+
+[steps]
+build = '''
+cd "$name-$version"
+./configure --prefix=/usr
+make
+'''
+package = '''
+cd "$name-$version"
+make DESTDIR="$pkgdir" install
+'''
+```
+
+The shell steps get `$srcdir $pkgdir $name $version $release $arch`. Build it:
+
+```sh
+ENGINE=podman tools/build-bpm.sh ../out hello
+# → ../out/hello-2.12.1-1-x86_64.bpm
+bpm install ../out/hello-2.12.1-1-x86_64.bpm
+```
+
+<details><summary>Legacy: <code>PKGBUILD</code> anatomy (still supported)</summary>
 
 ## Anatomy of a recipe
 
@@ -61,6 +104,8 @@ Test the result locally:
 ```sh
 bpm install ../out/hello-2.12.1-1-x86_64.pkg.tar.zst
 ```
+
+</details>
 
 ## Patterns that come up a lot
 
