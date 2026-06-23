@@ -45,7 +45,7 @@ USB_STORAGE, so no modules are needed to boot the live image.
 
 The runit stage scripts live in [`src/init/`](../src/init); the systemd
 integration (units, networkd, sshd) in [`src/systemd/`](../src/systemd). See
-[doc/INIT.md](../doc/INIT.md) and [doc/SYSTEMD-MIGRATION.md](../doc/SYSTEMD-MIGRATION.md).
+[doc/INIT.md](../doc/INIT.md).
 
 ## Package layers (Desktop)
 

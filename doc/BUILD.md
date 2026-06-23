@@ -177,7 +177,6 @@ dbus, kmod, libseccomp, cryptsetup, OpenSSH, …) into the base image, installs
 the `src/systemd/` integration layer (networkd/resolved/timesyncd, sshd units,
 `multi-user.target`), and points `/sbin/init` at `/usr/lib/systemd/systemd`. The
 initramfs execs `/sbin/init`, so the same kernel + initramfs boot either image.
-See [SYSTEMD-MIGRATION.md](SYSTEMD-MIGRATION.md) for the full design.
 
 ---
 

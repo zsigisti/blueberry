@@ -337,8 +337,110 @@ pub fn install_file(cfg: &Config, path: &Path, force: bool) -> io::Result<String
         },
     );
 
+    // Systemd service enablement: a package that wants a unit running ships an
+    // empty marker `usr/lib/bpm/enable/<unit>`. bpm enables those units the
+    // systemd-native way — writing the [Install] wants/requires symlinks under
+    // the install root (so they take effect on next boot even in a chroot/image)
+    // and, when installing into the live root, reloading + starting them now.
+    enable_services(cfg, &files);
+
     println!(":: installed {name} {version}");
     Ok(name)
+}
+
+/// Offline-enable every unit a package marked under usr/lib/bpm/enable/.
+fn enable_services(cfg: &Config, files: &[String]) {
+    if std::env::var_os("BPM_NO_SCRIPTLETS").is_some() {
+        return;
+    }
+    let mut units: Vec<String> = files
+        .iter()
+        .filter_map(|f| f.trim_end_matches('/').strip_prefix("usr/lib/bpm/enable/"))
+        .filter(|u| !u.is_empty())
+        .map(|u| u.to_string())
+        .collect();
+    units.sort();
+    units.dedup();
+    if units.is_empty() {
+        return;
+    }
+    for unit in &units {
+        offline_enable(cfg, unit);
+    }
+    // Live root + systemctl available → apply immediately.
+    if cfg.root == "/" && which("systemctl") {
+        let _ = Command::new("systemctl").arg("daemon-reload").status();
+        for unit in &units {
+            if Command::new("systemctl")
+                .args(["start", unit])
+                .status()
+                .map(|s| s.success())
+                .unwrap_or(false)
+            {
+                println!(":: started {unit}");
+            }
+        }
+    }
+}
+
+/// Create the systemd [Install] symlinks for `unit` under the install root,
+/// reading WantedBy=/RequiredBy= from the unit's own [Install] section — exactly
+/// what `systemctl enable` writes, but offline (no running manager required).
+fn offline_enable(cfg: &Config, unit: &str) {
+    let unit_file = cfg
+        .dest
+        .join("usr/lib/systemd/system")
+        .join(unit);
+    let body = match fs::read_to_string(&unit_file) {
+        Ok(b) => b,
+        Err(_) => {
+            eprintln!("bpm: enable: unit file not found for {unit}");
+            return;
+        }
+    };
+    let mut in_install = false;
+    for line in body.lines() {
+        let l = line.trim();
+        if l.starts_with('[') {
+            in_install = l.eq_ignore_ascii_case("[Install]");
+            continue;
+        }
+        if !in_install {
+            continue;
+        }
+        let (key, val) = match l.split_once('=') {
+            Some(kv) => kv,
+            None => continue,
+        };
+        let suffix = match key.trim() {
+            "WantedBy" => ".wants",
+            "RequiredBy" => ".requires",
+            _ => continue,
+        };
+        for target in val.split_whitespace() {
+            let dir = cfg
+                .dest
+                .join("etc/systemd/system")
+                .join(format!("{target}{suffix}"));
+            if fs::create_dir_all(&dir).is_err() {
+                continue;
+            }
+            let link = dir.join(unit);
+            let _ = fs::remove_file(&link);
+            if std::os::unix::fs::symlink(format!("/usr/lib/systemd/system/{unit}"), &link).is_ok() {
+                println!(":: enabled {unit} ({target})");
+            }
+        }
+    }
+}
+
+/// True if `bin` is found on PATH.
+fn which(bin: &str) -> bool {
+    std::env::var_os("PATH")
+        .map(|p| {
+            std::env::split_paths(&p).any(|d| d.join(bin).is_file())
+        })
+        .unwrap_or(false)
 }
 
 /// Free bytes on the filesystem holding the install root (None if unknown).

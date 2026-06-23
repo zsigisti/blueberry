@@ -16,6 +16,7 @@ libxml2
 libpciaccess
 freetype2
 glib2
+glibc-locales               # en_US.UTF-8 locale-archive
 fontconfig
 harfbuzz
 xkeyboard-config
@@ -50,11 +51,11 @@ bluez
 cups
 
 # ── Fonts / theming base ──────────────────────────────────────────────────────
+glibc-locales               # en_US.UTF-8 locale-archive
 fontconfig
 freetype2
 harfbuzz
-noto-fonts
-noto-fonts-emoji
+ttf-dejavu                  # DejaVu — actually-built UI font (noto recipe pending)
 
 # ── Installer (live ISO only; not copied to the target) ───────────────────────
 calamares

@@ -136,8 +136,42 @@ log "disabling systemd-firstboot for the live session"
 systemd-machine-id-setup --root="$LIVEROOT" >/dev/null 2>&1 \
     || (head -c16 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$LIVEROOT/etc/machine-id")
 ln -sf /dev/null "$LIVEROOT/etc/systemd/system/systemd-firstboot.service"
-: > "$LIVEROOT/etc/locale.conf"; echo "LANG=C.UTF-8" > "$LIVEROOT/etc/locale.conf"
+: > "$LIVEROOT/etc/locale.conf"; echo "LANG=en_US.UTF-8" > "$LIVEROOT/etc/locale.conf"
 echo "blueberry" > "$LIVEROOT/etc/hostname"
+
+# Fonts + locale: without a UTF-8 locale Qt warns and falls back to ANSI, and
+# without a fontconfig cache the first lookup is slow / can miss. the glibc-locales package provides
+# the en_US.UTF-8 locale-archive; make sure every login
+# path sees it. Build the fontconfig cache against the staged fonts so the
+# greeter has glyphs immediately (was rendering tofu — no fonts were staged).
+log "locale (en_US.UTF-8) + fontconfig cache"
+cat > "$LIVEROOT/etc/locale.conf" <<'LOCALE'
+LANG=en_US.UTF-8
+LC_ALL=en_US.UTF-8
+LOCALE
+if command -v fc-cache >/dev/null 2>&1 && [ -d "$LIVEROOT/usr/share/fonts" ]; then
+    # Cache into the live root; HOME/XDG point inside it so nothing touches the host.
+    HOME="$LIVEROOT/root" XDG_CACHE_HOME="$LIVEROOT/var/cache" \
+        fc-cache -f "$LIVEROOT/usr/share/fonts" >/dev/null 2>&1 || true
+fi
+# SDDM has no GreeterEnvironment key and sddm-helper rebuilds a clean env for the
+# greeter from pam_getenvlist(), so /etc/environment/DefaultEnvironment don't
+# reach it and Qt keeps detecting "C". Wrap the greeter binary to force the
+# locale — the only mechanism that reliably lands. (The Plasma session itself
+# gets en_US.UTF-8 via pam_env in system-login.)
+for g in sddm-greeter-qt6 sddm-greeter; do
+    gb="$LIVEROOT/usr/bin/$g"
+    if [ -f "$gb" ] && [ ! -e "$gb.real" ]; then
+        log "wrapping $g for en_US.UTF-8"
+        mv "$gb" "$gb.real"
+        cat > "$gb" <<WRAP
+#!/bin/sh
+export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+exec /usr/bin/$g.real "\$@"
+WRAP
+        chmod 0755 "$gb"
+    fi
+done
 
 ln -sf /usr/lib/systemd/system/graphical.target "$LIVEROOT/etc/systemd/system/default.target"
 mkdir -p "$LIVEROOT/etc/systemd/system/graphical.target.wants"
