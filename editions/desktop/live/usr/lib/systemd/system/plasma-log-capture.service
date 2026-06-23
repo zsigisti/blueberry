@@ -1,0 +1,10 @@
+[Unit]
+Description=Mirror the live Plasma session log to ttyS1 (diagnostic)
+After=multi-user.target
+[Service]
+Type=simple
+ExecStartPre=/bin/sh -c 'sleep 8; : > /home/live/.plasma.log 2>/dev/null || true'
+ExecStart=/bin/sh -c 'tail -n +1 -F /home/live/.plasma.log > /dev/ttyS1 2>/dev/null'
+Restart=always
+[Install]
+WantedBy=multi-user.target
