@@ -132,6 +132,19 @@ def main():
     log("package()")
     run_step(pkg_step(recipe, "package"), srcdir, env, fakeroot=True)
 
+    # Declarative systemd enablement: `[package] enable = ["foo.service"]` drops
+    # the markers bpm reads (usr/lib/bpm/enable/<unit>) to wire up + start the
+    # unit on install. "if the app wants that" → list it in enable.
+    enable = pkg.get("enable", []) or []
+    if isinstance(enable, str):
+        enable = [enable]
+    if enable:
+        endir = os.path.join(pkgdir, "usr/lib/bpm/enable")
+        os.makedirs(endir, exist_ok=True)
+        for unit in enable:
+            open(os.path.join(endir, unit), "w").close()
+            log(f"will enable systemd unit: {unit}")
+
     write_bpm(recipe, pkg, name, version, release, arch_tag, pkgdir, out_dir)
     shutil.rmtree(work, ignore_errors=True)
 
