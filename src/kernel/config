@@ -409,5 +409,26 @@ CONFIG_RTL8XXXU=y
 # CONFIG_SOUND is not set
 # CONFIG_BLUETOOTH is not set
 # CONFIG_VIDEO_V4L2 is not set
-# CONFIG_DRM is not set
+# ── DRM / KMS (graphical desktop: provides /dev/dri for KWin/Wayland) ──────────
+# Without DRM there is no /dev/dri device, so kwin_wayland (and any GPU compositor)
+# cannot start a session and the display stays on the VGA/fbcon text console.
+# VM GPUs are built in so the live ISO renders out of the box under QEMU/KVM;
+# real-hardware drivers are modules (load when the matching GPU is present).
+CONFIG_DRM=y
+CONFIG_DRM_FBDEV_EMULATION=y
+CONFIG_DRM_KMS_HELPER=y
+CONFIG_DRM_GEM_SHMEM_HELPER=y
+CONFIG_DRM_SIMPLEDRM=y
+CONFIG_DRM_VIRTIO_GPU=y
+CONFIG_DRM_BOCHS=y
+CONFIG_DRM_QXL=y
+CONFIG_DRM_VBOXVIDEO=m
+# Real-hardware GPU drivers (modules; need linux-firmware for full KMS).
+CONFIG_DRM_I915=m
+CONFIG_DRM_AMDGPU=m
+CONFIG_DRM_AMDGPU_SI=y
+CONFIG_DRM_AMDGPU_CIK=y
+CONFIG_DRM_RADEON=m
+CONFIG_DRM_NOUVEAU=m
+CONFIG_DRM_AST=m
 # (CONFIG_FB is enabled above for the EFI/VESA framebuffer console)

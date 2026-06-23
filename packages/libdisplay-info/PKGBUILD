@@ -1,0 +1,15 @@
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
+pkgname=libdisplay-info
+pkgver=0.3.0
+pkgrel=1
+pkgdesc='EDID/DisplayID parsing (KWin)'
+arch=('x86_64')
+url='https://blueberry.linux/'
+license=('custom')
+depends=('glibc' )
+makedepends=('meson' 'ninja' 'hwdata' 'python' )
+options=('!lto')
+source=("libdisplay-info-0.3.0.tar.xz::https://gitlab.freedesktop.org/emersion/libdisplay-info/-/releases/0.3.0/downloads/libdisplay-info-0.3.0.tar.xz")
+sha256sums=('6ae77cd937f9cf7d1321d35c116062c4911e8447010a6a713ac4286f7a9d5987')
+build() { arch-meson() { meson setup "$@"; }; meson setup "libdisplay-info-0.3.0" build --prefix=/usr --buildtype=release -Dwerror=false ; meson compile -C build; }
+package() { meson install -C build --destdir "$pkgdir"; }

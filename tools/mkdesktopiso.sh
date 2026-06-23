@@ -50,18 +50,38 @@ if [ ! -e "$STAGEDIR/usr/bin/sddm" ] && [ ! -e "$STAGEDIR/usr/bin/gdm" ]; then
     [ "${FORCE:-0}" = 1 ] || die "refusing to build a non-graphical 'desktop' ISO; set FORCE=1 to override."
 fi
 
-WORK=$(mktemp -d /tmp/bbd-iso.XXXXXX)
+# Put WORK on the SAME filesystem as the output ISO so the hardlink-clone of the
+# (multi-GB) rootfs is fast and, crucially, doesn't fall back to a cross-fs copy
+# that nests the source dir inside liveroot.
+WORK=$(mktemp -d "$(dirname "$OUTPUT")/.bbd-iso.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
 LIVEROOT="$WORK/liveroot"
 ISO_ROOT="$WORK/iso"
-mkdir -p "$ISO_ROOT/boot/grub" "$ISO_ROOT/live" "$ISO_ROOT/EFI/BOOT"
+mkdir -p "$ISO_ROOT/boot/grub" "$ISO_ROOT/live" "$ISO_ROOT/EFI/BOOT" "$LIVEROOT"
 
 # ── Assemble the live root (hardlink-clone the staged rootfs, then overlay) ────
+# Copy CONTENTS (note the trailing /.) into the pre-created LIVEROOT so a fallback
+# plain copy can never nest "$STAGEDIR" as a subdirectory.
 log "cloning staged rootfs → live root"
-cp -al "$STAGEDIR" "$LIVEROOT" 2>/dev/null || cp -a "$STAGEDIR" "$LIVEROOT"
+cp -al "$STAGEDIR/." "$LIVEROOT/" 2>/dev/null || cp -a "$STAGEDIR/." "$LIVEROOT/"
 
 log "laying down live-session overlay (DM=$DEFAULT_DM session=$LIVE_SESSION)"
 cp -a "$DESKTOPDIR/live/." "$LIVEROOT/"
+
+# The base install ships an /etc/fstab for an *installed* disk (/dev/sda1 root,
+# /dev/sda2 swap). On the live medium those devices don't exist, so systemd
+# blocks ~90s on dev-sda2.device and fails the swap + local-fs deps before the
+# graphical target. Replace it with a live-only fstab (the overlay provides /).
+log "writing live-only /etc/fstab (no /dev/sda*)"
+cat > "$LIVEROOT/etc/fstab" <<'FSTAB'
+# Live session — root is the squashfs+tmpfs overlay; nothing to mount from disk.
+tmpfs   /tmp    tmpfs   nosuid,nodev,size=512M  0 0
+FSTAB
+
+# The live 'live' user (systemd-sysusers, uid 1000) needs a writable home for the
+# autologin Plasma session; sysusers declares but does not create it.
+mkdir -p "$LIVEROOT/home/live"
+chown 1000:1000 "$LIVEROOT/home/live" 2>/dev/null || true
 
 # Template the live session + DM placeholders.
 find "$LIVEROOT/etc/sddm.conf.d" -type f -exec \
@@ -83,8 +103,42 @@ grep -rl '@@' "$LIVEROOT/etc/calamares" 2>/dev/null | while read -r f; do
         "$f"
 done
 
-# ── systemd: boot to the graphical target, enable the DM ──────────────────────
-log "enabling graphical target + $DEFAULT_DM in the live root"
+# ── systemd: /sbin/init, the graphical target, the DM ─────────────────────────
+# The live-boot initramfs does `switch_root /mnt/root /sbin/init`, so a desktop
+# (always systemd) rootfs MUST have /sbin/init → systemd. The base `install`
+# may have staged a runit or no /sbin/init; force the systemd entry point here.
+log "wiring /sbin/init → systemd + graphical target + $DEFAULT_DM"
+[ -x "$LIVEROOT/usr/lib/systemd/systemd" ] || die "no systemd in the staged rootfs ($LIVEROOT/usr/lib/systemd/systemd)"
+mkdir -p "$LIVEROOT/sbin" "$LIVEROOT/usr/sbin"
+ln -sf /usr/lib/systemd/systemd "$LIVEROOT/sbin/init"
+ln -sf /usr/lib/systemd/systemd "$LIVEROOT/usr/sbin/init" 2>/dev/null || true
+
+# Merged-/usr for sbin: systemd unit ExecStarts use absolute /usr/sbin paths
+# (mount, sulogin, …) but util-linux installs to /usr/bin. Link every /usr/bin
+# tool into /usr/sbin when missing so remount-fs, sulogin, swap, etc. work.
+log "merging /usr/bin → /usr/sbin (mount, sulogin, …)"
+for b in "$LIVEROOT"/usr/bin/*; do
+    [ -e "$b" ] || continue
+    n=$(basename "$b")
+    [ -e "$LIVEROOT/usr/sbin/$n" ] || ln -sf "../bin/$n" "$LIVEROOT/usr/sbin/$n"
+done
+# /sbin tools too (some units use /sbin/<x>); /sbin already holds init.
+for b in "$LIVEROOT"/usr/bin/*; do
+    [ -e "$b" ] || continue
+    n=$(basename "$b")
+    [ -e "$LIVEROOT/sbin/$n" ] || ln -sf "/usr/bin/$n" "$LIVEROOT/sbin/$n"
+done
+
+# Live image is "already set up": preset a machine-id and mask the interactive
+# first-boot wizard, or systemd-firstboot blocks on a TTY prompt and drops the
+# whole boot into emergency mode before reaching the display manager.
+log "disabling systemd-firstboot for the live session"
+systemd-machine-id-setup --root="$LIVEROOT" >/dev/null 2>&1 \
+    || (head -c16 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$LIVEROOT/etc/machine-id")
+ln -sf /dev/null "$LIVEROOT/etc/systemd/system/systemd-firstboot.service"
+: > "$LIVEROOT/etc/locale.conf"; echo "LANG=C.UTF-8" > "$LIVEROOT/etc/locale.conf"
+echo "blueberry" > "$LIVEROOT/etc/hostname"
+
 ln -sf /usr/lib/systemd/system/graphical.target "$LIVEROOT/etc/systemd/system/default.target"
 mkdir -p "$LIVEROOT/etc/systemd/system/graphical.target.wants"
 ln -sf "/usr/lib/systemd/system/$DEFAULT_DM.service" \
@@ -126,11 +180,11 @@ set timeout_style=menu
 if [ "\$grub_platform" = "efi" ]; then set gfxpayload=keep; else set gfxpayload=text; fi
 
 menuentry "Try $BBD_NAME $BBD_FULLVERSION ($DE)" {
-    linux /boot/vmlinuz blueberry.live=1 root=live:CDLABEL=$VOLID console=tty0 quiet splash systemd.unified_cgroup_hierarchy=1
+    linux /boot/vmlinuz blueberry.live=1 root=live:CDLABEL=$VOLID console=tty0 console=ttyS0,115200 systemd.firstboot=0 systemd.unified_cgroup_hierarchy=1 systemd.journald.forward_to_console=1 systemd.log_target=console
     initrd /boot/initramfs.cpio.zst
 }
 menuentry "Install $BBD_NAME $BBD_FULLVERSION ($DE)" {
-    linux /boot/vmlinuz blueberry.live=1 blueberry.installer=1 root=live:CDLABEL=$VOLID console=tty0 quiet splash systemd.unified_cgroup_hierarchy=1
+    linux /boot/vmlinuz blueberry.live=1 blueberry.installer=1 root=live:CDLABEL=$VOLID console=tty0 quiet splash systemd.firstboot=0 systemd.unified_cgroup_hierarchy=1
     initrd /boot/initramfs.cpio.zst
 }
 menuentry "Try (safe graphics / nomodeset)" {

@@ -28,11 +28,18 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	          $(INITRAMDIR)/dev $(INITRAMDIR)/mnt/root $(INITRAMDIR)/run \
 	          $(INITRAMDIR)/tmp
 
-	@# Copy busybox (static binary — provides everything we need)
+	@# Copy busybox (static binary — provides everything we need). The initramfs
+	@# must not depend on the rootfs being in CLI state: the Desktop edition's
+	@# rootfs is systemd-based and carries no busybox. Prefer the rootfs copy,
+	@# but fall back to the freshly-built binary in OBJDIR so the initramfs is
+	@# always self-contained regardless of which edition staged the rootfs.
 	@if [ -f $(STAGEDIR)/bin/busybox ]; then \
 	    cp $(STAGEDIR)/bin/busybox $(INITRAMDIR)/bin/busybox; \
+	elif bb=$$(ls -1 $(OBJDIR)/src/busybox-*/busybox 2>/dev/null | head -1) && [ -n "$$bb" ]; then \
+	    echo "[initramfs] busybox from build dir: $$bb"; \
+	    cp "$$bb" $(INITRAMDIR)/bin/busybox; \
 	else \
-	    echo "WARNING: busybox not found in $(STAGEDIR)/bin/busybox"; \
+	    echo "FATAL: no busybox in $(STAGEDIR)/bin or $(OBJDIR)/src/busybox-*/" >&2; exit 1; \
 	fi
 
 	@# Create busybox applet symlinks needed in initramfs
@@ -134,16 +141,21 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 
 	@# Dropbear SSH server + client (single static multi-call binary)
 	@mkdir -p $(INITRAMDIR)/usr/sbin $(INITRAMDIR)/usr/bin $(INITRAMDIR)/root/.ssh
-	@if [ -f $(STAGEDIR)/usr/sbin/dropbearmulti ]; then \
-	    cp $(STAGEDIR)/usr/sbin/dropbearmulti $(INITRAMDIR)/usr/sbin/dropbearmulti; \
+	@# Prefer the rootfs copy; fall back to the freshly-built binary (the Desktop
+	@# rootfs has no dropbear, and the Server rootfs is glibc/systemd-staged) so
+	@# the initramfs always has SSH regardless of edition.
+	@db=$(STAGEDIR)/usr/sbin/dropbearmulti; \
+	 [ -f "$$db" ] || db=$$(ls -1 $(OBJDIR)/src/dropbear-*/dropbearmulti 2>/dev/null | head -1); \
+	 if [ -n "$$db" ] && [ -f "$$db" ]; then \
+	    cp "$$db" $(INITRAMDIR)/usr/sbin/dropbearmulti; \
 	    ln -sf dropbearmulti $(INITRAMDIR)/usr/sbin/dropbear; \
 	    ln -sf dropbearmulti $(INITRAMDIR)/usr/sbin/dropbearkey; \
 	    ln -sf ../sbin/dropbearmulti $(INITRAMDIR)/usr/bin/dbclient; \
 	    ln -sf ../sbin/dropbearmulti $(INITRAMDIR)/usr/bin/scp; \
 	    mkdir -p $(INITRAMDIR)/etc/dropbear; \
-	else \
+	 else \
 	    echo "WARNING: dropbear not built — run 'make dropbear' (no SSH in image)"; \
-	fi
+	 fi
 
 	@# Create device nodes
 	@mknod -m 600 $(INITRAMDIR)/dev/console  c 5 1 2>/dev/null || true
