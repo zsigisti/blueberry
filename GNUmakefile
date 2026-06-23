@@ -43,7 +43,7 @@ BASE_PKGS   ?= ncurses bash
 #              initramfs stays busybox-based either way; only the installed
 #              rootfs (STAGEDIR) changes. The systemd runtime closure below is
 #              baked into the base image so PID 1 has everything it needs.
-INIT ?= runit
+INIT ?= systemd
 # xz/zstd/lz4 are not standalone packages — their libs (liblzma/libzstd/liblz4)
 # are bundled into the base image from the host (see etc/bpm/provided) and pulled
 # into the rootfs via systemd's ldd closure in bundle-glibc.
@@ -318,6 +318,17 @@ iso: install
 	@mkdir -p $(TOPDIR)/iso
 	@$(TOPDIR)/tools/mkiso.sh $(STAGEDIR) \
 	    $(TOPDIR)/iso/blueberry-$(shell date +%Y%m%d)-$(ARCH).iso
+
+# ── Server ISO (systemd live CLI) ─────────────────────────────────────────────
+# A live ISO of the Server/CLI running systemd PID 1 (journald/logind/networkd),
+# booting to multi-user.target with an autologin root shell. Requires the
+# systemd base (INIT=systemd, now the default). Unlike `iso` (busybox rescue),
+# this squashes a full systemd rootfs via the blueberry.live=1 overlay path.
+server-iso: install
+	@echo "[server-iso] assembling systemd live CLI ISO"
+	@mkdir -p $(TOPDIR)/iso
+	@INIT=systemd BOOTDIR=$(BOOTDIR) $(TOPDIR)/tools/mkserveriso.sh $(STAGEDIR) \
+	    $(TOPDIR)/iso/blueberry-server-$(shell date +%Y%m%d)-$(ARCH).iso
 
 # ── Disk image ────────────────────────────────────────────────────────────────
 # Build a dd-able, UEFI-bootable raw disk image (ESP + data partition).
