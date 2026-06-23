@@ -1,6 +1,6 @@
 # Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 pkgname=mesa
-pkgver=24.3.4
+pkgver=26.1.3
 pkgrel=1
 pkgdesc='Open-source OpenGL/Vulkan/EGL implementation (Gallium: llvmpipe, radeonsi, iris)'
 arch=('x86_64')
@@ -17,7 +17,7 @@ makedepends=('meson' 'ninja' 'python' 'wayland-protocols' 'glslang'
              'llvm' 'libxml2' 'python-mako' 'python-packaging' 'python-yaml'
              'pkgconf')
 source=("https://archive.mesa3d.org/mesa-$pkgver.tar.xz")
-sha256sums=('e641ae27191d387599219694560d221b7feaa91c900bcec46bf444218ed66025')
+sha256sums=('7725004e724b34c6d4fbaf5c48fc6c6223aa9f2741d6d7782c699b049356fc45')
 
 prepare() {
   cd "$pkgname-$pkgver"
