@@ -108,10 +108,26 @@ def main():
     # ── sources: fetch, verify, auto-extract tarballs ─────────────────────────
     sources = recipe.get("source", []) or recipe.get("sources", [])
     for s in sources:
-        url = s["url"]
-        fn = url.split("/")[-1].split("::")[-1]
+        raw = s["url"]
+        # `filename::url` (makepkg convention) lets a recipe name a download
+        # whose URL has no usable basename (e.g. a ?query= redirect). An explicit
+        # `name =` field overrides. Otherwise derive from the URL/path basename.
+        if "::" in raw:
+            fn, url = raw.split("::", 1)
+        else:
+            url, fn = raw, raw.split("/")[-1]
+        fn = s.get("name", fn)
         dest = os.path.join(srcdir, fn)
-        fetch(url, dest)
+        if "://" in url:
+            fetch(url, dest)
+        else:
+            # Local source file shipped beside the recipe (.desktop, .patch,
+            # .service, …) — copy it in instead of trying to curl a bare name.
+            local = os.path.join(recipe_dir, url)
+            if not os.path.isfile(local):
+                die(f"local source '{url}' not found in {recipe_dir}")
+            log(f"local source {fn}")
+            shutil.copy2(local, dest)
         want = s.get("sha256", "SKIP")
         if want != "SKIP":
             got = sha256_file(dest)
