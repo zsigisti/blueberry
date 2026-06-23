@@ -29,9 +29,14 @@ build() {
 package() {
   cd build
   make DESTDIR="$pkgdir" install-target-libgomp
+  # GCC installs target libs into /usr/lib64 on x86_64; relocate to /usr/lib
+  # (Blueberry's single-lib layout) preserving the soname symlinks.
+  if [ -d "$pkgdir/usr/lib64" ]; then
+    install -d "$pkgdir/usr/lib"
+    cp -a "$pkgdir/usr/lib64/." "$pkgdir/usr/lib/"
+    rm -rf "$pkgdir/usr/lib64"
+  fi
   # Keep only the shared runtime; drop static archive, headers, .la, gcc spec.
-  find "$pkgdir" -name 'libgomp.a' -o -name 'libgomp.la' -o -name '*.h' -o -name '*.spec' | xargs -r rm -f
+  find "$pkgdir" \( -name 'libgomp.a' -o -name 'libgomp.la' -o -name '*.h' -o -name '*.spec' \) -delete
   rm -rf "$pkgdir/usr/lib/gcc" "$pkgdir/usr/share" 2>/dev/null || true
-  # Ensure the versioned soname symlinks live in /usr/lib.
-  install -d "$pkgdir/usr/lib"
 }
