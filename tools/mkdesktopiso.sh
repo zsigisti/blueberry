@@ -68,6 +68,21 @@ cp -al "$STAGEDIR/." "$LIVEROOT/" 2>/dev/null || cp -a "$STAGEDIR/." "$LIVEROOT/
 log "laying down live-session overlay (DM=$DEFAULT_DM session=$LIVE_SESSION)"
 cp -a "$DESKTOPDIR/live/." "$LIVEROOT/"
 
+# The base install ships an /etc/fstab for an *installed* disk (/dev/sda1 root,
+# /dev/sda2 swap). On the live medium those devices don't exist, so systemd
+# blocks ~90s on dev-sda2.device and fails the swap + local-fs deps before the
+# graphical target. Replace it with a live-only fstab (the overlay provides /).
+log "writing live-only /etc/fstab (no /dev/sda*)"
+cat > "$LIVEROOT/etc/fstab" <<'FSTAB'
+# Live session — root is the squashfs+tmpfs overlay; nothing to mount from disk.
+tmpfs   /tmp    tmpfs   nosuid,nodev,size=512M  0 0
+FSTAB
+
+# The live 'live' user (systemd-sysusers, uid 1000) needs a writable home for the
+# autologin Plasma session; sysusers declares but does not create it.
+mkdir -p "$LIVEROOT/home/live"
+chown 1000:1000 "$LIVEROOT/home/live" 2>/dev/null || true
+
 # Template the live session + DM placeholders.
 find "$LIVEROOT/etc/sddm.conf.d" -type f -exec \
     sed -i "s/@@LIVE_SESSION@@/$LIVE_SESSION/g" {} + 2>/dev/null || true
@@ -165,7 +180,7 @@ set timeout_style=menu
 if [ "\$grub_platform" = "efi" ]; then set gfxpayload=keep; else set gfxpayload=text; fi
 
 menuentry "Try $BBD_NAME $BBD_FULLVERSION ($DE)" {
-    linux /boot/vmlinuz blueberry.live=1 root=live:CDLABEL=$VOLID console=tty0 quiet splash systemd.firstboot=0 systemd.unified_cgroup_hierarchy=1
+    linux /boot/vmlinuz blueberry.live=1 root=live:CDLABEL=$VOLID console=tty0 console=ttyS0,115200 systemd.firstboot=0 systemd.unified_cgroup_hierarchy=1 systemd.journald.forward_to_console=1 systemd.log_target=console
     initrd /boot/initramfs.cpio.zst
 }
 menuentry "Install $BBD_NAME $BBD_FULLVERSION ($DE)" {
