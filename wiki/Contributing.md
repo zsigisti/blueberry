@@ -37,9 +37,8 @@ fix a build, improve a doc, send a PR.
 
 ## Submitting recipes without a PR
 
-Run or use a [`recipe-hub/`](../recipe-hub) instance — a small self-hostable web
-app (Docker + SQLite, accounts + admin approval) for collecting community
-`PKGBUILD` submissions. Approved recipes flow into the build pipeline.
+Open a pull request with your recipe (`packages/<name>/`). Recipes are reviewed
+and built into the mirror.
 
 ## Code of conduct & licensing
 

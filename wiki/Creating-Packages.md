@@ -85,7 +85,4 @@ fixes are worth knowing:
 
 ## Submitting a recipe
 
-Open a pull request, or — for a lighter-weight flow — run the
-[`recipe-hub/`](../recipe-hub): a self-hostable web app where contributors submit
-`PKGBUILD`s for admin approval, after which they flow into the build pipeline.
-See [Contributing](Contributing).
+Open a pull request adding `packages/<name>/`. See [Contributing](Contributing).

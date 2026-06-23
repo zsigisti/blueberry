@@ -167,9 +167,6 @@ bpm upgrade                # roll userspace forward (kernel too, on Server)
 - **Mirror:** `https://repo.mmzsigmond.me/` — ~280 packages, ed25519-signed index.
 - **Host your own:** `tools/mkrepo.sh`, `tools/blueberry-repo-sync.sh`, or the
   one-command `tools/blueberry-build-server.sh` (see [doc/BPM.md](doc/BPM.md)).
-- **Accept submissions:** run [`recipe-hub/`](recipe-hub/) — a self-hostable web
-  app (single Docker image, SQLite, accounts + admin approval) that collects
-  community `PKGBUILD`s for the build pipeline.
 
 Build any package from source into the mirror:
 
@@ -197,7 +194,6 @@ src/
 
 packages/            ~280 bpm recipes: toolchain, Qt6, KDE Plasma 6, GTK, apps
 editions/desktop/    Blueberry Desktop: release model, Calamares, live overlay
-recipe-hub/          Self-hostable web app for community recipe submissions
 etc/                 /etc skeleton (hostname, fstab, accounts, bpm config)
 tools/               Host scripts: qemu.sh, mkiso.sh, mkdesktopiso.sh, mkrepo.sh
 doc/                 Documentation
