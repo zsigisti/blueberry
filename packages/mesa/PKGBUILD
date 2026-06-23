@@ -51,8 +51,7 @@ build() {
     -D vulkan-drivers= \
     -D glx=dri -D egl=enabled -D gbm=enabled -D opengl=true -D gles2=enabled \
     -D glvnd=enabled -D llvm=enabled -D shared-llvm=enabled \
-    -D gallium-vdpau=disabled -D gallium-va=disabled -D gallium-xa=disabled \
-    -D gallium-rusticl=false -D microsoft-clc=disabled \
+    -D gallium-rusticl=false \
     -D valgrind=disabled -D libunwind=disabled \
     -D lmsensors=disabled -D build-tests=false
   meson compile -C build
