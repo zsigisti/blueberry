@@ -1,6 +1,6 @@
 # Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 pkgname=llvm
-pkgver=19.1.7
+pkgver=22.1.6
 pkgrel=1
 pkgdesc='Low Level Virtual Machine — libLLVM for the mesa GPU stack'
 arch=('x86_64')
@@ -11,20 +11,17 @@ depends=('glibc' 'gcc-libs' 'zlib' 'libffi' 'libxml2' 'ncurses')
 provides=('libLLVM.so' 'llvm-config')
 makedepends=('cmake' 'ninja' 'python' 'pkgconf')
 options=('!lto')
-source=("https://github.com/llvm/llvm-project/releases/download/llvmorg-$pkgver/llvm-$pkgver.src.tar.xz"
-        "https://github.com/llvm/llvm-project/releases/download/llvmorg-$pkgver/cmake-$pkgver.src.tar.xz")
-sha256sums=('96f833c6ad99a3e8e1d9aca5f439b8fd2c7efdcf83b664e0af1c0712c5315910'
-            '11c5a28f90053b0c43d0dec3d0ad579347fc277199c005206b963c19aae514e3')
-
-prepare() {
-  # llvm's build expects the shared cmake modules in a sibling 'cmake/' dir.
-  mv "cmake-$pkgver.src" cmake
-}
+# LLVM 22 no longer publishes split component tarballs; build from the monorepo
+# archive (contains llvm/, cmake/, third-party/). Extracts to
+# llvm-project-llvmorg-$pkgver/.
+source=("llvm-project-$pkgver.tar.gz::https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-$pkgver.tar.gz")
+sha256sums=('ba534c6835a5b9c2162c806e269799fe41fca952a3c25baff1afcff23841ec2b')
+_src="llvm-project-llvmorg-$pkgver"
 
 build() {
   # Lean, mesa-oriented build: only the X86 (host/llvmpipe) and AMDGPU
   # (radeonsi) backends, the shared libLLVM dylib, no clang/tests/docs.
-  cmake -S "llvm-$pkgver.src" -B build -G Ninja \
+  cmake -S "$_src/llvm" -B build -G Ninja \
     -D CMAKE_BUILD_TYPE=Release \
     -D CMAKE_INSTALL_PREFIX=/usr \
     -D LLVM_TARGETS_TO_BUILD='X86;AMDGPU' \
@@ -43,6 +40,6 @@ build() {
 
 package() {
   DESTDIR="$pkgdir" ninja -C build install
-  install -Dm644 "llvm-$pkgver.src/LICENSE.TXT" \
+  install -Dm644 "$_src/llvm/LICENSE.TXT" \
     "$pkgdir/usr/share/licenses/$pkgname/LICENSE.TXT"
 }
