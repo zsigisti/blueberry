@@ -116,6 +116,13 @@ ln -sf /usr/lib/systemd/systemd "$LIVEROOT/usr/sbin/init" 2>/dev/null || true
 # Merged-/usr for sbin: systemd unit ExecStarts use absolute /usr/sbin paths
 # (mount, sulogin, …) but util-linux installs to /usr/bin. Link every /usr/bin
 # tool into /usr/sbin when missing so remount-fs, sulogin, swap, etc. work.
+# /bin/sh: the systemd base ships bash but NO sh, so the SDDM wayland-session
+# script (#!/bin/sh) and plasma-dbus-run-session can't exec → the Plasma session
+# dies ("Exec binary 'sh' does not exist") and SDDM cycles back to the greeter.
+log "providing /bin/sh + /usr/bin/sh → bash"
+[ -e "$LIVEROOT/usr/bin/sh" ]  || ln -sf bash "$LIVEROOT/usr/bin/sh"
+[ -e "$LIVEROOT/bin/sh" ]      || { mkdir -p "$LIVEROOT/bin"; ln -sf /usr/bin/bash "$LIVEROOT/bin/sh"; }
+
 log "merging /usr/bin → /usr/sbin (mount, sulogin, …)"
 for b in "$LIVEROOT"/usr/bin/*; do
     [ -e "$b" ] || continue

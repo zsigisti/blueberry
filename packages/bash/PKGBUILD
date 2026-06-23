@@ -23,4 +23,8 @@ package() {
   make DESTDIR="$pkgdir" install
   mkdir -p "$pkgdir/bin"
   ln -sf ../usr/bin/bash "$pkgdir/bin/bash"
+  # Honour provides=(sh): the systemd base has no busybox to supply sh, so
+  # #!/bin/sh scripts (SDDM's wayland-session, plasma-dbus-run-session) need it.
+  ln -sf bash "$pkgdir/usr/bin/sh"
+  ln -sf ../usr/bin/bash "$pkgdir/bin/sh"
 }

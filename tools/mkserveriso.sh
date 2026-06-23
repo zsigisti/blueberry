@@ -31,6 +31,9 @@ cp -al "$STAGEDIR/." "$LIVEROOT/" 2>/dev/null || cp -a "$STAGEDIR/." "$LIVEROOT/
 log "wiring systemd PID 1 + multi-user target + autologin getty"
 mkdir -p "$LIVEROOT/sbin" "$LIVEROOT/usr/sbin"
 ln -sf /usr/lib/systemd/systemd "$LIVEROOT/sbin/init"
+# systemd base ships bash but no sh — provide it so #!/bin/sh scripts run.
+[ -e "$LIVEROOT/usr/bin/sh" ] || ln -sf bash "$LIVEROOT/usr/bin/sh"
+[ -e "$LIVEROOT/bin/sh" ]     || { mkdir -p "$LIVEROOT/bin"; ln -sf /usr/bin/bash "$LIVEROOT/bin/sh"; }
 # Merge /usr/bin → /usr/sbin + /sbin so unit ExecStarts (mount, sulogin…) resolve.
 for b in "$LIVEROOT"/usr/bin/*; do [ -e "$b" ] || continue; n=$(basename "$b")
   [ -e "$LIVEROOT/usr/sbin/$n" ] || ln -sf "../bin/$n" "$LIVEROOT/usr/sbin/$n"
