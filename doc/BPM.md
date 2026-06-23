@@ -33,6 +33,24 @@ assembly and tests).
 - **Integrity:** every download is checked against the sha256 from the index.
 - **Dependencies:** `install <name>` resolves `depend` entries recursively;
   names not in any repo are assumed provided by the base system (glibc, bash…).
+- **Scriptlets:** a package's `.INSTALL` may define `pre/post_install` and
+  `pre/post_upgrade` shell hooks; bpm sources them in the install root.
+
+## systemd services
+
+A package that should run as a service ships an empty marker per unit:
+
+    usr/lib/bpm/enable/<unit>            # e.g. usr/lib/bpm/enable/sshd.service
+
+On install bpm reads its own `[Install]` section (`WantedBy=`/`RequiredBy=`) and
+writes the enable symlinks under the install root — the same thing
+`systemctl enable` does, but **offline**, so it works inside a chroot or a disk
+image and takes effect on next boot. When installing into the live root (`BPM_ROOT`
+unset) and `systemctl` is present, bpm also runs `daemon-reload` and starts the
+unit immediately. Native `.bpm` recipes declare this once:
+
+    [package]
+    enable = ["sshd.service"]           # bpmbuild drops the marker for you
 
 ## Repositories and mirrors
 
