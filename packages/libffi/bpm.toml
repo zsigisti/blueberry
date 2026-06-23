@@ -1,0 +1,26 @@
+[package]
+name     = "libffi"
+version  = "3.4.6"
+release  = 1
+summary  = "Portable foreign-function interface library (libffi)"
+homepage = "https://sourceware.org/libffi/"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+provides    = ["libffi.so"]
+
+[[source]]
+url    = "https://github.com/libffi/libffi/releases/download/v3.4.6/libffi-3.4.6.tar.gz"
+sha256 = "b0dea9df23c863a7a50e825440f3ebffabd65df1497108e5d437747843895a4e"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --disable-static --disable-exec-static-tramp;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install
+'''

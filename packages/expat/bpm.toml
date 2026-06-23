@@ -1,0 +1,26 @@
+[package]
+name     = "expat"
+version  = "2.6.4"
+release  = 1
+summary  = "Stream-oriented XML parser library (libexpat)"
+homepage = "https://libexpat.github.io/"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+provides    = ["libexpat.so"]
+
+[[source]]
+url    = "https://github.com/libexpat/libexpat/releases/download/R_2_6_4/expat-2.6.4.tar.xz"
+sha256 = "a695629dae047055b37d50a0ff4776d1d45d0a4c842cf4ccee158441f55ff7ee"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --without-docbook --disable-static;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install
+'''
