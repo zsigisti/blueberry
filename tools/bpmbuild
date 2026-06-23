@@ -49,8 +49,15 @@ def toml_str(v):
 def fetch(url, dest):
     log(f"fetch {url}")
     # curl handles redirects/TLS uniformly; fall back to urllib if absent.
+    # Retry transient failures (vendor CDNs / GitHub rate-limit large binary
+    # downloads when many packages build in parallel). --retry-all-errors also
+    # retries HTTP 4xx/5xx, not just connection errors.
     if shutil.which("curl"):
-        subprocess.run(["curl", "-fsSL", "-o", dest, url], check=True)
+        subprocess.run(
+            ["curl", "-fL", "--retry", "5", "--retry-delay", "3",
+             "--retry-all-errors", "-o", dest, url],
+            check=True,
+        )
     else:
         urllib.request.urlretrieve(url, dest)
 
