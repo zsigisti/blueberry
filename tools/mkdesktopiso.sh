@@ -180,12 +180,37 @@ WRAP
     fi
 done
 
-ln -sf /usr/lib/systemd/system/graphical.target "$LIVEROOT/etc/systemd/system/default.target"
-mkdir -p "$LIVEROOT/etc/systemd/system/graphical.target.wants"
-ln -sf "/usr/lib/systemd/system/$DEFAULT_DM.service" \
-    "$LIVEROOT/etc/systemd/system/graphical.target.wants/$DEFAULT_DM.service"
+# Live session launch. SDDM's session helper does not give the autologin session
+# DRM-master / active-VT status on this seat (startplasma-wayland exits before
+# kwin can open the DRM node). So drive the live desktop the robust way: autologin
+# `live` on tty1 via getty and let the user's profile exec the Plasma Wayland
+# session directly — now kwin is the sole compositor on the *active* VT and
+# acquires DRM master cleanly. (SDDM stays installed for the on-disk system.)
+log "live desktop: getty autologin → Plasma on tty1"
+ln -sf /usr/lib/systemd/system/multi-user.target "$LIVEROOT/etc/systemd/system/default.target"
+mkdir -p "$LIVEROOT/etc/systemd/system/getty@tty1.service.d"
+cat > "$LIVEROOT/etc/systemd/system/getty@tty1.service.d/10-autologin.conf" <<'EOF'
+[Service]
+ExecStart=
+ExecStart=-/usr/bin/agetty --autologin live --noclear %I 38400 linux
+EOF
 ln -sf /usr/lib/systemd/system/NetworkManager.service \
     "$LIVEROOT/etc/systemd/system/multi-user.target.wants/NetworkManager.service" 2>/dev/null || true
+
+# On tty1 the live user's shell launches the Plasma Wayland session once (guarded
+# so logging out doesn't relaunch into a loop). Software GL for VMs without a
+# native Mesa driver. Calamares is reachable from the desktop once it's up.
+install -d -m 0755 "$LIVEROOT/home/live"
+cat > "$LIVEROOT/home/live/.bash_profile" <<'EOF'
+# Auto-start the Plasma (Wayland) session on the first VT.
+if [ "$(tty)" = "/dev/tty1" ] && [ -z "$WAYLAND_DISPLAY" ] && [ -z "$DISPLAY" ]; then
+    export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+    export LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe KWIN_DRM_USE_QPAINTER=1
+    export XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=KDE
+    exec dbus-run-session startplasma-wayland
+fi
+EOF
+chown -R 1000:1000 "$LIVEROOT/home/live" 2>/dev/null || true
 
 # Free-but-honest /etc/os-release so the live + installed system identify right.
 cat > "$LIVEROOT/etc/os-release" <<EOF
