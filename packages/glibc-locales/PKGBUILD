@@ -15,13 +15,18 @@ makedepends=('glibc')
 options=('!strip')
 source=()
 sha256sums=()
-build() { :; }
+build() {
+  # Generate DIRECTORY locales (--no-archive) into the build dir — the builder
+  # user can't write the system /usr/lib/locale archive. glibc reads
+  # /usr/lib/locale/<name>/ directory locales exactly like the archive.
+  # localedef reads the toolchain glibc's /usr/share/i18n for the en_US source.
+  localedef --no-archive -i en_US -f UTF-8 "$srcdir/en_US.utf8"
+  localedef --no-archive -i C     -f UTF-8 "$srcdir/C.utf8" 2>/dev/null || true
+}
 package() {
   install -d "$pkgdir/usr/lib/locale"
-  # --prefix writes the compiled locale into $pkgdir/usr/lib/locale/locale-archive
-  localedef --prefix="$pkgdir" -i en_US -f UTF-8 en_US.UTF-8
-  localedef --prefix="$pkgdir" -i C -f UTF-8 C.UTF-8 2>/dev/null || true
-  # ship a default locale.conf consumers can rely on
+  cp -a "$srcdir/en_US.utf8" "$pkgdir/usr/lib/locale/en_US.utf8"
+  [ -d "$srcdir/C.utf8" ] && cp -a "$srcdir/C.utf8" "$pkgdir/usr/lib/locale/C.utf8" || true
   install -d "$pkgdir/etc"
   printf 'LANG=en_US.UTF-8\n' > "$pkgdir/etc/locale.conf"
 }
