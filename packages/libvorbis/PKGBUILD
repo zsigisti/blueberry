@@ -11,5 +11,12 @@ makedepends=('libogg')
 options=('!lto')
 source=("https://downloads.xiph.org/releases/vorbis/libvorbis-${pkgver}.tar.xz")
 sha256sums=('b33cc4934322bcbf6efcbacf49e3ca01aadbea4114ec9589d1b1e9d20f72954b')
-build() { cd "libvorbis-${pkgver}"; ./configure --prefix=/usr --libdir=/usr/lib; make; }
+build() {
+  cd "libvorbis-${pkgver}"
+  # Disable auto-vectorised libm calls so libvorbis.so.0 does not pull glibc's
+  # libmvec.so.1 — the base (source-built) glibc in the rootfs ships no libmvec.
+  export CFLAGS="$CFLAGS -fno-tree-vectorize -fno-tree-slp-vectorize"
+  ./configure --prefix=/usr --libdir=/usr/lib
+  make
+}
 package() { cd "libvorbis-${pkgver}"; make DESTDIR="$pkgdir" install; }

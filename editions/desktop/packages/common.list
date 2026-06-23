@@ -58,3 +58,30 @@ noto-fonts-emoji
 
 # ── Installer (live ISO only; not copied to the target) ───────────────────────
 calamares
+
+# ── Runtime library closure (ELF-NEEDED by SDDM/KWin/Plasma/Calamares but not
+#    always declared as package deps; staged explicitly so the graphical stack
+#    links cleanly). See doc / git log "closure libs round 2".
+icu                         # libicuuc/libicui18n.78 — Qt6Core
+krb5                        # libgssapi_krb5.2 — Qt6Network
+keyutils                    # libkeyutils.1 — krb5
+lcms2                       # liblcms2.2 — kwin
+libinput                    # libinput.10 — kwin
+libxcvt                     # libxcvt.0 — kwin
+libdisplay-info             # libdisplay-info.3 — kwin
+libqaccessibilityclient-qt6 # kwin_wayland a11y
+libpulse                    # libpulse.0 — Qt6Multimedia / plasma-pa
+libsndfile                  # libsndfile.1 — libpulse
+lmdb                        # liblmdb.so — baloo
+yaml-cpp                    # libyaml-cpp.0.9 — Calamares
+qt6-speech                  # libQt6TextToSpeech.6 — KF6TextEditor
+libcanberra                 # libcanberra.0 — notification sounds
+libtool                     # libltdl.7 — libcanberra
+libogg                      # libogg.0 — libvorbis
+libvorbis                   # libvorbisfile.3 — libcanberra
+# iOS device support (KF6Solid)
+libplist
+libusbmuxd
+libimobiledevice-glue
+libtatsu
+libimobiledevice

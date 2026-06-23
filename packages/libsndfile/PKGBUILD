@@ -17,7 +17,7 @@ build() {
   cmake -S "libsndfile-${pkgver}" -B build -G Ninja \
     -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib \
     -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF -DBUILD_PROGRAMS=OFF \
-    -DENABLE_EXTERNAL_LIBS=OFF -DENABLE_MPEG=OFF
+    -DENABLE_EXTERNAL_LIBS=OFF -DENABLE_MPEG=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5
   cmake --build build
 }
 package() { DESTDIR="$pkgdir" cmake --install build; }
