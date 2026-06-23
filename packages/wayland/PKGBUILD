@@ -1,6 +1,6 @@
 # Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
 pkgname=wayland
-pkgver=1.23.1
+pkgver=1.25.0
 pkgrel=1
 pkgdesc='A protocol for a compositor to talk to its clients'
 arch=('x86_64')
@@ -10,7 +10,7 @@ depends=('libffi' 'libxml2' 'glibc')
 provides=('libwayland-client.so' 'libwayland-cursor.so' 'libwayland-egl.so' 'libwayland-server.so')
 makedepends=('meson' 'ninja')
 source=("https://gitlab.freedesktop.org/wayland/wayland/-/releases/$pkgver/downloads/wayland-$pkgver.tar.xz")
-sha256sums=('864fb2a8399e2d0ec39d56e9d9b753c093775beadc6022ce81f441929a81e5ed')
+sha256sums=('c065f040afdff3177680600f249727e41a1afc22fccf27222f15f5306faa1f03')
 
 build() {
   arch-meson "$pkgname-$pkgver" build \
