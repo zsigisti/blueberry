@@ -53,8 +53,7 @@ cups
 fontconfig
 freetype2
 harfbuzz
-noto-fonts
-noto-fonts-emoji
+ttf-dejavu                  # DejaVu — actually-built UI font (noto recipe pending)
 
 # ── Installer (live ISO only; not copied to the target) ───────────────────────
 calamares

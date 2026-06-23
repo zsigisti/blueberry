@@ -139,6 +139,22 @@ ln -sf /dev/null "$LIVEROOT/etc/systemd/system/systemd-firstboot.service"
 : > "$LIVEROOT/etc/locale.conf"; echo "LANG=C.UTF-8" > "$LIVEROOT/etc/locale.conf"
 echo "blueberry" > "$LIVEROOT/etc/hostname"
 
+# Fonts + locale: without a UTF-8 locale Qt warns and falls back to ANSI, and
+# without a fontconfig cache the first lookup is slow / can miss. glibc 2.43 has
+# C.UTF-8 built in, so no locale-archive is needed; just make sure every login
+# path sees it. Build the fontconfig cache against the staged fonts so the
+# greeter has glyphs immediately (was rendering tofu — no fonts were staged).
+log "locale (C.UTF-8) + fontconfig cache"
+cat > "$LIVEROOT/etc/locale.conf" <<'LOCALE'
+LANG=C.UTF-8
+LC_ALL=C.UTF-8
+LOCALE
+if command -v fc-cache >/dev/null 2>&1 && [ -d "$LIVEROOT/usr/share/fonts" ]; then
+    # Cache into the live root; HOME/XDG point inside it so nothing touches the host.
+    HOME="$LIVEROOT/root" XDG_CACHE_HOME="$LIVEROOT/var/cache" \
+        fc-cache -f "$LIVEROOT/usr/share/fonts" >/dev/null 2>&1 || true
+fi
+
 ln -sf /usr/lib/systemd/system/graphical.target "$LIVEROOT/etc/systemd/system/default.target"
 mkdir -p "$LIVEROOT/etc/systemd/system/graphical.target.wants"
 ln -sf "/usr/lib/systemd/system/$DEFAULT_DM.service" \
