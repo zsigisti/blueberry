@@ -1,0 +1,26 @@
+[package]
+name     = "iptables"
+version  = "1.8.11"
+release  = 2
+summary  = "Userspace tools for the Linux kernel packet filter (legacy + nft)"
+homepage = "https://www.netfilter.org/projects/iptables/"
+license  = ["GPL-2.0-only"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libmnl", "libnftnl", "libnfnetlink", "libnetfilter_conntrack"]
+makedepends = ["pkgconf"]
+
+[[source]]
+url    = "https://www.netfilter.org/projects/iptables/files/iptables-1.8.11.tar.xz"
+sha256 = "d87303d55ef8c92bcad4dd3f978b26d272013642b029425775f5bad1009fe7b2"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --sbindir=/usr/bin --sysconfdir=/etc --disable-nftables --enable-libipq --without-kernel;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install
+'''

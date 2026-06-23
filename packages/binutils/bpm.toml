@@ -1,0 +1,26 @@
+[package]
+name     = "binutils"
+version  = "2.44"
+release  = 2
+summary  = "GNU assembler, linker and binary utilities (as, ld, ar, objdump, ...)"
+homepage = "https://www.gnu.org/software/binutils/"
+license  = ["GPL-3.0-or-later", "LGPL-3.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "zlib", "elfutils"]
+
+[[source]]
+url    = "https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.xz"
+sha256 = "ce2017e059d63e67ddb9240e9d4ec49c2893605035cd60e92ad53177f4377237"
+
+[steps]
+build = '''
+mkdir -p build && cd build;
+../"$name-$version"/configure --prefix=/usr --with-system-zlib --enable-deterministic-archives --enable-default-hash-style=gnu --disable-multilib --disable-werror --disable-gprofng --disable-nls;
+make
+'''
+package = '''
+cd build;
+make DESTDIR="$pkgdir" install;
+rm -f "$pkgdir"/usr/share/man/man1/{dlltool,nlmconv,windmc,windres}* 2> /dev/null || true
+'''

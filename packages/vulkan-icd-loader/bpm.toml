@@ -1,0 +1,26 @@
+[package]
+name     = "vulkan-icd-loader"
+version  = "1.4.304"
+release  = 1
+summary  = "Vulkan Installable Client Driver (ICD) loader"
+homepage = "https://github.com/KhronosGroup/Vulkan-Loader"
+license  = ["Apache-2.0"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["cmake", "ninja", "vulkan-headers", "wayland", "libx11", "libxrandr", "pkgconf"]
+provides    = ["libvulkan.so"]
+
+[[source]]
+url    = "https://github.com/KhronosGroup/Vulkan-Loader/archive/refs/tags/v1.4.304.tar.gz"
+sha256 = "368d8281604a3f4dee038bfcc55c44e305031ec67f6e3fdd50cdeb83586c99f9"
+
+[steps]
+build = '''
+cmake -S "Vulkan-Loader-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D CMAKE_INSTALL_LIBDIR=lib -D CMAKE_INSTALL_SYSCONFDIR=/etc -D VULKAN_HEADERS_INSTALL_DIR=/usr -D BUILD_WSI_WAYLAND_SUPPORT=ON -D BUILD_WSI_XCB_SUPPORT=ON -D BUILD_WSI_XLIB_SUPPORT=ON;
+ninja -C build
+'''
+package = '''
+DESTDIR="$pkgdir" ninja -C build install;
+install -Dm644 "Vulkan-Loader-$version/LICENSE.txt" "$pkgdir/usr/share/licenses/$name/LICENSE.txt"
+'''

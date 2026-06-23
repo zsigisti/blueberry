@@ -1,0 +1,25 @@
+[package]
+name     = "breeze"
+version  = "6.7.0"
+release  = 1
+summary  = "KDE: Breeze widget style, window decoration, and color schemes"
+homepage = "https://kde.org/plasma-desktop/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["breeze-icons", "frameworkintegration", "kcmutils", "kcolorscheme", "kconfig", "kcoreaddons", "kdecoration", "kguiaddons", "ki18n", "kiconthemes", "kirigami", "kwidgetsaddons", "kwindowsystem", "qt6-base", "qt6-declarative", "qt6-svg"]
+makedepends = ["kdoctools", "extra-cmake-modules", "cmake", "ninja", "python", "qt6-base", "qt6-declarative", "qt6-tools"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/plasma/6.7.0/breeze-6.7.0.tar.xz"
+sha256 = "cf375bbaaa45f5ba1b3df036bf0c40b7edfd789eb26f6e46f9dd1d325769cbd5"
+
+[steps]
+build = '''
+cmake -S "breeze-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D KDE_INSTALL_LIBDIR=lib -D KDE_INSTALL_LIBEXECDIR=lib -D KDE_INSTALL_USE_QT_SYS_PATHS=ON -D BUILD_TESTING=OFF -D BUILD_QCH=OFF -D BUILD_PYTHON_BINDINGS=OFF -D BUILD_QT5=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

@@ -1,0 +1,28 @@
+[package]
+name     = "curl"
+version  = "8.11.1"
+release  = 1
+summary  = "Command-line tool and library for transferring data with URLs"
+homepage = "https://curl.se/"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "ca-certificates", "zlib", "zstd", "openssl", "brotli"]
+makedepends = ["pkgconf"]
+provides    = ["libcurl.so"]
+
+[[source]]
+url    = "https://curl.se/download/curl-8.11.1.tar.xz"
+sha256 = "c7ca7db48b0909743eaef34250da02c19bc61d4f1dcedd6603f109409536ab56"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --mandir=/usr/share/man --disable-static --with-openssl --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt --enable-threaded-resolver --with-zlib --with-zstd --with-brotli --without-nghttp2 --without-libpsl --without-libidn2 --without-libssh2 --without-gssapi --without-librtmp --disable-ldap --disable-ldaps;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install;
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

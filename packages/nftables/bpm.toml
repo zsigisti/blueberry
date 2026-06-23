@@ -1,0 +1,27 @@
+[package]
+name     = "nftables"
+version  = "1.1.1"
+release  = 1
+summary  = "Netfilter nftables userspace command-line tool"
+homepage = "https://www.netfilter.org/projects/nftables/"
+license  = ["GPL-2.0-only"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libmnl", "libnftnl", "gmp"]
+makedepends = ["pkgconf"]
+provides    = ["libnftables.so"]
+
+[[source]]
+url    = "https://www.netfilter.org/projects/nftables/files/nftables-1.1.1.tar.xz"
+sha256 = "6358830f3a64f31e39b0ad421d7dadcd240b72343ded48d8ef13b8faf204865a"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --sbindir=/usr/bin --sysconfdir=/etc --disable-man-doc --without-cli --with-json=no --disable-python;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install
+'''

@@ -1,0 +1,26 @@
+[package]
+name     = "libgcrypt"
+version  = "1.11.0"
+release  = 1
+summary  = "General purpose cryptographic library"
+homepage = "https://www.gnupg.org/"
+license  = ["LGPL"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libgpg-error"]
+provides    = ["libgcrypt.so"]
+
+[[source]]
+url    = "https://gnupg.org/ftp/gcrypt/libgcrypt/libgcrypt-1.11.0.tar.bz2"
+sha256 = "09120c9867ce7f2081d6aaa1775386b98c2f2f246135761aae47d81f58685b9c"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --disable-static;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install
+'''

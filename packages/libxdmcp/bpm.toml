@@ -1,0 +1,28 @@
+[package]
+name     = "libxdmcp"
+version  = "1.1.5"
+release  = 1
+summary  = "X Display Manager Control Protocol library"
+homepage = "https://gitlab.freedesktop.org/xorg/lib"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["xorg-util-macros", "xorgproto", "pkgconf"]
+provides    = ["libXdmcp.so"]
+
+[[source]]
+url    = "https://www.x.org/releases/individual/lib/libXdmcp-1.1.5.tar.xz"
+sha256 = "d8a5222828c3adab70adf69a5583f1d32eb5ece04304f7f8392b6a353aa2228c"
+
+[steps]
+build = '''
+cd "libXdmcp-$version";
+./configure --prefix=/usr --sysconfdir=/etc --disable-static;
+make
+'''
+package = '''
+cd "libXdmcp-$version";
+make DESTDIR="$pkgdir" install;
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

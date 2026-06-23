@@ -1,0 +1,26 @@
+[package]
+name     = "libpulse"
+version  = "17.0"
+release  = 1
+summary  = "PulseAudio client library (Qt6Multimedia, plasma-pa)"
+homepage = "https://www.freedesktop.org/wiki/Software/PulseAudio/"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "dbus", "libsndfile", "glib2", "libcap", "systemd-libs"]
+makedepends = ["meson", "ninja", "pkgconf"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://freedesktop.org/software/pulseaudio/releases/pulseaudio-17.0.tar.xz"
+sha256 = "053794d6671a3e397d849e478a80b82a63cb9d8ca296bd35b73317bb5ceb87b5"
+
+[steps]
+build = '''
+meson setup "pulseaudio-$version" build --prefix=/usr --libdir=/usr/lib --buildtype=release -Ddaemon=false -Ddoxygen=false -Dman=false -Dtests=false;
+ninja -C build
+'''
+package = '''
+DESTDIR="$pkgdir" ninja -C build install;
+rm -rf "$pkgdir/usr/bin" "$pkgdir/etc" "$pkgdir/usr/share" "$pkgdir/usr/lib/systemd" "$pkgdir/usr/lib/cmake" 2> /dev/null || true
+'''

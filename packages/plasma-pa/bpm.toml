@@ -1,0 +1,25 @@
+[package]
+name     = "plasma-pa"
+version  = "6.7.0"
+release  = 1
+summary  = "KDE: audio volume applet (PulseAudio/PipeWire)"
+homepage = "https://kde.org/plasma-desktop/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["kcmutils", "kconfig", "kcoreaddons", "kdbusaddons", "kdeclarative", "kglobalaccel", "ki18n", "kirigami", "kirigami-addons", "kitemmodels", "kstatusnotifieritem", "ksvg", "libcanberra", "libplasma", "libpulse", "plasma-workspace", "pulseaudio-qt", "qt6-base", "qt6-declarative"]
+makedepends = ["kdoctools", "extra-cmake-modules", "cmake", "ninja", "python", "qt6-base", "qt6-declarative", "qt6-tools", "pulseaudio-qt"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/plasma/6.7.0/plasma-pa-6.7.0.tar.xz"
+sha256 = "badce8811107ee57720716275ac5fc12116689bc34ce493cabe7228e1b658f51"
+
+[steps]
+build = '''
+cmake -S "plasma-pa-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D KDE_INSTALL_LIBDIR=lib -D KDE_INSTALL_LIBEXECDIR=lib -D KDE_INSTALL_USE_QT_SYS_PATHS=ON -D BUILD_TESTING=OFF -D BUILD_QCH=OFF -D BUILD_PYTHON_BINDINGS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

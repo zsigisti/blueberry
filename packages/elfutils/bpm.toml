@@ -1,0 +1,30 @@
+[package]
+name     = "elfutils"
+version  = "0.192"
+release  = 1
+summary  = "Libraries and tools for ELF and DWARF (libelf, libdw, libdebuginfod)"
+homepage = "https://sourceware.org/elfutils/"
+license  = ["GPL-3.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "zlib", "bzip2", "xz", "zstd", "curl", "json-c"]
+makedepends = ["pkgconf"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://sourceware.org/elfutils/ftp/0.192/elfutils-0.192.tar.bz2"
+sha256 = "616099beae24aba11f9b63d86ca6cc8d566d968b802391334c91df54eab416b4"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --enable-libdebuginfod --disable-debuginfod --program-prefix="eu-" CFLAGS="${CFLAGS:-} -Wno-error";
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install;
+rm -f "$pkgdir"/usr/lib/*.a;
+rm -rf "$pkgdir"/usr/bin;
+install -Dm644 COPYING-GPLV2 "$pkgdir/usr/share/licenses/$name/COPYING-GPLV2"
+'''

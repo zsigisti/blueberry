@@ -1,0 +1,26 @@
+[package]
+name     = "polkit"
+version  = "126"
+release  = 1
+summary  = "Application development toolkit for controlling system-wide privileges"
+homepage = "https://github.com/polkit-org/polkit"
+license  = ["LGPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glib2", "expat", "pam", "duktape", "systemd"]
+makedepends = ["meson", "ninja", "gettext", "glib2-devel", "duktape"]
+provides    = ["libpolkit-gobject-1.so", "libpolkit-agent-1.so"]
+
+[[source]]
+url    = "https://github.com/polkit-org/polkit/archive/126/polkit-126.tar.gz"
+sha256 = "2814a7281989f6baa9e57bd33bbc5e148827e2721ccef22aaf28ab2b376068e8"
+
+[steps]
+build = '''
+arch-meson "$name-$version" build -D authfw=pam -D introspection=false -D man=false -D gtk_doc=false -D tests=false -D examples=false -D session_tracking=logind -D systemdsystemunitdir=/usr/lib/systemd/system;
+meson compile -C build
+'''
+package = '''
+meson install -C build --destdir "$pkgdir";
+install -Dm644 "$name-$version/COPYING" "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

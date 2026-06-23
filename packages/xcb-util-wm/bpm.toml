@@ -1,0 +1,28 @@
+[package]
+name     = "xcb-util-wm"
+version  = "0.4.2"
+release  = 1
+summary  = "XCB utility library: xcb-util-wm"
+homepage = "https://xcb.freedesktop.org/"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["libxcb"]
+makedepends = ["xcb-proto", "xorgproto", "xorg-util-macros", "libxcb", "pkgconf", "gperf"]
+provides    = ["libxcb-ewmh.so", "libxcb-icccm.so"]
+
+[[source]]
+url    = "https://xorg.freedesktop.org/archive/individual/lib/xcb-util-wm-0.4.2.tar.xz"
+sha256 = "62c34e21d06264687faea7edbf63632c9f04d55e72114aa4a57bb95e4f888a0b"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --disable-static;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install;
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

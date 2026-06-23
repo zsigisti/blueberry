@@ -1,0 +1,27 @@
+[package]
+name     = "qt6-base"
+version  = "6.11.1"
+release  = 1
+summary  = "Qt 6 base toolkit: Core, Gui, Widgets, Network, DBus, the xcb + wayland platforms"
+homepage = "https://www.qt.io/"
+license  = ["LGPL-3.0-only"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "gcc-libs", "zlib", "libpng", "libjpeg-turbo", "freetype2", "fontconfig", "harfbuzz", "pcre2", "glib2", "double-conversion", "md4c", "libb2", "openssl", "dbus", "libx11", "libxcb", "libxkbcommon", "libxrender", "libxrandr", "libxfixes", "libxext", "libxi", "libxcursor", "xcb-util", "xcb-util-image", "xcb-util-keysyms", "xcb-util-renderutil", "xcb-util-wm", "xcb-util-cursor", "libglvnd", "mesa", "wayland", "at-spi2-core"]
+makedepends = ["cmake", "ninja", "python", "vulkan-headers", "wayland-protocols", "libxkbcommon", "libxkbcommon-x11", "pkgconf", "perl", "at-spi2-core"]
+provides    = ["libQt6Core.so", "libQt6Gui.so", "libQt6Widgets.so", "libQt6Network.so", "libQt6DBus.so", "libQt6Concurrent.so", "libQt6OpenGL.so", "libQt6OpenGLWidgets.so", "libQt6PrintSupport.so", "libQt6Sql.so", "libQt6Test.so", "libQt6Xml.so"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.qt.io/official_releases/qt/6.11/6.11.1/submodules/qtbase-everywhere-src-6.11.1.tar.xz"
+sha256 = "d9594a31228aa23ad6b531719a29b45f0f3989fe6c136d45767ea179f233c1ac"
+
+[steps]
+build = '''
+cmake -S "qtbase-everywhere-src-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D INSTALL_LIBDIR=/usr/lib -D INSTALL_ARCHDATADIR=/usr/lib/qt6 -D INSTALL_DATADIR=/usr/share/qt6 -D INSTALL_DOCDIR=/usr/share/doc/qt6 -D INSTALL_INCLUDEDIR=/usr/include/qt6 -D INSTALL_MKSPECSDIR=/usr/lib/qt6/mkspecs -D QT_FEATURE_system_zlib=ON -D QT_FEATURE_system_libpng=ON -D QT_FEATURE_system_libjpeg=ON -D QT_FEATURE_system_freetype=ON -D QT_FEATURE_system_harfbuzz=ON -D QT_FEATURE_system_pcre2=ON -D QT_FEATURE_system_doubleconversion=ON -D QT_FEATURE_xcb=ON -D QT_FEATURE_xcb_xlib=ON -D QT_FEATURE_wayland=ON -D QT_FEATURE_dbus=ON -D QT_FEATURE_accessibility=ON -D QT_FEATURE_accessibility_atspi_bridge=ON -D QT_FEATURE_openssl_linked=ON -D QT_FEATURE_vulkan=ON -D QT_BUILD_EXAMPLES=OFF -D QT_BUILD_TESTS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build;
+install -Dm644 "qtbase-everywhere-src-$version/LICENSES/LGPL-3.0-only.txt" "$pkgdir/usr/share/licenses/$name/LICENSE" 2> /dev/null || true
+'''

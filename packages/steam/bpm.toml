@@ -1,0 +1,21 @@
+[package]
+name     = "steam"
+version  = "1.0.0.83"
+release  = 2
+summary  = "Valve Steam client — bootstrapper + 32-bit multilib runtime"
+homepage = "https://store.steampowered.com/"
+license  = ["custom"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libx11", "libxcb", "mesa", "libglvnd", "zenity", "lib32-glibc", "lib32-gcc-libs", "lib32-zlib", "lib32-libffi", "lib32-libx11", "lib32-libxcb", "lib32-libxau", "lib32-libxdmcp", "lib32-libxext", "lib32-libxfixes", "lib32-libxrender", "lib32-libxrandr", "lib32-libxinerama", "lib32-libxcursor", "lib32-libxi", "lib32-libglvnd", "lib32-mesa", "lib32-libdrm"]
+options     = ["!strip"]
+
+[[source]]
+url    = "https://repo.steampowered.com/steam/archive/precise/steam_latest.tar.gz"
+sha256 = "SKIP"
+
+[steps]
+package = '''
+cp -a steam/* "$pkgdir/" 2> /dev/null || cp -a ./* "$pkgdir/";
+rm -f "$pkgdir/PKGBUILD"
+'''

@@ -1,0 +1,25 @@
+[package]
+name     = "qt6-positioning"
+version  = "6.11.1"
+release  = 1
+summary  = "Qt 6 positioning (GPS/location) module"
+homepage = "https://www.qt.io/"
+license  = ["LGPL-3.0-only"]
+arch     = ["x86_64"]
+
+depends     = ["qt6-base", "qt6-declarative"]
+makedepends = ["cmake", "ninja", "python", "qt6-base", "qt6-declarative", "perl"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.qt.io/official_releases/qt/6.11/6.11.1/submodules/qtpositioning-everywhere-src-6.11.1.tar.xz"
+sha256 = "d5e6b91801ae286e7630016caea3bdc5e1978b4291d6741d0d64c125650f78f5"
+
+[steps]
+build = '''
+cmake -S "qtpositioning-everywhere-src-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D INSTALL_LIBDIR=/usr/lib -D INSTALL_ARCHDATADIR=/usr/lib/qt6 -D QT_BUILD_EXAMPLES=OFF -D QT_BUILD_TESTS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

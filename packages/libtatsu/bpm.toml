@@ -1,0 +1,27 @@
+[package]
+name     = "libtatsu"
+version  = "1.0.5"
+release  = 1
+summary  = "Library handling Apple's TSS server (libimobiledevice 1.4)"
+homepage = "https://libimobiledevice.org/"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libplist", "curl", "openssl"]
+makedepends = ["pkgconf", "curl", "openssl"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://github.com/libimobiledevice/libtatsu/releases/download/1.0.5/libtatsu-1.0.5.tar.bz2"
+sha256 = "536fa228b14f156258e801a7f4d25a3a9dd91bb936bf6344e23171403c57e440"
+
+[steps]
+build = '''
+cd "libtatsu-$version";
+./configure --prefix=/usr --libdir=/usr/lib;
+make
+'''
+package = '''
+cd "libtatsu-$version";
+make DESTDIR="$pkgdir" install
+'''

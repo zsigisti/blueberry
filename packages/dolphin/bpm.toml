@@ -1,0 +1,25 @@
+[package]
+name     = "dolphin"
+version  = "26.04.2"
+release  = 1
+summary  = "KDE: the Dolphin file manager"
+homepage = "https://kde.org/plasma-desktop/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["baloo", "baloo-widgets", "kbookmarks", "kcmutils", "kcodecs", "kcolorscheme", "kcompletion", "kconfig", "kconfigwidgets", "kcoreaddons", "kcrash", "kdbusaddons", "kfilemetadata", "kguiaddons", "ki18n", "kiconthemes", "kio", "kjobwidgets", "knewstuff", "knotifications", "kparts", "kservice", "ktextwidgets", "kuserfeedback", "kwidgetsaddons", "kwindowsystem", "kxmlgui", "qt6-base", "qt6-multimedia", "solid"]
+makedepends = ["extra-cmake-modules", "cmake", "ninja", "python", "qt6-base", "qt6-declarative", "qt6-tools", "qt6-multimedia"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/release-service/26.04.2/src/dolphin-26.04.2.tar.xz"
+sha256 = "c7e90beb8ce13aea091494ae7ddfabde999b1297986a596403828010bec59346"
+
+[steps]
+build = '''
+cmake -S "dolphin-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D KDE_INSTALL_LIBDIR=lib -D KDE_INSTALL_LIBEXECDIR=lib -D KDE_INSTALL_USE_QT_SYS_PATHS=ON -D BUILD_TESTING=OFF -D BUILD_QCH=OFF -D BUILD_PYTHON_BINDINGS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

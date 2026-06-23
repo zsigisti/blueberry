@@ -1,0 +1,26 @@
+[package]
+name     = "double-conversion"
+version  = "3.3.0"
+release  = 1
+summary  = "Binary-decimal and decimal-binary routines for IEEE doubles (Qt dep)"
+homepage = "https://github.com/google/double-conversion"
+license  = ["BSD-3-Clause"]
+arch     = ["x86_64"]
+
+depends     = ["gcc-libs", "glibc"]
+makedepends = ["cmake", "ninja"]
+provides    = ["libdouble-conversion.so"]
+
+[[source]]
+url    = "https://github.com/google/double-conversion/archive/refs/tags/v3.3.0.tar.gz"
+sha256 = "04ec44461850abbf33824da84978043b22554896b552c5fd11a9c5ae4b4d296e"
+
+[steps]
+build = '''
+cmake -S "$name-$version" -B build -G Ninja -D CMAKE_POLICY_VERSION_MINIMUM=3.5 -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D CMAKE_INSTALL_LIBDIR=lib -D BUILD_SHARED_LIBS=ON;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build;
+install -Dm644 "$name-$version/LICENSE" "$pkgdir/usr/share/licenses/$name/LICENSE"
+'''

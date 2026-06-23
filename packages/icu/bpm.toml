@@ -1,0 +1,27 @@
+[package]
+name     = "icu"
+version  = "78.3"
+release  = 1
+summary  = "International Components for Unicode (libicuuc/libicui18n — Qt6Core)"
+homepage = "https://icu.unicode.org/"
+license  = ["custom:icu"]
+arch     = ["x86_64"]
+
+depends     = ["gcc-libs", "glibc"]
+makedepends = ["python"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://github.com/unicode-org/icu/releases/download/release-78.3/icu4c-78.3-sources.tgz"
+sha256 = "3a2e7a47604ba702f345878308e6fefeca612ee895cf4a5f222e7955fabfe0c0"
+
+[steps]
+build = '''
+cd icu/source;
+./configure --prefix=/usr --libdir=/usr/lib --sysconfdir=/etc --enable-static --disable-samples --disable-tests;
+make
+'''
+package = '''
+cd icu/source;
+make DESTDIR="$pkgdir" install
+'''

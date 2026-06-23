@@ -1,0 +1,26 @@
+[package]
+name     = "libmnl"
+version  = "1.0.5"
+release  = 1
+summary  = "Minimalistic user-space library oriented to Netlink developers"
+homepage = "https://netfilter.org/projects/libmnl/"
+license  = ["LGPL2.1"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+provides    = ["libmnl.so"]
+
+[[source]]
+url    = "https://www.netfilter.org/projects/libmnl/files/libmnl-1.0.5.tar.bz2"
+sha256 = "274b9b919ef3152bfb3da3a13c950dd60d6e2bcd54230ffeca298d03b40d0525"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --disable-static;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install
+'''

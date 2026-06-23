@@ -1,0 +1,25 @@
+[package]
+name     = "knighttime"
+version  = "6.7.0"
+release  = 1
+summary  = "KDE: day/night time computation for theming"
+homepage = "https://kde.org/plasma-desktop/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["kconfig", "kcoreaddons", "kdbusaddons", "kholidays", "qt6-base", "qt6-positioning"]
+makedepends = ["kdoctools", "extra-cmake-modules", "cmake", "ninja", "python", "qt6-base", "qt6-declarative", "qt6-tools", "qt6-positioning"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/plasma/6.7.0/knighttime-6.7.0.tar.xz"
+sha256 = "c2fc7529cef3b3a80be4715286d027fc8908ef0fe8040aea106831a5265fc113"
+
+[steps]
+build = '''
+cmake -S "knighttime-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D KDE_INSTALL_LIBDIR=lib -D KDE_INSTALL_LIBEXECDIR=lib -D KDE_INSTALL_USE_QT_SYS_PATHS=ON -D BUILD_TESTING=OFF -D BUILD_QCH=OFF -D BUILD_PYTHON_BINDINGS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

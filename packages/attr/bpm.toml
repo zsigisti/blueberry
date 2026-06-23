@@ -1,0 +1,26 @@
+[package]
+name     = "attr"
+version  = "2.5.2"
+release  = 1
+summary  = "Extended attribute support library for ACL"
+homepage = "https://savannah.nongnu.org/projects/attr"
+license  = ["LGPL"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+provides    = ["libattr.so"]
+
+[[source]]
+url    = "https://download.savannah.nongnu.org/releases/attr/attr-2.5.2.tar.gz"
+sha256 = "39bf67452fa41d0948c2197601053f48b3d78a029389734332a6309a680c6c87"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --disable-static --sysconfdir=/etc;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install
+'''

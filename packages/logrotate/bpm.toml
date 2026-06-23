@@ -1,0 +1,26 @@
+[package]
+name     = "logrotate"
+version  = "3.22.0"
+release  = 2
+summary  = "Rotates, compresses, and mails system logs"
+homepage = "https://github.com/logrotate/logrotate"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "popt", "acl"]
+
+[[source]]
+url    = "https://github.com/logrotate/logrotate/releases/download/3.22.0/logrotate-3.22.0.tar.xz"
+sha256 = "42b4080ee99c9fb6a7d12d8e787637d057a635194e25971997eebbe8d5e57618"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --with-state-file-path=/var/lib/logrotate/logrotate.status;
+make
+'''
+package = '''
+cd "$name-$version";
+install -Dm755 logrotate "$pkgdir/usr/bin/logrotate";
+install -Dm644 logrotate.8 "$pkgdir/usr/share/man/man8/logrotate.8"
+'''

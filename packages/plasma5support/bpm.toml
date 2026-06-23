@@ -1,0 +1,25 @@
+[package]
+name     = "plasma5support"
+version  = "6.7.0"
+release  = 1
+summary  = "KDE: support library for migrated Plasma 5 APIs"
+homepage = "https://kde.org/plasma-desktop/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["kconfig", "kcoreaddons", "kguiaddons", "kholidays", "ki18n", "kidletime", "kio", "kjobwidgets", "knotifications", "kservice", "kunitconversion", "libksysguard", "libx11", "libxfixes", "qt6-base", "qt6-declarative", "solid"]
+makedepends = ["kdoctools", "extra-cmake-modules", "cmake", "ninja", "python", "qt6-base", "qt6-declarative", "qt6-tools"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/plasma/6.7.0/plasma5support-6.7.0.tar.xz"
+sha256 = "e60e1e47a3dee93518647d66393c21e2406f7779e9e9e4382d7cea68cebbfb7b"
+
+[steps]
+build = '''
+cmake -S "plasma5support-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D KDE_INSTALL_LIBDIR=lib -D KDE_INSTALL_LIBEXECDIR=lib -D KDE_INSTALL_USE_QT_SYS_PATHS=ON -D BUILD_TESTING=OFF -D BUILD_QCH=OFF -D BUILD_PYTHON_BINDINGS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

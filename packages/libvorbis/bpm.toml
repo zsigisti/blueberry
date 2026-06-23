@@ -1,0 +1,28 @@
+[package]
+name     = "libvorbis"
+version  = "1.3.7"
+release  = 1
+summary  = "Vorbis audio codec (libvorbisfile — libcanberra event sounds)"
+homepage = "https://www.xiph.org/vorbis/"
+license  = ["BSD-3-Clause"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libogg"]
+makedepends = ["libogg"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://downloads.xiph.org/releases/vorbis/libvorbis-1.3.7.tar.xz"
+sha256 = "b33cc4934322bcbf6efcbacf49e3ca01aadbea4114ec9589d1b1e9d20f72954b"
+
+[steps]
+build = '''
+cd "libvorbis-$version";
+export CFLAGS="$CFLAGS -fno-tree-vectorize -fno-tree-slp-vectorize";
+./configure --prefix=/usr --libdir=/usr/lib;
+make
+'''
+package = '''
+cd "libvorbis-$version";
+make DESTDIR="$pkgdir" install
+'''

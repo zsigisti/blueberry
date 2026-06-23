@@ -1,0 +1,25 @@
+[package]
+name     = "libsndfile"
+version  = "1.2.2"
+release  = 1
+summary  = "Library for reading/writing audio files (libpulse)"
+homepage = "https://libsndfile.github.io/libsndfile/"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["cmake", "ninja", "pkgconf"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://github.com/libsndfile/libsndfile/releases/download/1.2.2/libsndfile-1.2.2.tar.xz"
+sha256 = "3799ca9924d3125038880367bf1468e53a1b7e3686a934f098b7e1d286cdb80e"
+
+[steps]
+build = '''
+cmake -S "libsndfile-$version" -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF -DBUILD_PROGRAMS=OFF -DENABLE_EXTERNAL_LIBS=OFF -DENABLE_MPEG=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

@@ -1,0 +1,25 @@
+[package]
+name     = "json-c"
+version  = "0.18"
+release  = 1
+summary  = "JSON manipulation library (libjson-c) — LUKS2 metadata backend"
+homepage = "https://github.com/json-c/json-c"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["cmake"]
+provides    = ["libjson-c.so"]
+
+[[source]]
+url    = "https://s3.amazonaws.com/json-c_releases/releases/json-c-0.18.tar.gz"
+sha256 = "876ab046479166b869afc6896d288183bbc0e5843f141200c677b3e8dfb11724"
+
+[steps]
+build = '''
+cmake -S "json-c-$version" -B build -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_STATIC_LIBS=OFF -DBUILD_TESTING=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

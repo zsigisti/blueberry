@@ -1,0 +1,26 @@
+[package]
+name     = "libcap"
+version  = "2.73"
+release  = 1
+summary  = "POSIX 1003.1e capabilities library"
+homepage = "https://sites.google.com/site/fullycapable/"
+license  = ["GPL2"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+provides    = ["libcap.so", "libpsx.so"]
+
+[[source]]
+url    = "https://www.kernel.org/pub/linux/libs/security/linux-privs/libcap2/libcap-2.73.tar.xz"
+sha256 = "6405f6089cf4cdd8c271540cd990654d78dd0b1989b2d9bda20f933a75a795a5"
+
+[steps]
+build = '''
+cd "$name-$version";
+make CC=gcc GO= prefix=/usr lib=lib PAM_CAP=no
+'''
+package = '''
+cd "$name-$version";
+make install DESTDIR="$pkgdir" prefix=/usr lib=lib PAM_CAP=no RAISE_SETFCAP=no GO=;
+install -Dm644 License "$pkgdir/usr/share/licenses/$name/License"
+'''

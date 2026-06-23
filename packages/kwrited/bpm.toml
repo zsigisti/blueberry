@@ -1,0 +1,25 @@
+[package]
+name     = "kwrited"
+version  = "6.7.0"
+release  = 1
+summary  = "KDE: daemon listening for wall/write messages"
+homepage = "https://kde.org/plasma-desktop/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["kcoreaddons", "kdbusaddons", "knotifications", "kpty", "qt6-base"]
+makedepends = ["kdoctools", "extra-cmake-modules", "cmake", "ninja", "python", "qt6-base", "qt6-declarative", "qt6-tools"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/plasma/6.7.0/kwrited-6.7.0.tar.xz"
+sha256 = "75439a92561f6c332804d1d27dae15bc5755b8c9af28da79d16c032d50903b10"
+
+[steps]
+build = '''
+cmake -S "kwrited-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D KDE_INSTALL_LIBDIR=lib -D KDE_INSTALL_LIBEXECDIR=lib -D KDE_INSTALL_USE_QT_SYS_PATHS=ON -D BUILD_TESTING=OFF -D BUILD_QCH=OFF -D BUILD_PYTHON_BINDINGS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

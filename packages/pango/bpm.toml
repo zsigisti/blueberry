@@ -1,0 +1,29 @@
+[package]
+name     = "pango"
+version  = "1.57.1"
+release  = 1
+summary  = "Library for layout and rendering of text"
+homepage = "https://www.freedesktop.org/"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["cairo", "fontconfig", "freetype2", "fribidi", "harfbuzz", "libxft", "libthai", "glib2"]
+makedepends = ["glib2-devel", "meson", "ninja", "pkgconf"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.gnome.org/sources/pango/1.57/pango-1.57.1.tar.xz"
+sha256 = "e65d6d117080dc3aeeb7d8b4b3b518f7383aa2e6cfce23117c623cd624764c2f"
+
+[steps]
+build = '''
+function arch-meson () 
+{ 
+    meson setup "$@"
+};
+meson setup pango-1.57.1 build --prefix=/usr --buildtype=release -Dwerror=false -Dintrospection=disabled -Ddocumentation=false;
+meson compile -C build
+'''
+package = '''
+meson install -C build --destdir "$pkgdir"
+'''

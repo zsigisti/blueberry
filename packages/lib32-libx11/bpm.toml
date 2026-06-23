@@ -1,0 +1,29 @@
+[package]
+name     = "lib32-libx11"
+version  = "1.8.10"
+release  = 1
+summary  = "Core X11 client library (32-bit)"
+homepage = "https://www.freedesktop.org/"
+license  = ["custom"]
+arch     = ["x86_64"]
+
+depends     = ["lib32-glibc", "lib32-libxcb"]
+makedepends = ["lib32-glibc", "lib32-gcc-libs", "xorgproto", "xorg-util-macros", "pkgconf", "lib32-libxcb", "libx11", "xtrans"]
+options     = ["!lto", "!strip"]
+
+[[source]]
+url    = "https://www.x.org/releases/individual/lib/libX11-1.8.10.tar.xz"
+sha256 = "2b3b3dad9347db41dca56beb7db5878f283bde1142f04d9f8e478af435dfdc53"
+
+[steps]
+build = '''
+export CC="gcc -m32" CXX="g++ -m32" PKG_CONFIG_PATH=/usr/lib32/pkgconfig;
+cd "libX11-1.8.10";
+./configure --prefix=/usr --libdir=/usr/lib32 --host=i686-pc-linux-gnu --disable-static;
+make
+'''
+package = '''
+cd "libX11-1.8.10";
+make DESTDIR="$pkgdir" install;
+rm -rf "$pkgdir/usr/include" "$pkgdir/usr/share" "$pkgdir/usr/bin"
+'''

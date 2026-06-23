@@ -1,0 +1,26 @@
+[package]
+name     = "glib2"
+version  = "2.82.4"
+release  = 1
+summary  = "Low-level core library for the GLib/GTK stack"
+homepage = "https://gitlab.gnome.org/GNOME/glib"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["pcre2", "libffi", "zlib", "util-linux"]
+makedepends = ["meson", "ninja", "python", "gettext"]
+provides    = ["libglib-2.0.so", "libgobject-2.0.so", "libgio-2.0.so", "libgmodule-2.0.so", "libgthread-2.0.so"]
+
+[[source]]
+url    = "https://download.gnome.org/sources/glib/2.82/glib-2.82.4.tar.xz"
+sha256 = "37dd0877fe964cd15e9a2710b044a1830fb1bd93652a6d0cb6b8b2dff187c709"
+
+[steps]
+build = '''
+arch-meson "glib-$version" build -D selinux=disabled -D man-pages=disabled -D documentation=false -D tests=false -D introspection=disabled -D dtrace=disabled -D systemtap=disabled -D sysprof=disabled;
+meson compile -C build
+'''
+package = '''
+meson install -C build --destdir "$pkgdir";
+install -Dm644 "glib-$version/LICENSES/LGPL-2.1-or-later.txt" "$pkgdir/usr/share/licenses/$name/LICENSE" 2> /dev/null || true
+'''

@@ -1,0 +1,27 @@
+[package]
+name     = "libxinerama"
+version  = "1.1.6"
+release  = 1
+summary  = "X11 Xinerama extension library"
+homepage = "https://www.freedesktop.org/"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["libx11", "libxext"]
+makedepends = ["pkgconf", "xorgproto"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://www.x.org/releases/individual/lib/libXinerama-1.1.6.tar.xz"
+sha256 = "d00fc1599c303dc5cbc122b8068bdc7405d6fcb19060f4597fc51bd3a8be51d7"
+
+[steps]
+build = '''
+cd "libXinerama-1.1.6";
+./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var;
+make
+'''
+package = '''
+cd "libXinerama-1.1.6";
+make DESTDIR="$pkgdir" install
+'''

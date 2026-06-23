@@ -1,0 +1,25 @@
+[package]
+name     = "knotifyconfig"
+version  = "6.27.0"
+release  = 1
+summary  = "KDE: configuration UI for notifications"
+homepage = "https://community.kde.org/Frameworks"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["qt6-base", "kcompletion", "kconfig", "kconfigwidgets", "kcoreaddons", "ki18n", "kio", "knotifications"]
+makedepends = ["qt6-tools", "qt6-declarative", "extra-cmake-modules", "cmake", "ninja", "python", "qt6-base"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/frameworks/6.27/knotifyconfig-6.27.0.tar.xz"
+sha256 = "81861316d615e7e5ff07143c1d58d9b52cadc5e02ab38c8f2677c01f71e51f26"
+
+[steps]
+build = '''
+cmake -S "knotifyconfig-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D KDE_INSTALL_LIBDIR=lib -D KDE_INSTALL_USE_QT_SYS_PATHS=ON -D BUILD_TESTING=OFF -D BUILD_QCH=OFF -D BUILD_PYTHON_BINDINGS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

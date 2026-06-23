@@ -1,0 +1,29 @@
+[package]
+name     = "graphene"
+version  = "1.10.8"
+release  = 1
+summary  = "Thin type library for graphics (SIMD vectors/matrices)"
+homepage = "https://www.freedesktop.org/"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glib2"]
+makedepends = ["meson", "ninja", "pkgconf", "python"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.gnome.org/sources/graphene/1.10/graphene-1.10.8.tar.xz"
+sha256 = "a37bb0e78a419dcbeaa9c7027bcff52f5ec2367c25ec859da31dfde2928f279a"
+
+[steps]
+build = '''
+function arch-meson () 
+{ 
+    meson setup "$@"
+};
+meson setup graphene-1.10.8 build --prefix=/usr --buildtype=release -Dwerror=false -Dtests=false -Dintrospection=disabled -Dgtk_doc=false;
+meson compile -C build
+'''
+package = '''
+meson install -C build --destdir "$pkgdir"
+'''

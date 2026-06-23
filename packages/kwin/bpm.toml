@@ -1,0 +1,25 @@
+[package]
+name     = "kwin"
+version  = "6.7.0"
+release  = 1
+summary  = "KDE: the KWin Wayland/X11 compositor and window manager"
+homepage = "https://kde.org/plasma-desktop/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["breeze", "plasma-activities", "kauth", "kcmutils", "kcolorscheme", "kconfig", "kcoreaddons", "kcrash", "kdbusaddons", "kdeclarative", "kdecoration", "kglobalaccel", "kglobalacceld", "kguiaddons", "ki18n", "kidletime", "kirigami", "kitemmodels", "knewstuff", "knighttime", "knotifications", "kpackage", "kquickcharts", "kscreenlocker", "kservice", "ksvg", "kwayland", "kwidgetsaddons", "kwindowsystem", "kxmlgui", "lcms2", "libcanberra", "libdisplay-info", "libdrm", "libei", "libepoxy", "libevdev", "libinput", "libpipewire", "libqaccessibilityclient-qt6", "libxcb", "libxcvt", "libxkbcommon", "mesa", "milou", "libplasma", "qt6-5compat", "qt6-base", "qt6-declarative", "qt6-svg", "vulkan-icd-loader", "wayland", "xcb-util-keysyms", "xcb-util-wm"]
+makedepends = ["vulkan-headers", "kdoctools", "extra-cmake-modules", "cmake", "ninja", "python", "qt6-base", "qt6-declarative", "qt6-tools", "wayland-protocols", "plasma-wayland-protocols", "qt6-wayland", "libxkbcommon", "libdrm", "libei", "libdisplay-info", "libxcvt"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/plasma/6.7.0/kwin-6.7.0.tar.xz"
+sha256 = "d20b798094a9f58e57de55eca3d58b1cdcb7db2939eb8bf73918c4fab6d9aec5"
+
+[steps]
+build = '''
+cmake -S "kwin-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D KDE_INSTALL_LIBDIR=lib -D KDE_INSTALL_LIBEXECDIR=lib -D KDE_INSTALL_USE_QT_SYS_PATHS=ON -D BUILD_TESTING=OFF -D BUILD_QCH=OFF -D BUILD_PYTHON_BINDINGS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

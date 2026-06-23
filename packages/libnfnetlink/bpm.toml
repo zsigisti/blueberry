@@ -1,0 +1,26 @@
+[package]
+name     = "libnfnetlink"
+version  = "1.0.2"
+release  = 1
+summary  = "Low-level library for netfilter related kernel/userspace communication"
+homepage = "https://www.netfilter.org/projects/libnfnetlink/"
+license  = ["GPL-2.0-only"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+
+[[source]]
+url    = "https://www.netfilter.org/projects/libnfnetlink/files/libnfnetlink-1.0.2.tar.bz2"
+sha256 = "b064c7c3d426efb4786e60a8e6859b82ee2f2c5e49ffeea640cfe4fe33cbc376"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --disable-static;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install;
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

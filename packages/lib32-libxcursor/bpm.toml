@@ -1,0 +1,29 @@
+[package]
+name     = "lib32-libxcursor"
+version  = "1.2.2"
+release  = 1
+summary  = "X cursor management library (32-bit)"
+homepage = "https://www.freedesktop.org/"
+license  = ["custom"]
+arch     = ["x86_64"]
+
+depends     = ["lib32-glibc", "lib32-libxrender", "lib32-libxfixes", "lib32-libx11"]
+makedepends = ["lib32-glibc", "lib32-gcc-libs", "xorgproto", "xorg-util-macros", "pkgconf", "lib32-libxrender", "lib32-libxfixes", "lib32-libx11"]
+options     = ["!lto", "!strip"]
+
+[[source]]
+url    = "https://www.x.org/releases/individual/lib/libXcursor-1.2.2.tar.xz"
+sha256 = "53d071bd2cc56e517a30998d5e685c8a74556ddada43c6985d14da9a023a88ee"
+
+[steps]
+build = '''
+export CC="gcc -m32" CXX="g++ -m32" PKG_CONFIG_PATH=/usr/lib32/pkgconfig;
+cd "libXcursor-1.2.2";
+./configure --prefix=/usr --libdir=/usr/lib32 --host=i686-pc-linux-gnu --disable-static;
+make
+'''
+package = '''
+cd "libXcursor-1.2.2";
+make DESTDIR="$pkgdir" install;
+rm -rf "$pkgdir/usr/include" "$pkgdir/usr/share" "$pkgdir/usr/bin"
+'''

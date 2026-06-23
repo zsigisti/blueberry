@@ -1,0 +1,25 @@
+[package]
+name     = "screen"
+version  = "5.0.0"
+release  = 2
+summary  = "Full-screen window manager that multiplexes a physical terminal"
+homepage = "https://www.gnu.org/software/screen/"
+license  = ["GPL-3.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "ncurses"]
+
+[[source]]
+url    = "https://ftp.gnu.org/gnu/screen/screen-5.0.0.tar.gz"
+sha256 = "f04a39d00a0e5c7c86a55338808903082ad5df4d73df1a2fd3425976aed94971"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --enable-colors256 --enable-rxvt_osc --enable-telnet --disable-pam;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install
+'''

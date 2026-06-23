@@ -1,0 +1,28 @@
+[package]
+name     = "libb2"
+version  = "0.98.1"
+release  = 1
+summary  = "BLAKE2 hash function reference implementation (Qt6 dep)"
+homepage = "https://github.com/BLAKE2/libb2"
+license  = ["CC0-1.0"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["autoconf", "automake", "libtool"]
+provides    = ["libb2.so"]
+
+[[source]]
+url    = "https://github.com/BLAKE2/libb2/releases/download/v0.98.1/libb2-0.98.1.tar.gz"
+sha256 = "53626fddce753c454a3fea581cbbc7fe9bbcf0bc70416d48fdbbf5d87ef6c72e"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --disable-static;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install;
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

@@ -1,0 +1,29 @@
+[package]
+name     = "lib32-libxrandr"
+version  = "1.5.4"
+release  = 1
+summary  = "X11 RandR extension library (32-bit)"
+homepage = "https://www.freedesktop.org/"
+license  = ["custom"]
+arch     = ["x86_64"]
+
+depends     = ["lib32-glibc", "lib32-libxrender", "lib32-libxext", "lib32-libx11"]
+makedepends = ["lib32-glibc", "lib32-gcc-libs", "xorgproto", "xorg-util-macros", "pkgconf", "lib32-libxrender", "lib32-libxext", "lib32-libx11"]
+options     = ["!lto", "!strip"]
+
+[[source]]
+url    = "https://www.x.org/releases/individual/lib/libXrandr-1.5.4.tar.xz"
+sha256 = "1ad5b065375f4a85915aa60611cc6407c060492a214d7f9daf214be752c3b4d3"
+
+[steps]
+build = '''
+export CC="gcc -m32" CXX="g++ -m32" PKG_CONFIG_PATH=/usr/lib32/pkgconfig;
+cd "libXrandr-1.5.4";
+./configure --prefix=/usr --libdir=/usr/lib32 --host=i686-pc-linux-gnu --disable-static;
+make
+'''
+package = '''
+cd "libXrandr-1.5.4";
+make DESTDIR="$pkgdir" install;
+rm -rf "$pkgdir/usr/include" "$pkgdir/usr/share" "$pkgdir/usr/bin"
+'''

@@ -1,0 +1,32 @@
+[package]
+name     = "bzip2"
+version  = "1.0.8"
+release  = 1
+summary  = "High-quality data compression program (libbz2)"
+homepage = "https://sourceware.org/bzip2/"
+license  = ["custom"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+provides    = ["libbz2.so"]
+
+[[source]]
+url    = "https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz"
+sha256 = "ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269"
+
+[steps]
+build = '''
+cd "$name-$version";
+make -f Makefile-libbz2_so CC=gcc;
+make CC=gcc bzip2
+'''
+package = '''
+cd "$name-$version";
+install -Dm755 bzip2-shared "$pkgdir/usr/bin/bzip2";
+install -Dm644 "libbz2.so.$version" "$pkgdir/usr/lib/libbz2.so.$version";
+ln -s "libbz2.so.$version" "$pkgdir/usr/lib/libbz2.so.1.0";
+ln -s "libbz2.so.1.0" "$pkgdir/usr/lib/libbz2.so.1";
+ln -s "libbz2.so.1.0" "$pkgdir/usr/lib/libbz2.so";
+install -Dm644 bzlib.h "$pkgdir/usr/include/bzlib.h";
+install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$name/LICENSE"
+'''

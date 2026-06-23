@@ -1,0 +1,25 @@
+[package]
+name     = "kquickcharts"
+version  = "6.27.0"
+release  = 1
+summary  = "KDE: high-performance QtQuick charts"
+homepage = "https://community.kde.org/Frameworks"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["qt6-base", "qt6-declarative", "qt6-shadertools"]
+makedepends = ["qt6-tools", "qt6-declarative", "extra-cmake-modules", "cmake", "ninja", "python", "qt6-base", "qt6-declarative", "qt6-shadertools"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/frameworks/6.27/kquickcharts-6.27.0.tar.xz"
+sha256 = "d2a533bbf3d7f257e9306009bc32bdea41346cbd8e82d06c188879d5f0460380"
+
+[steps]
+build = '''
+cmake -S "kquickcharts-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D KDE_INSTALL_LIBDIR=lib -D KDE_INSTALL_USE_QT_SYS_PATHS=ON -D BUILD_TESTING=OFF -D BUILD_QCH=OFF -D BUILD_PYTHON_BINDINGS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

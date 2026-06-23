@@ -1,0 +1,26 @@
+[package]
+name     = "qcoro"
+version  = "0.13.0"
+release  = 1
+summary  = "C++ coroutines for Qt 6 (used by powerdevil, plasma-nm, plasma-workspace)"
+homepage = "https://qcoro.dev/"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["qt6-base"]
+makedepends = ["cmake", "ninja", "qt6-base", "qt6-declarative", "qt6-websockets"]
+provides    = ["qcoro6"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://github.com/qcoro/qcoro/archive/v0.13.0/qcoro-0.13.0.tar.gz"
+sha256 = "4bff7513c5c8e301b66308df05795043b1792ed16381a484e5c990171b8ff19e"
+
+[steps]
+build = '''
+cmake -S "qcoro-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D QCORO_BUILD_EXAMPLES=OFF -D QCORO_WITH_QTWEBSOCKETS=OFF -D BUILD_TESTING=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

@@ -1,0 +1,27 @@
+[package]
+name     = "qt6-5compat"
+version  = "6.11.1"
+release  = 1
+summary  = "Qt 5 compatibility module for Qt 6 (Qt5Compat.GraphicalEffects, used by Plasma + Calamares)"
+homepage = "https://www.qt.io/"
+license  = ["LGPL-3.0-only"]
+arch     = ["x86_64"]
+
+depends     = ["qt6-base", "qt6-declarative"]
+makedepends = ["cmake", "ninja", "python", "qt6-base", "qt6-declarative", "qt6-shadertools", "perl"]
+provides    = ["libQt6Core5Compat.so"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.qt.io/official_releases/qt/6.11/6.11.1/submodules/qt5compat-everywhere-src-6.11.1.tar.xz"
+sha256 = "cfcb9fdaa051aad54b0e61b24ac5693b4887a86e07609f665fea67328a6f161b"
+
+[steps]
+build = '''
+cmake -S "qt5compat-everywhere-src-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D INSTALL_LIBDIR=/usr/lib -D INSTALL_ARCHDATADIR=/usr/lib/qt6 -D QT_BUILD_EXAMPLES=OFF -D QT_BUILD_TESTS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build;
+install -Dm644 "qt5compat-everywhere-src-$version/LICENSES/LGPL-3.0-only.txt" "$pkgdir/usr/share/licenses/$name/LICENSE" 2> /dev/null || true
+'''

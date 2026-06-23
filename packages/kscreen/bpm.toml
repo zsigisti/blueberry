@@ -1,0 +1,25 @@
+[package]
+name     = "kscreen"
+version  = "6.7.0"
+release  = 1
+summary  = "KDE: display configuration (RandR) for Plasma"
+homepage = "https://kde.org/plasma-desktop/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["kcmutils", "kconfig", "kcoreaddons", "kcrash", "kdbusaddons", "ki18n", "kimageformats", "kirigami", "kitemmodels", "ksvg", "kwindowsystem", "layer-shell-qt", "libkscreen", "libx11", "libxcb", "libxi", "libplasma", "plasma5support", "qt6-base", "qt6-declarative", "wayland"]
+makedepends = ["kdoctools", "extra-cmake-modules", "cmake", "ninja", "python", "qt6-base", "qt6-declarative", "qt6-tools"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/plasma/6.7.0/kscreen-6.7.0.tar.xz"
+sha256 = "ad57a4326a64979a68aa5068a7151702d9b02db0720670e4be3e178905beda56"
+
+[steps]
+build = '''
+cmake -S "kscreen-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D KDE_INSTALL_LIBDIR=lib -D KDE_INSTALL_LIBEXECDIR=lib -D KDE_INSTALL_USE_QT_SYS_PATHS=ON -D BUILD_TESTING=OFF -D BUILD_QCH=OFF -D BUILD_PYTHON_BINDINGS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

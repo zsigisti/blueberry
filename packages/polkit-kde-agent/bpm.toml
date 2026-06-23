@@ -1,0 +1,26 @@
+[package]
+name     = "polkit-kde-agent"
+version  = "6.7.0"
+release  = 1
+summary  = "KDE: PolicyKit authentication agent (password prompts)"
+homepage = "https://kde.org/plasma-desktop/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["kcoreaddons", "kcrash", "kdbusaddons", "ki18n", "kiconthemes", "kwidgetsaddons", "kwindowsystem", "knotifications", "polkit-qt6", "qt6-base", "qt6-declarative"]
+makedepends = ["kdoctools", "extra-cmake-modules", "cmake", "ninja", "python", "qt6-base", "qt6-declarative", "qt6-tools", "polkit-qt6"]
+provides    = ["polkit-kde-agent-1"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/plasma/6.7.0/polkit-kde-agent-1-6.7.0.tar.xz"
+sha256 = "0f27ff2aa3610418620c42804b9c3dc22f6979e5c03822f93979d44fbed1dabf"
+
+[steps]
+build = '''
+cmake -S "polkit-kde-agent-1-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D KDE_INSTALL_LIBDIR=lib -D KDE_INSTALL_LIBEXECDIR=lib -D KDE_INSTALL_USE_QT_SYS_PATHS=ON -D BUILD_TESTING=OFF -D BUILD_QCH=OFF -D BUILD_PYTHON_BINDINGS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

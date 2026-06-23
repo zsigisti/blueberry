@@ -1,0 +1,27 @@
+[package]
+name     = "libusbmuxd"
+version  = "2.1.1"
+release  = 1
+summary  = "USB multiplexer client library for iOS devices (libimobiledevice)"
+homepage = "https://libimobiledevice.org/"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libplist", "libimobiledevice-glue"]
+makedepends = ["pkgconf", "libimobiledevice-glue"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://github.com/libimobiledevice/libusbmuxd/releases/download/2.1.1/libusbmuxd-2.1.1.tar.bz2"
+sha256 = "5546f1aba1c3d1812c2b47d976312d00547d1044b84b6a461323c621f396efce"
+
+[steps]
+build = '''
+cd "libusbmuxd-$version";
+./configure --prefix=/usr --libdir=/usr/lib;
+make
+'''
+package = '''
+cd "libusbmuxd-$version";
+make DESTDIR="$pkgdir" install
+'''

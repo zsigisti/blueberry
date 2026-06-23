@@ -1,0 +1,28 @@
+[package]
+name     = "libtool"
+version  = "2.5.4"
+release  = 1
+summary  = "GNU libtool — provides libltdl (dynamic module loader for libcanberra)"
+homepage = "https://www.gnu.org/software/libtool"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["m4"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://ftp.gnu.org/gnu/libtool/libtool-2.5.4.tar.xz"
+sha256 = "f81f5860666b0bc7d84baddefa60d1cb9fa6fceb2398cc3baca6afaa60266675"
+
+[steps]
+build = '''
+cd "libtool-$version";
+./configure --prefix=/usr --libdir=/usr/lib;
+make
+'''
+package = '''
+cd "libtool-$version";
+make DESTDIR="$pkgdir" install;
+rm -rf "$pkgdir/usr/bin" "$pkgdir/usr/share" 2> /dev/null || true
+'''

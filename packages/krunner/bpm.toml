@@ -1,0 +1,25 @@
+[package]
+name     = "krunner"
+version  = "6.27.0"
+release  = 1
+summary  = "KDE: parallelized query/launcher framework"
+homepage = "https://community.kde.org/Frameworks"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["qt6-base", "qt6-declarative", "kconfig", "kcoreaddons", "ki18n", "kio", "kitemmodels"]
+makedepends = ["qt6-tools", "qt6-declarative", "extra-cmake-modules", "cmake", "ninja", "python", "qt6-base", "qt6-declarative"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/frameworks/6.27/krunner-6.27.0.tar.xz"
+sha256 = "46d06321bbccadb8f3fbb948ffaac5eff18dad9552fde677761ddddb9470202f"
+
+[steps]
+build = '''
+cmake -S "krunner-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D KDE_INSTALL_LIBDIR=lib -D KDE_INSTALL_USE_QT_SYS_PATHS=ON -D BUILD_TESTING=OFF -D BUILD_QCH=OFF -D BUILD_PYTHON_BINDINGS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

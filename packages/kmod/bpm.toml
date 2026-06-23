@@ -1,0 +1,27 @@
+[package]
+name     = "kmod"
+version  = "33"
+release  = 1
+summary  = "Library and tools for handling Linux kernel modules (libkmod)"
+homepage = "https://git.kernel.org/pub/scm/utils/kernel/kmod/kmod.git"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "zlib", "xz", "zstd"]
+makedepends = ["pkgconf"]
+
+[[source]]
+url    = "https://www.kernel.org/pub/linux/utils/kernel/kmod/kmod-33.tar.xz"
+sha256 = "dc768b3155172091f56dc69430b5481f2d76ecd9ccb54ead8c2540dbcf5ea9bc"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --sysconfdir=/etc --disable-static --with-zstd --with-xz --with-zlib --disable-manpages;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install;
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

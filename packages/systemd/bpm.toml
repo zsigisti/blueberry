@@ -1,0 +1,28 @@
+[package]
+name     = "systemd"
+version  = "256.7"
+release  = 1
+summary  = "System and service manager (PID 1) — slimmed Blueberry build"
+homepage = "https://systemd.io/"
+license  = ["LGPL-2.1-or-later", "GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libcap", "util-linux", "libseccomp", "kmod", "dbus", "acl", "xz", "zstd", "lz4", "cryptsetup", "pam"]
+makedepends = ["meson", "ninja", "gperf", "pkgconf", "python-jinja", "gettext", "pam"]
+
+[[source]]
+url    = "https://github.com/systemd/systemd/archive/refs/tags/v256.7.tar.gz"
+sha256 = "896d76ff65c88f5fd9e42f90d152b0579049158a163431dd77cdc57748b1d7b0"
+
+[steps]
+build = '''
+cd "$name-$version";
+sed -i "/'-Werror=override-init',/d" meson.build;
+meson setup build --prefix=/usr --buildtype=release -Dmode=release -Dversion-tag="$version-blueberry" -Dsysvinit-path= -Dsysvrcnd-path= -Ddbus=enabled -Dseccomp=enabled -Dblkid=enabled -Dkmod=enabled -Dxz=enabled -Dzstd=enabled -Dlz4=enabled -Dacl=enabled -Dnetworkd=true -Dresolve=true -Dtimesyncd=true -Dlogind=true -Dhostnamed=true -Dlocaled=true -Dnss-systemd=false -Dpam=enabled -Dselinux=disabled -Dapparmor=disabled -Dsmack=false -Dhomed=disabled -Duserdb=false -Dportabled=false -Dsysext=false -Dimportd=disabled -Dmachined=false -Doomd=false -Drepart=disabled -Dsysupdate=disabled -Dukify=disabled -Dbootloader=disabled -Defi=false -Dman=disabled -Dhtml=disabled -Dtests=false -Dinstall-tests=false -Daudit=disabled -Dgnutls=disabled -Dopenssl=disabled -Dlibcurl=disabled -Dlibidn2=disabled -Dxkbcommon=disabled -Dpwquality=disabled -Dp11kit=disabled -Dqrencode=disabled -Delfutils=disabled -Dgcrypt=disabled -Dpcre2=disabled -Dpolkit=disabled -Dbzip2=disabled -Dfirstboot=true -Dhibernate=false -Dbacklight=false -Drandomseed=true -Dbinfmt=true -Dvconsole=true -Dquotacheck=false -Dtmpfiles=true -Dsysusers=true -Dadm-group=true -Dwheel-group=true -Ddefault-dnssec=no -Ddefault-hierarchy=unified;
+meson compile -C build
+'''
+package = '''
+cd "$name-$version";
+meson install -C build --destdir="$pkgdir";
+install -Dm644 LICENSE.LGPL2.1 "$pkgdir/usr/share/licenses/$name/LICENSE.LGPL2.1"
+'''

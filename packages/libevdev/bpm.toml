@@ -1,0 +1,25 @@
+[package]
+name     = "libevdev"
+version  = "1.13.6"
+release  = 1
+summary  = "Wrapper library for evdev input devices (KWin/libinput)"
+homepage = "https://www.freedesktop.org/wiki/Software/libevdev/"
+license  = ["custom:MIT"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["meson", "ninja", "python"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://www.freedesktop.org/software/libevdev/libevdev-1.13.6.tar.xz"
+sha256 = "73f215eccbd8233f414737ac06bca2687e67c44b97d2d7576091aa9718551110"
+
+[steps]
+build = '''
+meson setup "libevdev-$version" build --prefix=/usr --libdir=/usr/lib --buildtype=release -Dtests=disabled -Ddocumentation=disabled;
+ninja -C build
+'''
+package = '''
+DESTDIR="$pkgdir" ninja -C build install
+'''

@@ -1,0 +1,27 @@
+[package]
+name     = "llvm"
+version  = "22.1.6"
+release  = 1
+summary  = "Low Level Virtual Machine — libLLVM for the mesa GPU stack"
+homepage = "https://llvm.org/"
+license  = ["Apache-2.0-WITH-LLVM-exception"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "gcc-libs", "zlib", "libffi", "libxml2", "ncurses"]
+makedepends = ["cmake", "ninja", "python", "pkgconf"]
+provides    = ["libLLVM.so", "llvm-config"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-22.1.6.tar.gz"
+sha256 = "ba534c6835a5b9c2162c806e269799fe41fca952a3c25baff1afcff23841ec2b"
+
+[steps]
+build = '''
+cmake -S "$_src/llvm" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D LLVM_TARGETS_TO_BUILD='X86;AMDGPU' -D LLVM_BUILD_LLVM_DYLIB=ON -D LLVM_LINK_LLVM_DYLIB=ON -D LLVM_ENABLE_RTTI=ON -D LLVM_ENABLE_FFI=ON -D LLVM_INCLUDE_TESTS=OFF -D LLVM_INCLUDE_EXAMPLES=OFF -D LLVM_INCLUDE_BENCHMARKS=OFF -D LLVM_BUILD_DOCS=OFF -D LLVM_ENABLE_BINDINGS=OFF -D LLVM_HOST_TRIPLE=x86_64-pc-linux-gnu;
+ninja -C build
+'''
+package = '''
+DESTDIR="$pkgdir" ninja -C build install;
+install -Dm644 "$_src/llvm/LICENSE.TXT" "$pkgdir/usr/share/licenses/$name/LICENSE.TXT"
+'''

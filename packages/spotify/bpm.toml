@@ -1,0 +1,25 @@
+[package]
+name     = "spotify"
+version  = "1.2.92.147"
+release  = 1
+summary  = "Spotify music streaming client (official binary)"
+homepage = "https://www.spotify.com/"
+license  = ["custom"]
+arch     = ["x86_64"]
+
+depends     = ["gtk3", "glib2", "nss", "alsa-lib", "libpulse", "libxcb", "libx11", "libxext", "libxrandr", "libxcomposite", "libxdamage", "libxfixes", "mesa", "libxshmfence", "ffmpeg", "openssl"]
+options     = ["!strip", "!debug"]
+
+[[source]]
+url    = "https://repository.spotify.com/pool/non-free/s/spotify-client/spotify-client_1.2.92.147.g5b8f9367_amd64.deb"
+sha256 = "SKIP"
+
+[steps]
+package = '''
+bsdtar -xf data.tar.* -C "$pkgdir" 2> /dev/null || { 
+    ar x "$srcdir/$_deb";
+    bsdtar -xf data.tar.* -C "$pkgdir"
+};
+install -d "$pkgdir/usr/bin";
+ln -sf /usr/share/spotify/spotify "$pkgdir/usr/bin/spotify" 2> /dev/null || true
+'''

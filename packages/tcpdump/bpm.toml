@@ -1,0 +1,25 @@
+[package]
+name     = "tcpdump"
+version  = "4.99.5"
+release  = 2
+summary  = "Command-line network packet analyzer"
+homepage = "https://www.tcpdump.org/"
+license  = ["BSD-3-Clause"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libpcap", "openssl", "libcap-ng"]
+
+[[source]]
+url    = "https://www.tcpdump.org/release/tcpdump-4.99.5.tar.xz"
+sha256 = "d76395ab82d659d526291b013eee200201380930793531515abfc6e77b4f2ee5"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --with-crypto;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install
+'''

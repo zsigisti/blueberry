@@ -1,0 +1,20 @@
+[package]
+name     = "ca-certificates"
+version  = "20260514"
+release  = 1
+summary  = "Common CA certificates (Mozilla bundle) — the trust store bpm and curl use for HTTPS"
+homepage = "https://curl.se/docs/caextract.html"
+license  = ["MPL-2.0"]
+arch     = ["any"]
+
+
+[[source]]
+url    = "https://curl.se/ca/cacert-2026-05-14.pem"
+sha256 = "86a1f3366afac7c6f8ae9f3c779ac221129328c43f0ab2b8817eb2f362a5025c"
+
+[steps]
+package = '''
+install -Dm644 "cacert-$version.pem" "$pkgdir/etc/ssl/certs/ca-certificates.crt";
+ln -s ca-certificates.crt "$pkgdir/etc/ssl/certs/cert.pem";
+install -Dm644 "cacert-$version.pem" "$pkgdir/etc/ssl/cert.pem"
+'''

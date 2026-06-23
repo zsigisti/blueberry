@@ -1,0 +1,27 @@
+[package]
+name     = "eudev"
+version  = "3.2.14"
+release  = 1
+summary  = "Standalone udev fork — provides libudev (no daemon run on Blueberry)"
+homepage = "https://github.com/eudev-project/eudev"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "util-linux", "kmod"]
+makedepends = ["pkgconf", "gperf"]
+
+[[source]]
+url    = "https://github.com/eudev-project/eudev/releases/download/v3.2.14/eudev-3.2.14.tar.gz"
+sha256 = "8da4319102f24abbf7fff5ce9c416af848df163b29590e666d334cc1927f006f"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --sysconfdir=/etc --disable-static --disable-introspection --disable-manpages --enable-split-usr;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install;
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

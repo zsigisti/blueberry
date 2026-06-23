@@ -1,0 +1,25 @@
+[package]
+name     = "wayland-protocols"
+version  = "1.38"
+release  = 1
+summary  = "Specifications of extended Wayland protocols"
+homepage = "https://wayland.freedesktop.org/"
+license  = ["MIT"]
+arch     = ["any"]
+
+depends     = ["wayland"]
+makedepends = ["meson", "ninja", "wayland"]
+
+[[source]]
+url    = "https://gitlab.freedesktop.org/wayland/wayland-protocols/-/releases/1.38/downloads/wayland-protocols-1.38.tar.xz"
+sha256 = "ff17292c05159d2b20ce6cacfe42d7e31a28198fa1429a769b03af7c38581dbe"
+
+[steps]
+build = '''
+arch-meson "$name-$version" build -D tests=false;
+meson compile -C build
+'''
+package = '''
+meson install -C build --destdir "$pkgdir";
+install -Dm644 "$name-$version/COPYING" "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

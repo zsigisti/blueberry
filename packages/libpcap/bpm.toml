@@ -1,0 +1,26 @@
+[package]
+name     = "libpcap"
+version  = "1.10.5"
+release  = 2
+summary  = "Portable packet capture library"
+homepage = "https://www.tcpdump.org/"
+license  = ["BSD-3-Clause"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+provides    = ["libpcap.so"]
+
+[[source]]
+url    = "https://www.tcpdump.org/release/libpcap-1.10.5.tar.xz"
+sha256 = "84fa89ac6d303028c1c5b754abff77224f45eca0a94eb1a34ff0aa9ceece3925"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --disable-static --disable-dbus --disable-bluetooth --disable-rdma --without-libnl;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install
+'''

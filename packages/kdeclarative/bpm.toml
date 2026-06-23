@@ -1,0 +1,25 @@
+[package]
+name     = "kdeclarative"
+version  = "6.27.0"
+release  = 1
+summary  = "KDE: QML bindings for KDE Frameworks"
+homepage = "https://community.kde.org/Frameworks"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["qt6-base", "qt6-declarative", "kconfig", "kcoreaddons", "kguiaddons", "kio", "kwidgetsaddons", "kglobalaccel"]
+makedepends = ["qt6-tools", "qt6-declarative", "extra-cmake-modules", "cmake", "ninja", "python", "qt6-base", "qt6-declarative"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/frameworks/6.27/kdeclarative-6.27.0.tar.xz"
+sha256 = "b14e81143aed25ee62413f9c2b3742c558f5b6a1da6c5b92ca9a95bb6341e964"
+
+[steps]
+build = '''
+cmake -S "kdeclarative-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D KDE_INSTALL_LIBDIR=lib -D KDE_INSTALL_USE_QT_SYS_PATHS=ON -D BUILD_TESTING=OFF -D BUILD_QCH=OFF -D BUILD_PYTHON_BINDINGS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

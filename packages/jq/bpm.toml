@@ -1,0 +1,28 @@
+[package]
+name     = "jq"
+version  = "1.7.1"
+release  = 1
+summary  = "Command-line JSON processor"
+homepage = "https://jqlang.github.io/jq/"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "oniguruma"]
+makedepends = ["pkgconf"]
+
+[[source]]
+url    = "https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-1.7.1.tar.gz"
+sha256 = "478c9ca129fd2e3443fe27314b455e211e0d8c60bc8ff7df703873deeee580c2"
+
+[steps]
+build = '''
+cd "$name-$version";
+export CFLAGS="${CFLAGS:-} -Wno-error=incompatible-pointer-types";
+./configure --prefix=/usr --disable-static --disable-maintainer-mode --with-oniguruma=/usr;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install;
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

@@ -1,0 +1,26 @@
+[package]
+name     = "device-mapper"
+version  = "2.03.30"
+release  = 1
+summary  = "Device mapper userspace library and tool (libdevmapper, dmsetup)"
+homepage = "https://sourceware.org/lvm2/"
+license  = ["GPL-2.0-only", "LGPL-2.1-only"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+provides    = ["libdevmapper.so"]
+
+[[source]]
+url    = "https://sourceware.org/ftp/lvm2/LVM2.2.03.30.tgz"
+sha256 = "ad76abecb8dc887733e06c449cb9add04a3506f9f0780c128817a6e1a17cec05"
+
+[steps]
+build = '''
+cd "LVM2.$version";
+./configure --prefix=/usr --sbindir=/usr/bin --with-default-dm-run-dir=/run --enable-dmeventd=no --disable-selinux --enable-pkgconfig;
+make device-mapper
+'''
+package = '''
+cd "LVM2.$version";
+make install_device-mapper DESTDIR="$pkgdir"
+'''

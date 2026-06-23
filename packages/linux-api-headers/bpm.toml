@@ -1,0 +1,26 @@
+[package]
+name     = "linux-api-headers"
+version  = "7.0"
+release  = 1
+summary  = "Sanitized kernel headers for userspace (UAPI), matching Linux 7.0"
+homepage = "https://www.kernel.org/"
+license  = ["GPL-2.0-only WITH Linux-syscall-note"]
+arch     = ["x86_64"]
+
+makedepends = ["rsync"]
+provides    = ["linux-headers"]
+
+[[source]]
+url    = "https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.0.tar.xz"
+sha256 = "bb7f6d80b387c757b7d14bb93028fcb90f793c5c0d367736ee815a100b3891f0"
+
+[steps]
+build = '''
+cd "linux-$version";
+make mrproper
+'''
+package = '''
+cd "linux-$version";
+make INSTALL_HDR_PATH="$pkgdir/usr" headers_install;
+find "$pkgdir" \( -name '.install' -o -name '..install.cmd' \) -delete
+'''

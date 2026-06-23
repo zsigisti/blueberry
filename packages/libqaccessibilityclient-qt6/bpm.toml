@@ -1,0 +1,25 @@
+[package]
+name     = "libqaccessibilityclient-qt6"
+version  = "0.6.0"
+release  = 1
+summary  = "Accessibility client helper library (kwin_wayland)"
+homepage = "https://invent.kde.org/libraries/libqaccessibilityclient"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["qt6-base"]
+makedepends = ["cmake", "ninja", "qt6-base", "extra-cmake-modules"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/libqaccessibilityclient/libqaccessibilityclient-0.6.0.tar.xz"
+sha256 = "4c50c448622dc9c5041ed10da7d87b3e4e71ccb49d4831a849211d423c5f5d33"
+
+[steps]
+build = '''
+cmake -S "libqaccessibilityclient-$version" -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DBUILD_TESTING=OFF -DBUILD_WITH_QT6=ON;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

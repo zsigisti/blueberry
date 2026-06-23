@@ -1,0 +1,28 @@
+[package]
+name     = "blender"
+version  = "5.1.2"
+release  = 1
+summary  = "Blender 3D creation suite (official binary, self-contained)"
+homepage = "https://www.blender.org/"
+license  = ["GPL-3.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["libx11", "libxi", "libxxf86vm", "libxfixes", "libxrender", "libxkbcommon", "mesa", "libglvnd"]
+options     = ["!strip", "!debug"]
+
+[[source]]
+url    = "https://download.blender.org/release/Blender5.1/blender-5.1.2-linux-x64.tar.xz"
+sha256 = "SKIP"
+
+[[source]]
+url    = "blender.desktop"
+sha256 = "SKIP"
+
+[steps]
+package = '''
+install -d "$pkgdir/opt" "$pkgdir/usr/bin";
+cp -a "$_dir" "$pkgdir/opt/blender";
+ln -s /opt/blender/blender "$pkgdir/usr/bin/blender";
+install -Dm644 "$pkgdir/opt/blender/blender.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/blender.svg" 2> /dev/null || true;
+install -Dm644 "$srcdir/blender.desktop" "$pkgdir/usr/share/applications/blender.desktop"
+'''

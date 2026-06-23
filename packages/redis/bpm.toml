@@ -1,0 +1,28 @@
+[package]
+name     = "redis"
+version  = "7.4.2"
+release  = 3
+summary  = "In-memory data structure store, used as database, cache and message broker"
+homepage = "https://redis.io/"
+license  = ["BSD-3-Clause"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+
+[[source]]
+url    = "https://download.redis.io/releases/redis-7.4.2.tar.gz"
+sha256 = "4ddebbf09061cbb589011786febdb34f29767dd7f89dbe712d2b68e808af6a1f"
+
+[steps]
+build = '''
+cd "$name-$version";
+make MALLOC=libc USE_SYSTEMD=no
+'''
+package = '''
+cd "$name-$version";
+make PREFIX="$pkgdir/usr" install;
+install -Dm644 redis.conf "$pkgdir/etc/redis/redis.conf";
+install -dm755 "$pkgdir/etc/sv/redis";
+printf '#!/bin/sh\nexec /usr/bin/redis-server /etc/redis/redis.conf --daemonize no\n' > "$pkgdir/etc/sv/redis/run";
+chmod 755 "$pkgdir/etc/sv/redis/run"
+'''

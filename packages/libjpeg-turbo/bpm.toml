@@ -1,0 +1,26 @@
+[package]
+name     = "libjpeg-turbo"
+version  = "3.0.4"
+release  = 1
+summary  = "JPEG image codec with accelerated baseline compression and decompression"
+homepage = "https://libjpeg-turbo.org/"
+license  = ["custom"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["cmake", "ninja", "nasm"]
+provides    = ["libjpeg.so", "libturbojpeg.so"]
+
+[[source]]
+url    = "https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/3.0.4/libjpeg-turbo-3.0.4.tar.gz"
+sha256 = "99130559e7d62e8d695f2c0eaeef912c5828d5b84a0537dcb24c9678c9d5b76b"
+
+[steps]
+build = '''
+cmake -S "$name-$version" -B build -G Ninja -D CMAKE_INSTALL_PREFIX=/usr -D CMAKE_INSTALL_LIBDIR=/usr/lib -D CMAKE_BUILD_TYPE=Release -D ENABLE_STATIC=OFF -D WITH_JPEG8=ON;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build;
+install -Dm644 "$name-$version/LICENSE.md" "$pkgdir/usr/share/licenses/$name/LICENSE.md"
+'''

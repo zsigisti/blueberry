@@ -1,0 +1,27 @@
+[package]
+name     = "wget"
+version  = "1.25.0"
+release  = 3
+summary  = "Network utility to retrieve files over HTTP(S) and FTP"
+homepage = "https://www.gnu.org/software/wget/"
+license  = ["GPL-3.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "openssl", "zlib", "ca-certificates", "libidn2", "util-linux"]
+makedepends = ["pkgconf"]
+
+[[source]]
+url    = "https://ftp.gnu.org/gnu/wget/wget-1.25.0.tar.gz"
+sha256 = "766e48423e79359ea31e41db9e5c289675947a7fcf2efdcedb726ac9d0da3784"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --sysconfdir=/etc --with-ssl=openssl --with-openssl --without-libpsl --without-metalink --disable-pcre --disable-pcre2 --with-ca-certificate=/etc/ssl/certs/ca-certificates.crt;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install;
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

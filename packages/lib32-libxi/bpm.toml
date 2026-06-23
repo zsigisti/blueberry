@@ -1,0 +1,29 @@
+[package]
+name     = "lib32-libxi"
+version  = "1.8.2"
+release  = 1
+summary  = "X11 Input extension library (32-bit)"
+homepage = "https://www.freedesktop.org/"
+license  = ["custom"]
+arch     = ["x86_64"]
+
+depends     = ["lib32-glibc", "lib32-libx11", "lib32-libxext", "lib32-libxfixes"]
+makedepends = ["lib32-glibc", "lib32-gcc-libs", "xorgproto", "xorg-util-macros", "pkgconf", "lib32-libx11", "lib32-libxext", "lib32-libxfixes"]
+options     = ["!lto", "!strip"]
+
+[[source]]
+url    = "https://www.x.org/releases/individual/lib/libXi-1.8.2.tar.xz"
+sha256 = "d0e0555e53d6e2114eabfa44226ba162d2708501a25e18d99cfb35c094c6c104"
+
+[steps]
+build = '''
+export CC="gcc -m32" CXX="g++ -m32" PKG_CONFIG_PATH=/usr/lib32/pkgconfig;
+cd "libXi-1.8.2";
+./configure --prefix=/usr --libdir=/usr/lib32 --host=i686-pc-linux-gnu --disable-static;
+make
+'''
+package = '''
+cd "libXi-1.8.2";
+make DESTDIR="$pkgdir" install;
+rm -rf "$pkgdir/usr/include" "$pkgdir/usr/share" "$pkgdir/usr/bin"
+'''

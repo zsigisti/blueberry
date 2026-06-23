@@ -1,0 +1,27 @@
+[package]
+name     = "libcanberra"
+version  = "0.30"
+release  = 1
+summary  = "Event sound library (XDG Sound Theme) — Plasma/SDDM sounds"
+homepage = "https://0pointer.de/lennart/projects/libcanberra/"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libvorbis", "libltdl", "alsa-lib", "libpulse"]
+makedepends = ["gtk3", "libpulse", "libtool"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://0pointer.de/lennart/projects/libcanberra/libcanberra-0.30.tar.xz"
+sha256 = "c2b671e67e0c288a69fc33dc1b6f1b534d07882c2aceed37004bf48c601afa72"
+
+[steps]
+build = '''
+cd "libcanberra-$version";
+./configure --prefix=/usr --libdir=/usr/lib --disable-static --enable-pulse --enable-alsa --disable-oss;
+make
+'''
+package = '''
+cd "libcanberra-$version";
+make DESTDIR="$pkgdir" install
+'''
