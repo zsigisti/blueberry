@@ -59,9 +59,13 @@ endif
 # releases and a live Calamares installer (KDE Plasma default, GNOME optional).
 # Only active for `make desktop-*` goals or EDITION=desktop, so the minimal CLI
 # build is untouched otherwise. See editions/desktop/.
-ifneq ($(filter desktop desktop-%,$(MAKECMDGOALS))$(filter desktop,$(EDITION)),)
+ifneq ($(filter desktop desktop-% run-desktop test-desktop,$(MAKECMDGOALS))$(filter desktop,$(EDITION)),)
   include $(TOPDIR)/editions/desktop/profile.mk
 endif
+
+# Stable ISO paths (no datestamp) so `make run-*`/`test-*` can find the artifact.
+SERVER_ISO  := $(TOPDIR)/iso/blueberry-server-$(ARCH).iso
+DESKTOP_ISO := $(TOPDIR)/iso/blueberry-desktop-$(BBD_VERSION)-$(DE)-$(ARCH).iso
 
 LINUX_SRC      := $(OBJDIR_SRC)/linux-$(LINUX_VERSION)
 BUSYBOX_SRC    := $(OBJDIR_SRC)/busybox-$(BUSYBOX_VERSION)
@@ -99,7 +103,9 @@ TAR  := tar
 # ── Default goal ─────────────────────────────────────────────────────────────
 .DEFAULT_GOAL := world
 .PHONY: world kernel userland busybox runit dropbear initramfs \
-        install iso disk run test fetch clean distclean help _check_tools
+        install iso server-iso disk run test \
+        run-server test-server run-desktop test-desktop \
+        fetch clean distclean help _check_tools
 
 world: userland kernel initramfs
 	@echo ""
@@ -328,7 +334,7 @@ server-iso: install
 	@echo "[server-iso] assembling systemd live CLI ISO"
 	@mkdir -p $(TOPDIR)/iso
 	@INIT=systemd BOOTDIR=$(BOOTDIR) $(TOPDIR)/tools/mkserveriso.sh $(STAGEDIR) \
-	    $(TOPDIR)/iso/blueberry-server-$(shell date +%Y%m%d)-$(ARCH).iso
+	    $(SERVER_ISO)
 
 # ── Disk image ────────────────────────────────────────────────────────────────
 # Build a dd-able, UEFI-bootable raw disk image (ESP + data partition).
@@ -340,17 +346,29 @@ disk: install
 	    $(TOPDIR)/disk/blueberry-$(shell date +%Y%m%d)-$(ARCH).img \
 	    $(STAGEDIR)
 
-# ── QEMU: boot the live CLI ───────────────────────────────────────────────────
-# Boot the kernel + initramfs in QEMU and drop straight into an interactive
-# Blueberry shell. Ctrl-A X quits QEMU. Requires: make kernel + make initramfs.
+# ── QEMU: run + test ──────────────────────────────────────────────────────────
+# run-*  : boot the edition's ISO in a QEMU window (interactive).
+# test-* : boot it headless and assert the edition reached its ready target.
+# Each builds the ISO only if it is missing (no forced world rebuild). The bare
+# `run`/`test` keep the fast initramfs smoke path (what CI runs).
 run:
 	@BOOTDIR=$(BOOTDIR) ARCH=$(ARCH) bash $(TOPDIR)/tools/qemu.sh run
-
-# ── QEMU: automated self-test ─────────────────────────────────────────────────
-# Boot headless, run the in-guest self-tests, and assert BLUEBERRY_TEST=PASS.
-# This is what CI runs. Exits non-zero on failure.
 test:
 	@BOOTDIR=$(BOOTDIR) ARCH=$(ARCH) bash $(TOPDIR)/tools/qemu.sh test
+
+run-server:
+	@[ -f $(SERVER_ISO) ] || $(MAKE) server-iso
+	@bash $(TOPDIR)/tools/boot-iso.sh run  $(SERVER_ISO) server
+test-server:
+	@[ -f $(SERVER_ISO) ] || $(MAKE) server-iso
+	@bash $(TOPDIR)/tools/boot-iso.sh test $(SERVER_ISO) server
+
+run-desktop:
+	@[ -f $(DESKTOP_ISO) ] || $(MAKE) desktop-iso
+	@bash $(TOPDIR)/tools/boot-iso.sh run  $(DESKTOP_ISO) desktop
+test-desktop:
+	@[ -f $(DESKTOP_ISO) ] || $(MAKE) desktop-iso
+	@bash $(TOPDIR)/tools/boot-iso.sh test $(DESKTOP_ISO) desktop
 
 # ── Directory creation ────────────────────────────────────────────────────────
 $(OBJDIR_SRC) $(STAGEDIR) $(BOOTDIR) $(OBJDIR):
@@ -388,12 +406,18 @@ help:
 	@echo "  dropbear       Build Dropbear SSH"
 	@echo "  initramfs      Build initramfs image"
 	@echo "  install        Install world into DESTDIR=$(STAGEDIR)"
-	@echo "  iso            Build a bootable hybrid BIOS+UEFI ISO"
+	@echo "  iso            Build the busybox live-CLI rescue ISO"
+	@echo "  server-iso     Build the systemd Server live ISO (CLI)"
+	@echo "  desktop-iso    Build the KDE Desktop live ISO (make desktop-iso)"
 	@echo "  disk           Build a dd-able UEFI disk image (ESP + data)"
 	@echo ""
 	@echo "QEMU targets:"
-	@echo "  run            Boot the live CLI in QEMU (interactive; Ctrl-A X to quit)"
+	@echo "  run            Boot the initramfs live CLI (interactive; Ctrl-A X)"
 	@echo "  test           Boot headless, run self-tests, assert BLUEBERRY_TEST=PASS"
+	@echo "  run-server     Boot the Server ISO in a QEMU window"
+	@echo "  test-server    Boot the Server ISO headless, assert multi-user.target"
+	@echo "  run-desktop    Boot the Desktop ISO in a QEMU window"
+	@echo "  test-desktop   Boot the Desktop ISO headless, assert graphical.target"
 	@echo ""
 	@echo "Utility targets:"
 	@echo "  fetch          Download all upstream OS sources"

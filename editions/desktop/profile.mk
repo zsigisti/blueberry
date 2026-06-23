@@ -76,4 +76,4 @@ desktop-iso: desktop-stage
 	 BOOTDIR="$(BOOTDIR)" \
 	 ARCH="$(ARCH)" \
 	 bash $(TOPDIR)/tools/mkdesktopiso.sh \
-	    $(TOPDIR)/iso/blueberry-desktop-$(BBD_VERSION)-$(DE)-$(ARCH).iso
+	    $(DESKTOP_ISO)
