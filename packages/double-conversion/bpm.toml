@@ -12,7 +12,7 @@ makedepends = ["cmake", "ninja"]
 provides    = ["libdouble-conversion.so"]
 
 [[source]]
-url    = "https://github.com/google/double-conversion/archive/refs/tags/v3.3.0.tar.gz"
+url    = "double-conversion-3.3.0.tar.gz::https://github.com/google/double-conversion/archive/refs/tags/v3.3.0.tar.gz"
 sha256 = "04ec44461850abbf33824da84978043b22554896b552c5fd11a9c5ae4b4d296e"
 
 [steps]

@@ -12,7 +12,7 @@ makedepends = ["lib32-glibc", "lib32-gcc-libs", "xorgproto", "xorg-util-macros",
 options     = ["!lto", "!strip"]
 
 [[source]]
-url    = "https://www.x.org/releases/individual/lib/libX11-1.8.10.tar.xz"
+url    = "libX11-1.8.10.tar.xz::https://www.x.org/releases/individual/lib/libX11-1.8.10.tar.xz"
 sha256 = "2b3b3dad9347db41dca56beb7db5878f283bde1142f04d9f8e478af435dfdc53"
 
 [steps]

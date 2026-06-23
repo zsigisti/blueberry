@@ -12,7 +12,7 @@ makedepends = ["glib2-devel", "meson", "ninja", "pkgconf", "wayland-protocols", 
 options     = ["!lto"]
 
 [[source]]
-url    = "https://download.gnome.org/sources/gtk/3.24/gtk-3.24.52.tar.xz"
+url    = "gtk-3.24.52.tar.xz::https://download.gnome.org/sources/gtk/3.24/gtk-3.24.52.tar.xz"
 sha256 = "80931fa472a77b9a164f6740e3c0b444fac6770054632d35a7ff9d679e5e7b9f"
 
 [steps]

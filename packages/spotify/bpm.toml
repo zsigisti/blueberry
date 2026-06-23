@@ -11,7 +11,7 @@ depends     = ["gtk3", "glib2", "nss", "alsa-lib", "libpulse", "libxcb", "libx11
 options     = ["!strip", "!debug"]
 
 [[source]]
-url    = "https://repository.spotify.com/pool/non-free/s/spotify-client/spotify-client_1.2.92.147.g5b8f9367_amd64.deb"
+url    = "spotify-client_1.2.92.147.g5b8f9367_amd64.deb::https://repository.spotify.com/pool/non-free/s/spotify-client/spotify-client_1.2.92.147.g5b8f9367_amd64.deb"
 sha256 = "SKIP"
 
 [steps]

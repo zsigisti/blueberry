@@ -11,7 +11,7 @@ depends     = ["glibc", "libx11", "libxcb", "mesa", "libglvnd", "zenity", "lib32
 options     = ["!strip"]
 
 [[source]]
-url    = "https://repo.steampowered.com/steam/archive/precise/steam_latest.tar.gz"
+url    = "steam.tar.gz::https://repo.steampowered.com/steam/archive/precise/steam_latest.tar.gz"
 sha256 = "SKIP"
 
 [steps]

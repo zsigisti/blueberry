@@ -12,7 +12,7 @@ makedepends = ["cmake", "ninja", "qt6-base", "qt6-declarative"]
 options     = ["!lto"]
 
 [[source]]
-url    = "https://download.qt.io/official_releases/qt/6.11/6.11.1/submodules/qtspeech-everywhere-src-6.11.1.tar.xz"
+url    = "qtspeech-everywhere-src-6.11.1.tar.xz::https://download.qt.io/official_releases/qt/6.11/6.11.1/submodules/qtspeech-everywhere-src-6.11.1.tar.xz"
 sha256 = "c035c318012025875a653245701a23d3807e8e46b8bf7987877842219c273f14"
 
 [steps]

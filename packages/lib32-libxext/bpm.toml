@@ -12,7 +12,7 @@ makedepends = ["lib32-glibc", "lib32-gcc-libs", "xorgproto", "xorg-util-macros",
 options     = ["!lto", "!strip"]
 
 [[source]]
-url    = "https://www.x.org/releases/individual/lib/libXext-1.3.6.tar.xz"
+url    = "libXext-1.3.6.tar.xz::https://www.x.org/releases/individual/lib/libXext-1.3.6.tar.xz"
 sha256 = "edb59fa23994e405fdc5b400afdf5820ae6160b94f35e3dc3da4457a16e89753"
 
 [steps]

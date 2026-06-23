@@ -12,7 +12,7 @@ makedepends = ["lib32-glibc", "lib32-gcc-libs", "xorgproto", "xorg-util-macros",
 options     = ["!lto", "!strip"]
 
 [[source]]
-url    = "https://www.x.org/releases/individual/lib/libXfixes-6.0.1.tar.xz"
+url    = "libXfixes-6.0.1.tar.xz::https://www.x.org/releases/individual/lib/libXfixes-6.0.1.tar.xz"
 sha256 = "b695f93cd2499421ab02d22744458e650ccc88c1d4c8130d60200213abc02d58"
 
 [steps]

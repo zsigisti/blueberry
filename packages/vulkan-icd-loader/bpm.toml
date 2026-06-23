@@ -12,7 +12,7 @@ makedepends = ["cmake", "ninja", "vulkan-headers", "wayland", "libx11", "libxran
 provides    = ["libvulkan.so"]
 
 [[source]]
-url    = "https://github.com/KhronosGroup/Vulkan-Loader/archive/refs/tags/v1.4.304.tar.gz"
+url    = "vulkan-icd-loader-1.4.304.tar.gz::https://github.com/KhronosGroup/Vulkan-Loader/archive/refs/tags/v1.4.304.tar.gz"
 sha256 = "368d8281604a3f4dee038bfcc55c44e305031ec67f6e3fdd50cdeb83586c99f9"
 
 [steps]
