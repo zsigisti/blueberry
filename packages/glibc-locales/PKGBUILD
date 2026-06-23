@@ -1,0 +1,27 @@
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
+# Pre-compiled glibc locale-archive (en_US.UTF-8 + C.UTF-8). glibc's package
+# strips /usr/share/locale, and only C.UTF-8 is built in; SDDM/Qt want a real
+# UTF-8 locale. localedef reads the toolchain glibc's /usr/share/i18n at build
+# time (matching glibc version → compatible archive), so no source tarball.
+pkgname=glibc-locales
+pkgver=2.43
+pkgrel=1
+pkgdesc='Pre-generated UTF-8 locales (en_US.UTF-8) for the glibc locale-archive'
+arch=('x86_64')
+url='https://www.gnu.org/software/libc/'
+license=('GPL-2.0-or-later' 'LGPL-2.1-or-later')
+depends=('glibc')
+makedepends=('glibc')
+options=('!strip')
+source=()
+sha256sums=()
+build() { :; }
+package() {
+  install -d "$pkgdir/usr/lib/locale"
+  # --prefix writes the compiled locale into $pkgdir/usr/lib/locale/locale-archive
+  localedef --prefix="$pkgdir" -i en_US -f UTF-8 en_US.UTF-8
+  localedef --prefix="$pkgdir" -i C -f UTF-8 C.UTF-8 2>/dev/null || true
+  # ship a default locale.conf consumers can rely on
+  install -d "$pkgdir/etc"
+  printf 'LANG=en_US.UTF-8\n' > "$pkgdir/etc/locale.conf"
+}

@@ -4,5 +4,5 @@
 # hardware where it still works (just unaccelerated); real installs can drop it.
 KWIN_DRM_USE_QPAINTER=1
 LIBGL_ALWAYS_SOFTWARE=1
-LANG=C.UTF-8
-LC_ALL=C.UTF-8
+LANG=en_US.UTF-8
+LC_ALL=en_US.UTF-8
