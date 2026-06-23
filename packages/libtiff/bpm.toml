@@ -12,7 +12,7 @@ makedepends = ["cmake", "ninja"]
 options     = ["!lto"]
 
 [[source]]
-url    = "https://download.osgeo.org/libtiff/tiff-4.7.1.tar.xz"
+url    = "tiff-4.7.1.tar.xz::https://download.osgeo.org/libtiff/tiff-4.7.1.tar.xz"
 sha256 = "b92017489bdc1db3a4c97191aa4b75366673cb746de0dce5d7a749d5954681ba"
 
 [steps]

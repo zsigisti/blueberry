@@ -12,7 +12,7 @@ makedepends = ["pkgconf", "xorgproto"]
 options     = ["!lto"]
 
 [[source]]
-url    = "https://www.x.org/releases/individual/lib/libXdamage-1.1.7.tar.xz"
+url    = "libXdamage-1.1.7.tar.xz::https://www.x.org/releases/individual/lib/libXdamage-1.1.7.tar.xz"
 sha256 = "127067f521d3ee467b97bcb145aeba1078e2454d448e8748eb984d5b397bde24"
 
 [steps]

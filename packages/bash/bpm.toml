@@ -25,5 +25,7 @@ package = '''
 cd "$name-$version";
 make DESTDIR="$pkgdir" install;
 mkdir -p "$pkgdir/bin";
-ln -sf ../usr/bin/bash "$pkgdir/bin/bash"
+ln -sf ../usr/bin/bash "$pkgdir/bin/bash";
+ln -sf bash "$pkgdir/usr/bin/sh";
+ln -sf ../usr/bin/bash "$pkgdir/bin/sh"
 '''

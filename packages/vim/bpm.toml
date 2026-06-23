@@ -11,7 +11,7 @@ depends     = ["glibc", "ncurses", "acl", "libgcrypt"]
 makedepends = ["gpm"]
 
 [[source]]
-url    = "https://github.com/vim/vim/archive/refs/tags/v9.1.0863.tar.gz"
+url    = "vim-9.1.0863.tar.gz::https://github.com/vim/vim/archive/refs/tags/v9.1.0863.tar.gz"
 sha256 = "07a0f185b9327b0e9cc383dd3706cec469fd5376a0b2eeb733c17b353aefa20a"
 
 [steps]

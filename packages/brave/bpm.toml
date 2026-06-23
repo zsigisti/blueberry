@@ -11,7 +11,7 @@ depends     = ["gtk3", "nss", "alsa-lib", "libcups", "libxcb", "libx11", "libxex
 options     = ["!strip", "!debug"]
 
 [[source]]
-url    = "https://github.com/brave/brave-browser/releases/download/v1.91.175/brave-browser-1.91.175-linux-amd64.zip"
+url    = "brave-1.91.175.zip::https://github.com/brave/brave-browser/releases/download/v1.91.175/brave-browser-1.91.175-linux-amd64.zip"
 sha256 = "SKIP"
 
 [[source]]
