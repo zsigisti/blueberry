@@ -1,7 +1,10 @@
 # Package Management (bpm)
 
 `bpm` is Blueberry's native package manager, written in Rust. It installs
-`.pkg.tar.zst` packages from an HTTP(S) repository, verifying every one.
+packages from an HTTP(S) repository, verifying every one. The native format is
+**`.bpm`** (a `zstd(tar)` stream with a TOML `.BPM` manifest); the legacy
+`.pkg.tar.zst` format is still readable for rollback. Both share the same signed
+index, so `bpm` handles them transparently.
 
 ## Everyday commands
 
@@ -24,8 +27,8 @@ Every install passes three checks before anything touches your disk:
 1. **Signed index.** The repo's `bpm.index` is accompanied by
    `bpm.index.sig`, an **ed25519 signature** verified against a public key
    compiled into the `bpm` binary. A tampered index is rejected.
-2. **Per-package SHA-256.** The index records a SHA-256 for each
-   `.pkg.tar.zst`. `bpm` streams the package and checks the hash as it goes.
+2. **Per-package SHA-256.** The index records a SHA-256 for each package file.
+   `bpm` streams the package and checks the hash as it goes.
 3. **TLS.** Everything is fetched over HTTPS.
 
 If any check fails, the operation aborts and nothing is written.
@@ -58,10 +61,18 @@ doesn't try to install them.
 On Desktop, a newer kernel arrives only when you upgrade to the next release.
 This is intentional — see [The Kernel Model](The-Kernel-Model).
 
+## Services
+
+A package that should run as a service ships a marker `usr/lib/bpm/enable/<unit>`
+(native `.bpm` recipes just list `enable = ["sshd.service"]`). On install `bpm`
+writes the systemd `[Install]` symlinks **offline** — so it works inside a chroot
+or disk image and takes effect on next boot — and starts the unit immediately
+when installing into the live root.
+
 ## Installing from a local package
 
 ```sh
-bpm install ./firefox-152.0.1-1-x86_64.pkg.tar.zst
+bpm install ./firefox-152.0.1-1-x86_64.bpm
 ```
 
 Useful when testing a recipe you just built (see [Creating Packages](Creating-Packages)).
@@ -71,9 +82,10 @@ Useful when testing a recipe you just built (see [Creating Packages](Creating-Pa
 Any recipe in [`packages/`](../packages) can be built into a package:
 
 ```sh
-ENGINE=podman tools/build-pkgs.sh <out-dir> firefox kate kwin
+ENGINE=podman tools/build-bpm.sh <out-dir> firefox kate kwin   # native .bpm
 ```
 
-This runs `makepkg` inside an ephemeral container, fetching build dependencies,
-compiling from source, and emitting `.pkg.tar.zst` files. Full details:
+This runs the build inside an ephemeral container, fetching build dependencies,
+compiling from source, and emitting `.bpm` files. (The legacy
+`tools/build-pkgs.sh` produces `.pkg.tar.zst` from `PKGBUILD`.) Full details:
 [Creating Packages](Creating-Packages).

@@ -72,8 +72,5 @@ public key, and install packages with SHA-256 verification. See
 
 ## Accepting community recipes
 
-Run the [`recipe-hub/`](../recipe-hub) — a self-hostable web app (single Docker
-image, SQLite, accounts + admin approval) that collects `PKGBUILD` submissions
-and writes approved ones out for your build pipeline. See [Contributing](Contributing).
-
+Collect community recipes via pull requests to `packages/`. See [Contributing](Contributing).
 More: [doc/BPM.md](../doc/BPM.md), [doc/BUILDSERVER.md](../doc/BUILDSERVER.md).

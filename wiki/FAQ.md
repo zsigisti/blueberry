@@ -66,8 +66,7 @@ yields the same bytes each time.
 
 ### Where do I report bugs or contribute?
 
-Open an issue/PR, or use a [`recipe-hub/`](../recipe-hub) instance for recipe
-submissions. See [Contributing](Contributing).
+Open an issue or PR with your recipe. See [Contributing](Contributing).
 
 ### What does "Blueberry" run on — how big is it?
 

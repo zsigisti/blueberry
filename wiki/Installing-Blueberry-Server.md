@@ -1,19 +1,27 @@
 # Installing Blueberry Server
 
-Blueberry Server installs from a small ISO using **`blueberry-install`**, a
-guided CLI installer. (To run it without installing, see
-[Getting Started](Getting-Started) — `make run` boots a live CLI from RAM.)
+Blueberry Server is a minimal, rolling CLI system. It runs **systemd** as PID 1
+(journald, logind, networkd, OpenSSH) — `INIT=systemd` is the default. There are
+two ISOs: a **live systemd CLI** to try it, and the **installer** ISO.
+
+![Blueberry Server — systemd live CLI (autologin root shell)](images/server-console.png)
 
 ## 1. Build or get the ISO
 
 ```sh
-make iso          # → ../blueberry-build/blueberry-*.iso
+make server-iso   # systemd live CLI ISO → iso/blueberry-server-x86_64.iso
+make run-server   # …or boot it straight in a QEMU window
+make test-server  # …or boot headless and assert it reaches multi-user.target
+
+make iso          # the installer/rescue ISO → iso/blueberry-<date>-x86_64.iso
 ```
 
-Write it to a USB stick:
+The live ISO boots systemd to a `multi-user.target` login (autologin `root`),
+with `systemctl`, `journalctl`, and OpenSSH available. Write either to a USB
+stick:
 
 ```sh
-sudo dd if=blueberry-*.iso of=/dev/sdX bs=4M status=progress oflag=sync
+sudo dd if=iso/blueberry-server-x86_64.iso of=/dev/sdX bs=4M status=progress oflag=sync
 ```
 
 ## 2. Boot and run the installer
@@ -34,8 +42,9 @@ It guides you through a **GPT/UEFI** install:
 6. **Write `fstab`**.
 7. **Set the root password**.
 
-The installed system boots GRUB → kernel → **runit** (or systemd with
-`INIT=systemd`), with **bash** as the login shell.
+The installed system boots GRUB → kernel → **systemd** (PID 1), with **bash** as
+the login shell. (A minimal **runit** build is still available with
+`make … INIT=runit` for RAM-first / embedded use.)
 
 ## 3. Unattended installs
 
@@ -57,8 +66,9 @@ On Server, `bpm upgrade` rolls the kernel forward like everything else — see
 
 ## SSH
 
-The live system starts Dropbear SSH. Default login is `root` / `blueberry` —
-**change it** for any real deployment. Hardening notes are in
+The systemd Server runs **OpenSSH** (`sshd.service`, host keys generated on
+first boot). The RAM-first `INIT=runit` build uses Dropbear instead. Change any
+default credentials before exposing a host; hardening notes are in
 [doc/SECURITY.md](../doc/SECURITY.md).
 
 ## Deploying to real hardware
