@@ -41,9 +41,9 @@ systemd-machine-id-setup --root="$LIVEROOT" >/dev/null 2>&1 \
   || (head -c16 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$LIVEROOT/etc/machine-id")
 ln -sf /dev/null "$LIVEROOT/etc/systemd/system/systemd-firstboot.service"
 echo "blueberry" > "$LIVEROOT/etc/hostname"
-printf 'LANG=C.UTF-8\n' > "$LIVEROOT/etc/locale.conf"
+printf 'LANG=en_US.UTF-8\n' > "$LIVEROOT/etc/locale.conf"
 mkdir -p "$LIVEROOT/etc/systemd/system.conf.d"
-printf '[Manager]\nDefaultEnvironment=LANG=C.UTF-8\n' > "$LIVEROOT/etc/systemd/system.conf.d/10-locale.conf"
+printf '[Manager]\nDefaultEnvironment=LANG=en_US.UTF-8\n' > "$LIVEROOT/etc/systemd/system.conf.d/10-locale.conf"
 
 # Boot to a text login, not graphical.
 ln -sf /usr/lib/systemd/system/multi-user.target "$LIVEROOT/etc/systemd/system/default.target"

@@ -49,7 +49,7 @@ INIT ?= systemd
 # into the rootfs via systemd's ldd closure in bundle-glibc.
 SYSTEMD_BASE_PKGS := systemd util-linux libseccomp kmod dbus acl \
                      cryptsetup libcap libcap-ng readline file zlib bzip2 expat \
-                     attr device-mapper json-c openssl popt openssh pam
+                     attr device-mapper json-c openssl popt openssh pam glibc-locales
 ifeq ($(INIT),systemd)
   BASE_PKGS += $(SYSTEMD_BASE_PKGS)
 endif

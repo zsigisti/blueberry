@@ -1,5 +1,5 @@
 #%PAM-1.0
-# Load /etc/environment (LANG=C.UTF-8) at BOTH auth and session so the greeter
+# Load /etc/environment (LANG=en_US.UTF-8) at BOTH auth and session so the greeter
 # process — forked from the session — actually inherits the UTF-8 locale.
 # Stock sddm-greeter only ran pam_env at auth, so Qt kept seeing "C"/ANSI.
 auth        required    pam_env.so readenv=1
