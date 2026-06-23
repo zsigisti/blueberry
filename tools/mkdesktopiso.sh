@@ -205,12 +205,14 @@ ln -sf /usr/lib/systemd/system/NetworkManager.service \
 # native Mesa driver. Calamares is reachable from the desktop once it's up.
 install -d -m 0755 "$LIVEROOT/home/live"
 cat > "$LIVEROOT/home/live/.bash_profile" <<'EOF'
-# Auto-start the Plasma (Wayland) session on the first VT.
-if [ "$(tty)" = "/dev/tty1" ] && [ -z "$WAYLAND_DISPLAY" ] && [ -z "$DISPLAY" ]; then
+# Auto-start the Plasma (Wayland) session on the first VT. Use $XDG_VTNR (set by
+# pam_systemd for the login session) rather than the `tty` command, which the
+# systemd base does not ship.
+if [ "${XDG_VTNR:-0}" = "1" ] && [ -z "$WAYLAND_DISPLAY" ] && [ -z "$DISPLAY" ]; then
     export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
     export LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe KWIN_DRM_USE_QPAINTER=1
     export XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=KDE
-    exec dbus-run-session startplasma-wayland
+    exec dbus-run-session startplasma-wayland > "$HOME/.plasma.log" 2>&1
 fi
 EOF
 chown -R 1000:1000 "$LIVEROOT/home/live" 2>/dev/null || true
