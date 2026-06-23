@@ -1,0 +1,8 @@
+# Live session runs on QEMU/virtio-gpu (no virgl) or generic KMS where Mesa has
+# no native GBM driver. Force KWin's software (QPainter) DRM backend + llvmpipe
+# so the compositor renders without a GPU-specific GL driver. Harmless on real
+# hardware where it still works (just unaccelerated); real installs can drop it.
+KWIN_DRM_USE_QPAINTER=1
+LIBGL_ALWAYS_SOFTWARE=1
+LANG=C.UTF-8
+LC_ALL=C.UTF-8
