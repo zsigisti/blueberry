@@ -90,3 +90,9 @@ libimobiledevice
 libgomp                     # libgomp.so.1 — Kirigami / KDE
 libxxf86vm                  # libXxf86vm.so.1 — Mesa GLX
 spirv-tools                 # libSPIRV-Tools.so — Mesa Gallium
+
+# ── KWin input stack ──────────────────────────────────────────────────────────
+libevdev                    # libevdev.so.2 — KWin/libinput
+mtdev                       # libmtdev.so.1 — KWin/libinput
+libwacom                    # libwacom.so.9 — KWin tablet support
+libgudev                    # libgudev-1.0.so.0 — libwacom
