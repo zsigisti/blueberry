@@ -126,9 +126,8 @@ def main():
     # Sources: pair each url with its checksum, resolving $pkgver in the URL.
     for i, s in enumerate(sources):
         url = subst_vars(s).replace("$version", pkgver).replace("$release", pkgrel)
-        # PKGBUILD allows "rename::url"; keep only the URL for the recipe.
-        if "::" in url:
-            url = url.split("::", 1)[1]
+        # PKGBUILD allows "rename::url" — keep the whole thing so bpmbuild can
+        # name a download whose URL has no usable basename (e.g. a redirect).
         sha = sums[i] if i < len(sums) else "SKIP"
         out.append("[[source]]")
         out.append(f"url    = {toml_str(url)}")
