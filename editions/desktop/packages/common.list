@@ -85,3 +85,8 @@ libusbmuxd
 libimobiledevice-glue
 libtatsu
 libimobiledevice
+
+# ── GPU/render closure (Mesa llvmpipe software GL + Kirigami) ──────────────────
+libgomp                     # libgomp.so.1 — Kirigami / KDE
+libxxf86vm                  # libXxf86vm.so.1 — Mesa GLX
+spirv-tools                 # libSPIRV-Tools.so — Mesa Gallium
