@@ -96,3 +96,6 @@ libevdev                    # libevdev.so.2 — KWin/libinput
 mtdev                       # libmtdev.so.1 — KWin/libinput
 libwacom                    # libwacom.so.9 — KWin tablet support
 libgudev                    # libgudev-1.0.so.0 — libwacom
+
+# Qt6 accessibility bridge (kwin QSpiAccessibleBridge)
+at-spi2-core
