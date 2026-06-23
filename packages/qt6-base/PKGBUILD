@@ -11,7 +11,7 @@ depends=('glibc' 'gcc-libs' 'zlib' 'libpng' 'libjpeg-turbo' 'freetype2'
          'libb2' 'openssl' 'dbus' 'libx11' 'libxcb' 'libxkbcommon' 'libxrender'
          'libxrandr' 'libxfixes' 'libxext' 'libxi' 'libxcursor'
          'xcb-util' 'xcb-util-image' 'xcb-util-keysyms' 'xcb-util-renderutil'
-         'xcb-util-wm' 'xcb-util-cursor' 'libglvnd' 'mesa' 'wayland')
+         'xcb-util-wm' 'xcb-util-cursor' 'libglvnd' 'mesa' 'wayland' 'at-spi2-core')
 provides=('libQt6Core.so' 'libQt6Gui.so' 'libQt6Widgets.so' 'libQt6Network.so'
           'libQt6DBus.so' 'libQt6Concurrent.so' 'libQt6OpenGL.so'
           'libQt6OpenGLWidgets.so' 'libQt6PrintSupport.so' 'libQt6Sql.so'
@@ -19,7 +19,7 @@ provides=('libQt6Core.so' 'libQt6Gui.so' 'libQt6Widgets.so' 'libQt6Network.so'
 # libxkbcommon-x11 is split out on Arch; needed at build for xkbcommon-x11.pc
 # (Blueberry's libxkbcommon ships both libs in one package at runtime).
 makedepends=('cmake' 'ninja' 'python' 'vulkan-headers' 'wayland-protocols'
-             'libxkbcommon' 'libxkbcommon-x11' 'pkgconf' 'perl')
+             'libxkbcommon' 'libxkbcommon-x11' 'pkgconf' 'perl' 'at-spi2-core')
 options=('!lto')
 source=("https://download.qt.io/official_releases/qt/${pkgver%.*}/$pkgver/submodules/qtbase-everywhere-src-$pkgver.tar.xz")
 sha256sums=('d9594a31228aa23ad6b531719a29b45f0f3989fe6c136d45767ea179f233c1ac')
@@ -46,6 +46,8 @@ build() {
     -D QT_FEATURE_xcb_xlib=ON \
     -D QT_FEATURE_wayland=ON \
     -D QT_FEATURE_dbus=ON \
+    -D QT_FEATURE_accessibility=ON \
+    -D QT_FEATURE_accessibility_atspi_bridge=ON \
     -D QT_FEATURE_openssl_linked=ON \
     -D QT_FEATURE_vulkan=ON \
     -D QT_BUILD_EXAMPLES=OFF \
