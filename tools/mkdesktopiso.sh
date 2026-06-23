@@ -188,11 +188,14 @@ done
 # acquires DRM master cleanly. (SDDM stays installed for the on-disk system.)
 log "live desktop: getty autologin → Plasma on tty1"
 ln -sf /usr/lib/systemd/system/multi-user.target "$LIVEROOT/etc/systemd/system/default.target"
+# agetty defaults to /bin/login; this rootfs has login at /usr/bin/login and a
+# real (non-merged) /bin, so point agetty at it explicitly + add the symlink.
+[ -e "$LIVEROOT/bin/login" ] || ln -sf /usr/bin/login "$LIVEROOT/bin/login"
 mkdir -p "$LIVEROOT/etc/systemd/system/getty@tty1.service.d"
 cat > "$LIVEROOT/etc/systemd/system/getty@tty1.service.d/10-autologin.conf" <<'EOF'
 [Service]
 ExecStart=
-ExecStart=-/usr/bin/agetty --autologin live --noclear %I 38400 linux
+ExecStart=-/usr/bin/agetty --login-program /usr/bin/login --autologin live --noclear %I 38400 linux
 EOF
 ln -sf /usr/lib/systemd/system/NetworkManager.service \
     "$LIVEROOT/etc/systemd/system/multi-user.target.wants/NetworkManager.service" 2>/dev/null || true
