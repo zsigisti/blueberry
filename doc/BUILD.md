@@ -53,12 +53,25 @@ Run `make _check_tools` to verify the essentials are present.
 ## Quick Build
 
 ```sh
-git clone https://github.com/mmzsigmond/blueberry.git
+git clone https://github.com/zsigisti/blueberry.git
 cd blueberry
 make world           # build everything → ../blueberry-build/
-make run             # boot the live CLI in QEMU (Ctrl-A X to quit)
+make run             # boot the initramfs live CLI in QEMU (Ctrl-A X to quit)
 make test            # headless boot self-test (asserts BLUEBERRY_TEST=PASS)
 ```
+
+### Edition ISOs and run/test
+
+```sh
+make server-iso      # systemd Server live ISO   → iso/blueberry-server-x86_64.iso
+make desktop-iso     # KDE Desktop live ISO       → iso/blueberry-desktop-*.iso
+make run-server  / make test-server     # boot Server ISO  (window / headless assert)
+make run-desktop / make test-desktop     # boot Desktop ISO (window / headless assert)
+```
+
+`INIT=systemd` is the default (journald/logind/networkd/OpenSSH); `INIT=runit`
+builds the minimal RAM-first image. The `run-*`/`test-*` targets boot with
+`-cpu host` (required for the desktop's software-GL/llvmpipe rendering).
 
 ---
 
