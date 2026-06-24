@@ -212,9 +212,11 @@ if [ "${XDG_VTNR:-0}" = "1" ] && [ -z "$WAYLAND_DISPLAY" ] && [ -z "$DISPLAY" ];
     export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
     export LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe KWIN_DRM_USE_QPAINTER=1
     export XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=KDE
-    # Mirror the session log to a host-shared 9p dir when present (diagnostics),
-    # else to the home dir. `live` cannot write /dev/ttyS0 directly.
-    _plog="$HOME/.plasma.log"; [ -w /run/plog ] && _plog=/run/plog/plasma.log
+    # Mirror the session log. Prefer /dev/ttyS1 (a tty → line-buffered → flushes
+    # immediately to the host serial file for diagnostics); a regular file would
+    # be block-buffered and stay empty until Plasma exits. Falls back to the home
+    # dir on real hardware without a second serial port.
+    _plog="$HOME/.plasma.log"; [ -w /dev/ttyS1 ] && _plog=/dev/ttyS1
     exec dbus-run-session startplasma-wayland > "$_plog" 2>&1
 fi
 EOF
