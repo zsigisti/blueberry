@@ -8,7 +8,7 @@ license  = ["GPL-2.0-or-later"]
 arch     = ["x86_64"]
 
 depends     = ["icu", "kauth", "kcmutils", "kconfig", "kcoreaddons", "kdbusaddons", "kdeclarative", "kglobalaccel", "kguiaddons", "kholidays", "ki18n", "kiconthemes", "kio", "kirigami", "kirigami-addons", "kitemmodels", "kjobwidgets", "knewstuff", "knotifications", "kpackage", "krunner", "kservice", "ksvg", "kunitconversion", "kwidgetsaddons", "kwin", "kwindowsystem", "kxmlgui", "libplasma", "plasma-workspace", "qt6-5compat", "qt6-base", "qt6-declarative", "qt6-quick3d", "sonnet"]
-makedepends = ["kdoctools", "extra-cmake-modules", "cmake", "ninja", "python", "qt6-base", "qt6-declarative", "qt6-tools", "qt6-quick3d"]
+makedepends = ["kdoctools", "extra-cmake-modules", "cmake", "ninja", "python", "qt6-base", "qt6-declarative", "qt6-tools", "qt6-quick3d", "corrosion", "rust"]
 options     = ["!lto"]
 
 [[source]]
