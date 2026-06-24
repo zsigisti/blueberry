@@ -148,6 +148,11 @@ def main():
     env.update(
         srcdir=srcdir, pkgdir=pkgdir, name=name, version=str(version),
         release=str(release), arch=arch_tag, SOURCE_DATE_EPOCH=str(SDE),
+        # startdir = the recipe directory (makepkg semantics). Recipes that pull
+        # in-repo files reach them via "$startdir/../../<path>" (e.g. bpm copies
+        # src/bpm-rs, linux copies src/kernel/config). Without it the path
+        # resolves to /../../... and the step fails.
+        startdir=recipe_dir,
     )
 
     log("build()")

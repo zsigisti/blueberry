@@ -14,11 +14,19 @@ url    = "https://mirrors.kernel.org/pub/software/scm/git/git-2.49.0.tar.xz"
 sha256 = "618190cf590b7e9f6c11f91f23b1d267cd98c3ab33b850416d8758f8b5a85628"
 
 [steps]
+# Upstream PKGBUILD wraps make in a _make() helper carrying the build knobs; the
+# TOML steps run as plain /bin/sh, so define it inline (no PKGBUILD functions).
 build = '''
-cd "$name-$version";
+_make() {
+  make prefix=/usr CURLDIR=/usr NO_GETTEXT=1 NO_TCLTK=1 NO_PERL=1 NO_PYTHON=1 USE_LIBPCRE=0 INSTALL_SYMLINKS=1 "$@"
+}
+cd "$name-$version"
 _make all
 '''
 package = '''
-cd "$name-$version";
+_make() {
+  make prefix=/usr CURLDIR=/usr NO_GETTEXT=1 NO_TCLTK=1 NO_PERL=1 NO_PYTHON=1 USE_LIBPCRE=0 INSTALL_SYMLINKS=1 "$@"
+}
+cd "$name-$version"
 _make DESTDIR="$pkgdir" install
 '''

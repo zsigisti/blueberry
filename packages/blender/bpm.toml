@@ -20,6 +20,7 @@ sha256 = "SKIP"
 
 [steps]
 package = '''
+_dir="blender-$version-linux-x64";
 install -d "$pkgdir/opt" "$pkgdir/usr/bin";
 cp -a "$_dir" "$pkgdir/opt/blender";
 ln -s /opt/blender/blender "$pkgdir/usr/bin/blender";
