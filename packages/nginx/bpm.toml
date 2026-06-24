@@ -16,7 +16,9 @@ sha256 = "69ee2b237744036e61d24b836668aad3040dda461fe6f570f1787eab570c75aa"
 [steps]
 build = '''
 cd "$name-$version";
-./configure --prefix=/etc/nginx --sbin-path=/usr/bin/nginx --conf-path=/etc/nginx/nginx.conf --pid-path=/run/nginx.pid --lock-path=/run/lock/nginx.lock --http-log-path=/var/log/nginx/access.log --error-log-path=/var/log/nginx/error.log --http-client-body-temp-path=/var/lib/nginx/client-body --http-proxy-temp-path=/var/lib/nginx/proxy --with-http_ssl_module --with-http_v2_module --with-http_gzip_static_module --with-http_realip_module --with-http_stub_status_module --with-pcre-jit --with-threads --with-file-aio;
+# GCC 16 promotes several warnings to errors (e.g. unterminated-string-init in
+# the HTTP/2 module). Relax via --with-cc-opt so the C sources still build.
+./configure --prefix=/etc/nginx --sbin-path=/usr/bin/nginx --conf-path=/etc/nginx/nginx.conf --pid-path=/run/nginx.pid --lock-path=/run/lock/nginx.lock --http-log-path=/var/log/nginx/access.log --error-log-path=/var/log/nginx/error.log --http-client-body-temp-path=/var/lib/nginx/client-body --http-proxy-temp-path=/var/lib/nginx/proxy --with-http_ssl_module --with-http_v2_module --with-http_gzip_static_module --with-http_realip_module --with-http_stub_status_module --with-pcre-jit --with-threads --with-file-aio --with-cc-opt="-Wno-error";
 make
 '''
 package = '''

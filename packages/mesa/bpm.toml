@@ -17,8 +17,7 @@ sha256 = "7725004e724b34c6d4fbaf5c48fc6c6223aa9f2741d6d7782c699b049356fc45"
 
 [steps]
 build = '''
-cd "$name-$version";
-sed -i 's/^  if with_platform_android$/  if true/' meson.build
+sed -i 's/^  if with_platform_android$/  if true/' "$name-$version/meson.build"
 CFLAGS+=" -Wno-error=incompatible-pointer-types -Wno-error=implicit-function-declaration";
 meson setup "$name-$version" build --prefix=/usr --libexecdir=lib --sbindir=bin --buildtype=plain --auto-features=auto --wrap-mode=nodownload -D b_pie=true -D platforms=wayland,x11 -D gallium-drivers=llvmpipe,softpipe -D vulkan-drivers= -D glx=dri -D egl=enabled -D gbm=enabled -D opengl=true -D gles2=enabled -D glvnd=enabled -D llvm=enabled -D shared-llvm=enabled -D gallium-rusticl=false -D valgrind=disabled -D libunwind=disabled -D lmsensors=disabled -D build-tests=false;
 meson compile -C build
