@@ -22,8 +22,16 @@ ACCEL=""; [ -e /dev/kvm ] && ACCEL="-enable-kvm -cpu host"
 
 case "$MODE" in
 run)
-    echo "[run] booting $EDITION ISO in QEMU (close the window or Ctrl-A X to quit)"
-    exec qemu-system-x86_64 $ACCEL -m "$MEM" -smp "$SMP" -cdrom "$ISO" $VGA -boot d
+    if [ "$EDITION" = desktop ]; then
+        echo "[run] booting $EDITION ISO in QEMU (close the window or Ctrl-A X to quit)"
+        exec qemu-system-x86_64 $ACCEL -m "$MEM" -smp "$SMP" -cdrom "$ISO" $VGA -boot d
+    fi
+    # Server is headless: route the serial console to this terminal (-nographic).
+    # The ISO autologins root on ttyS0, so it drops straight to a shell. Ctrl-A X
+    # quits.
+    echo "[run] booting $EDITION ISO headless on serial (Ctrl-A X to quit)"
+    exec qemu-system-x86_64 $ACCEL -m "$MEM" -smp "$SMP" -cdrom "$ISO" \
+        -nographic -boot d
     ;;
 test)
     # ready marker per edition

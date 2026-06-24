@@ -57,6 +57,17 @@ cat > "$LIVEROOT/etc/systemd/system/getty@tty1.service.d/10-autologin.conf" <<'E
 ExecStart=
 ExecStart=-/usr/bin/agetty --autologin root --noclear %I 38400 linux
 EOF
+# Autologin root on the serial console (ttyS0) too, so `make run-server` can run
+# headless (-nographic) and drop straight into a shell over the serial line.
+mkdir -p "$LIVEROOT/etc/systemd/system/serial-getty@ttyS0.service.d" \
+         "$LIVEROOT/etc/systemd/system/getty.target.wants"
+cat > "$LIVEROOT/etc/systemd/system/serial-getty@ttyS0.service.d/10-autologin.conf" <<'EOF'
+[Service]
+ExecStart=
+ExecStart=-/usr/bin/agetty --autologin root --keep-baud 115200,57600,38400,9600 %I $TERM
+EOF
+ln -sf /usr/lib/systemd/system/serial-getty@ttyS0.service \
+  "$LIVEROOT/etc/systemd/system/getty.target.wants/serial-getty@ttyS0.service"
 # Live-only fstab (no disk).
 printf '# live\ntmpfs /tmp tmpfs nosuid,nodev,size=512M 0 0\n' > "$LIVEROOT/etc/fstab"
 # Enable sshd + networkd-ish basics if present (best-effort).
