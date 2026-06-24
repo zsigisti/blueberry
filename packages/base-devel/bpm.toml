@@ -1,0 +1,27 @@
+[package]
+name     = "base-devel"
+version  = "1.0"
+release  = 1
+summary  = "GNU toolchain meta-package (gcc, binutils, make, kernel headers)"
+homepage = "https://blueberry.linux/"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["gcc", "binutils", "make", "linux-api-headers"]
+
+[steps]
+package = '''
+install -d "$pkgdir/usr/share/doc/base-devel";
+cat > "$pkgdir/usr/share/doc/base-devel/README" <<'EOF'
+base-devel pulls gcc, binutils, make and the Linux API headers.
+
+For a complete C toolchain that can compile and link against libc, also
+install glibc (its headers + startup objects):
+
+bpm install base-devel glibc
+
+glibc is requested by name because the base image already ships the glibc
+runtime, so bpm treats it as provided and only installs its development
+files when you ask for it explicitly.
+EOF
+'''

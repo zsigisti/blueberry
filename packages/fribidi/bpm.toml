@@ -1,0 +1,29 @@
+[package]
+name     = "fribidi"
+version  = "1.0.16"
+release  = 1
+summary  = "Unicode bidirectional algorithm library"
+homepage = "https://www.freedesktop.org/"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["meson", "ninja", "pkgconf"]
+options     = ["!lto"]
+
+[[source]]
+url    = "fribidi-1.0.16.tar.xz::https://github.com/fribidi/fribidi/releases/download/v1.0.16/fribidi-1.0.16.tar.xz"
+sha256 = "1b1cde5b235d40479e91be2f0e88a309e3214c8ab470ec8a2744d82a5a9ea05c"
+
+[steps]
+build = '''
+function arch-meson () 
+{ 
+    meson setup "$@"
+};
+meson setup fribidi-1.0.16 build --prefix=/usr --buildtype=release -Dwerror=false -Ddocs=false -Dtests=false;
+meson compile -C build
+'''
+package = '''
+meson install -C build --destdir "$pkgdir"
+'''

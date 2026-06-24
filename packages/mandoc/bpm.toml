@@ -1,0 +1,42 @@
+[package]
+name     = "mandoc"
+version  = "1.14.6"
+release  = 1
+summary  = "Compact suite of tools to format and read man pages (provides man/apropos)"
+homepage = "https://mandoc.bsd.lv/"
+license  = ["ISC"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "zlib"]
+provides    = ["man", "man-db"]
+
+[[source]]
+url    = "https://mandoc.bsd.lv/snapshots/mandoc-1.14.6.tar.gz"
+sha256 = "8bf0d570f01e70a6e124884088870cbed7537f36328d512909eb10cd53179d9c"
+
+[steps]
+build = '''
+cd "$name-$version";
+cat > configure.local <<'EOF'
+PREFIX=/usr
+BINDIR=/usr/bin
+SBINDIR=/usr/bin
+MANDIR=/usr/share/man
+INCLUDEDIR=/usr/include
+LIBDIR=/usr/lib
+LN="ln -sf"
+MANM_MANCONF=mandoc.conf
+BINM_MAN=man
+BINM_APROPOS=apropos
+BINM_WHATIS=whatis
+BINM_MAKEWHATIS=makewhatis
+EOF
+
+./configure
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install;
+install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$name/LICENSE"
+'''

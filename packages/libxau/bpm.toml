@@ -1,0 +1,28 @@
+[package]
+name     = "libxau"
+version  = "1.0.11"
+release  = 1
+summary  = "X11 authorization protocol library"
+homepage = "https://gitlab.freedesktop.org/xorg/lib"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["xorg-util-macros", "xorgproto", "pkgconf"]
+provides    = ["libXau.so"]
+
+[[source]]
+url    = "https://www.x.org/releases/individual/lib/libXau-1.0.11.tar.xz"
+sha256 = "f3fa3282f5570c3f6bd620244438dbfbdd580fc80f02f549587a0f8ab329bbeb"
+
+[steps]
+build = '''
+cd "libXau-$version";
+./configure --prefix=/usr --sysconfdir=/etc --disable-static;
+make
+'''
+package = '''
+cd "libXau-$version";
+make DESTDIR="$pkgdir" install;
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

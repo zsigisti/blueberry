@@ -1,0 +1,25 @@
+[package]
+name     = "kcmutils"
+version  = "6.27.0"
+release  = 1
+summary  = "KDE: utilities for KConfigModules (KCMs)"
+homepage = "https://community.kde.org/Frameworks"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["qt6-base", "qt6-declarative", "kconfigwidgets", "kcoreaddons", "kdeclarative", "kio", "kpackage", "kxmlgui", "kirigami"]
+makedepends = ["qt6-tools", "qt6-declarative", "extra-cmake-modules", "cmake", "ninja", "python", "qt6-base", "qt6-declarative"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/frameworks/6.27/kcmutils-6.27.0.tar.xz"
+sha256 = "beb0a50a22230fdd94164a5d6e53ea7f4cbc97b86cbab3ff2a592ea8663efa41"
+
+[steps]
+build = '''
+cmake -S "kcmutils-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D KDE_INSTALL_LIBDIR=lib -D KDE_INSTALL_USE_QT_SYS_PATHS=ON -D BUILD_TESTING=OFF -D BUILD_QCH=OFF -D BUILD_PYTHON_BINDINGS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

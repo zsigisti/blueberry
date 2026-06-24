@@ -1,0 +1,27 @@
+[package]
+name     = "libimobiledevice"
+version  = "1.4.0"
+release  = 1
+summary  = "Library to communicate with Apple iOS devices (kio-extras)"
+homepage = "https://libimobiledevice.org/"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libplist", "libusbmuxd", "libimobiledevice-glue", "libtatsu", "openssl"]
+makedepends = ["libplist", "libusbmuxd", "libtatsu", "openssl", "pkgconf"]
+options     = ["!lto"]
+
+[[source]]
+url    = "libimobiledevice-1.4.0.tar.bz2::https://github.com/libimobiledevice/libimobiledevice/releases/download/1.4.0/libimobiledevice-1.4.0.tar.bz2"
+sha256 = "23cc0077e221c7d991bd0eb02150a0d49199bcca1ddf059edccee9ffd914939d"
+
+[steps]
+build = '''
+cd "libimobiledevice-$version";
+./configure --prefix=/usr --libdir=/usr/lib --without-cython;
+make
+'''
+package = '''
+cd "libimobiledevice-$version";
+make DESTDIR="$pkgdir" install
+'''

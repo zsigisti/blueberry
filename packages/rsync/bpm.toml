@@ -1,0 +1,27 @@
+[package]
+name     = "rsync"
+version  = "3.4.1"
+release  = 2
+summary  = "Fast incremental file transfer and synchronisation tool"
+homepage = "https://rsync.samba.org/"
+license  = ["GPL-3.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "popt", "zlib", "zstd", "openssl", "acl"]
+makedepends = ["pkgconf"]
+
+[[source]]
+url    = "https://download.samba.org/pub/rsync/src/rsync-3.4.1.tar.gz"
+sha256 = "2924bcb3a1ed8b551fc101f740b9f0fe0a202b115027647cf69850d65fd88c52"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --disable-lz4 --disable-xxhash --with-included-popt=no --with-included-zlib=no;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install;
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

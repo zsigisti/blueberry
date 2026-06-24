@@ -1,0 +1,27 @@
+[package]
+name     = "qt6-wayland"
+version  = "6.11.1"
+release  = 1
+summary  = "Qt 6 Wayland platform plugin and compositor APIs"
+homepage = "https://www.qt.io/"
+license  = ["LGPL-3.0-only"]
+arch     = ["x86_64"]
+
+depends     = ["qt6-base", "qt6-declarative", "wayland", "libxkbcommon", "libglvnd", "mesa"]
+makedepends = ["cmake", "ninja", "python", "qt6-base", "qt6-declarative", "wayland-protocols", "vulkan-headers", "perl"]
+provides    = ["libQt6WaylandClient.so", "libQt6WaylandCompositor.so", "libQt6WaylandEglClientHwIntegration.so"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.qt.io/official_releases/qt/6.11/6.11.1/submodules/qtwayland-everywhere-src-6.11.1.tar.xz"
+sha256 = "95788aa502f75441d4edf65932b235f76523084e13dbbb7b9ee2d207b32bd9b3"
+
+[steps]
+build = '''
+cmake -S "qtwayland-everywhere-src-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D INSTALL_LIBDIR=/usr/lib -D INSTALL_ARCHDATADIR=/usr/lib/qt6 -D QT_BUILD_EXAMPLES=OFF -D QT_BUILD_TESTS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build;
+install -Dm644 "qtwayland-everywhere-src-$version/LICENSES/LGPL-3.0-only.txt" "$pkgdir/usr/share/licenses/$name/LICENSE" 2> /dev/null || true
+'''

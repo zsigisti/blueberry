@@ -1,0 +1,25 @@
+[package]
+name     = "kmenuedit"
+version  = "6.7.0"
+release  = 1
+summary  = "KDE: menu editor for Plasma"
+homepage = "https://kde.org/plasma-desktop/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["kcompletion", "kconfig", "kconfigwidgets", "kcoreaddons", "kcrash", "kdbusaddons", "kglobalaccel", "ki18n", "kiconthemes", "kio", "kitemviews", "kservice", "kwidgetsaddons", "kwindowsystem", "kxmlgui", "qt6-base", "sonnet"]
+makedepends = ["kdoctools", "extra-cmake-modules", "cmake", "ninja", "python", "qt6-base", "qt6-declarative", "qt6-tools"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/plasma/6.7.0/kmenuedit-6.7.0.tar.xz"
+sha256 = "f27fed5c8989ad00adc714bc7f377adfca9742c4ccd3afff9478d502eeafffab"
+
+[steps]
+build = '''
+cmake -S "kmenuedit-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D KDE_INSTALL_LIBDIR=lib -D KDE_INSTALL_LIBEXECDIR=lib -D KDE_INSTALL_USE_QT_SYS_PATHS=ON -D BUILD_TESTING=OFF -D BUILD_QCH=OFF -D BUILD_PYTHON_BINDINGS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

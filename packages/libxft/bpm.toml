@@ -1,0 +1,27 @@
+[package]
+name     = "libxft"
+version  = "2.3.9"
+release  = 1
+summary  = "X FreeType interface library"
+homepage = "https://www.freedesktop.org/"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["fontconfig", "freetype2", "libx11", "libxrender"]
+makedepends = ["pkgconf", "xorgproto"]
+options     = ["!lto"]
+
+[[source]]
+url    = "libXft-2.3.9.tar.xz::https://www.x.org/releases/individual/lib/libXft-2.3.9.tar.xz"
+sha256 = "60a25b78945ed6932635b3bb1899a517d31df7456e69867ffba27f89ff3976f5"
+
+[steps]
+build = '''
+cd "libXft-2.3.9";
+./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var;
+make
+'''
+package = '''
+cd "libXft-2.3.9";
+make DESTDIR="$pkgdir" install
+'''

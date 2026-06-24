@@ -1,0 +1,25 @@
+[package]
+name     = "libtiff"
+version  = "4.7.1"
+release  = 1
+summary  = "TIFF image format library"
+homepage = "https://www.freedesktop.org/"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["zlib", "libjpeg-turbo", "xz", "zstd"]
+makedepends = ["cmake", "ninja"]
+options     = ["!lto"]
+
+[[source]]
+url    = "tiff-4.7.1.tar.xz::https://download.osgeo.org/libtiff/tiff-4.7.1.tar.xz"
+sha256 = "b92017489bdc1db3a4c97191aa4b75366673cb746de0dce5d7a749d5954681ba"
+
+[steps]
+build = '''
+cmake -S tiff-4.7.1 -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

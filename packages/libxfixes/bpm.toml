@@ -1,0 +1,28 @@
+[package]
+name     = "libxfixes"
+version  = "6.0.1"
+release  = 1
+summary  = "X Fixes extension library"
+homepage = "https://gitlab.freedesktop.org/xorg/lib"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["libx11"]
+makedepends = ["xorg-util-macros", "xorgproto", "pkgconf"]
+provides    = ["libXfixes.so"]
+
+[[source]]
+url    = "https://www.x.org/releases/individual/lib/libXfixes-6.0.1.tar.xz"
+sha256 = "b695f93cd2499421ab02d22744458e650ccc88c1d4c8130d60200213abc02d58"
+
+[steps]
+build = '''
+cd "libXfixes-$version";
+./configure --prefix=/usr --sysconfdir=/etc --disable-static;
+make
+'''
+package = '''
+cd "libXfixes-$version";
+make DESTDIR="$pkgdir" install;
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

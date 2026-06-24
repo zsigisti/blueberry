@@ -1,0 +1,29 @@
+[package]
+name     = "libxcvt"
+version  = "0.1.3"
+release  = 1
+summary  = "VESA CVT timing library (KWin)"
+homepage = "https://blueberry.linux/"
+license  = ["custom"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["meson", "ninja"]
+options     = ["!lto"]
+
+[[source]]
+url    = "libxcvt-0.1.3.tar.xz::https://www.x.org/releases/individual/lib/libxcvt-0.1.3.tar.xz"
+sha256 = "a929998a8767de7dfa36d6da4751cdbeef34ed630714f2f4a767b351f2442e01"
+
+[steps]
+build = '''
+function arch-meson () 
+{ 
+    meson setup "$@"
+};
+meson setup "libxcvt-0.1.3" build --prefix=/usr --buildtype=release -Dwerror=false;
+meson compile -C build
+'''
+package = '''
+meson install -C build --destdir "$pkgdir"
+'''

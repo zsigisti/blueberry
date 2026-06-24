@@ -1,0 +1,25 @@
+[package]
+name     = "libksysguard"
+version  = "6.7.0"
+release  = 1
+summary  = "KDE: system monitoring library"
+homepage = "https://kde.org/plasma-desktop/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["kauth", "kconfig", "kcoreaddons", "kdeclarative", "ki18n", "kirigami", "kitemmodels", "knewstuff", "kpackage", "kquickcharts", "kservice", "libdrm", "libnl", "libpcap", "lm_sensors", "qt6-5compat", "qt6-base", "qt6-declarative", "solid", "systemd"]
+makedepends = ["kdoctools", "extra-cmake-modules", "cmake", "ninja", "python", "qt6-base", "qt6-declarative", "qt6-tools"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/plasma/6.7.0/libksysguard-6.7.0.tar.xz"
+sha256 = "e34c01438399fc23090cde4d47225bcd8f60899d138ecae99cc599659536ace3"
+
+[steps]
+build = '''
+cmake -S "libksysguard-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D KDE_INSTALL_LIBDIR=lib -D KDE_INSTALL_LIBEXECDIR=lib -D KDE_INSTALL_USE_QT_SYS_PATHS=ON -D BUILD_TESTING=OFF -D BUILD_QCH=OFF -D BUILD_PYTHON_BINDINGS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

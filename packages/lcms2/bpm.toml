@@ -1,0 +1,26 @@
+[package]
+name     = "lcms2"
+version  = "2.19"
+release  = 1
+summary  = "Little CMS color management"
+homepage = "https://blueberry.linux/"
+license  = ["custom"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libtiff", "zlib"]
+options     = ["!lto"]
+
+[[source]]
+url    = "lcms2-2.19.tar.gz::https://github.com/mm2/Little-CMS/releases/download/lcms2.19/lcms2-2.19.tar.gz"
+sha256 = "49e7e134e4299733dd0eda434fa468997a28ab3d33fa397c642b03644f552216"
+
+[steps]
+build = '''
+cd "lcms2-2.19";
+./configure --prefix=/usr --libdir=/usr/lib;
+make
+'''
+package = '''
+cd "lcms2-2.19";
+make DESTDIR="$pkgdir" install
+'''

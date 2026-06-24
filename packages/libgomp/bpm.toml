@@ -1,0 +1,37 @@
+[package]
+name     = "libgomp"
+version  = "16.1.0"
+release  = 1
+summary  = "GNU OpenMP runtime library (libgomp.so.1 — Kirigami/KDE)"
+homepage = "https://gcc.gnu.org/"
+license  = ["GPL-3.0-or-later", "LGPL-3.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["binutils", "gmp", "mpfr", "mpc", "zlib"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://ftp.gnu.org/gnu/gcc/gcc-16.1.0/gcc-16.1.0.tar.xz"
+sha256 = "50efb4d94c3397aff3b0d61a5abd748b4dd31d9d3f2ab7be05b171d36a510f79"
+
+[steps]
+build = '''
+CFLAGS="${CFLAGS//-Werror=format-security/}";
+CXXFLAGS="${CXXFLAGS//-Werror=format-security/}";
+export CFLAGS CXXFLAGS;
+mkdir -p build && cd build;
+../"gcc-$version"/configure --prefix=/usr --libdir=/usr/lib --libexecdir=/usr/lib --enable-languages=c --disable-multilib --disable-bootstrap --disable-werror --disable-nls --without-isl --with-system-zlib;
+make all-target-libgomp
+'''
+package = '''
+cd build;
+make DESTDIR="$pkgdir" install-target-libgomp;
+if [ -d "$pkgdir/usr/lib64" ]; then
+    install -d "$pkgdir/usr/lib";
+    cp -a "$pkgdir/usr/lib64/." "$pkgdir/usr/lib/";
+    rm -rf "$pkgdir/usr/lib64";
+fi;
+find "$pkgdir" \( -name 'libgomp.a' -o -name 'libgomp.la' -o -name '*.h' -o -name '*.spec' \) -delete;
+rm -rf "$pkgdir/usr/lib/gcc" "$pkgdir/usr/share" 2> /dev/null || true
+'''

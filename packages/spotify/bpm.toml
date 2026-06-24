@@ -1,0 +1,27 @@
+[package]
+name     = "spotify"
+version  = "1.2.92.147"
+release  = 1
+summary  = "Spotify music streaming client (official binary)"
+homepage = "https://www.spotify.com/"
+license  = ["custom"]
+arch     = ["x86_64"]
+
+depends     = ["gtk3", "glib2", "nss", "alsa-lib", "libpulse", "libxcb", "libx11", "libxext", "libxrandr", "libxcomposite", "libxdamage", "libxfixes", "mesa", "libxshmfence", "ffmpeg", "openssl"]
+options     = ["!strip", "!debug"]
+
+[[source]]
+url    = "spotify-client_1.2.92.147.g5b8f9367_amd64.deb::https://repository.spotify.com/pool/non-free/s/spotify-client/spotify-client_1.2.92.147.g5b8f9367_amd64.deb"
+sha256 = "SKIP"
+
+[steps]
+# The source is a .deb (an `ar` archive of control.tar + data.tar). bpmbuild
+# leaves it in $srcdir (not a tarball it auto-extracts), so unpack it here:
+# `ar x` the .deb to get data.tar.*, then extract that into $pkgdir.
+package = '''
+cd "$srcdir";
+ar x spotify-client_*.deb;
+bsdtar -xf data.tar.* -C "$pkgdir";
+install -d "$pkgdir/usr/bin";
+ln -sf /usr/share/spotify/spotify "$pkgdir/usr/bin/spotify" 2> /dev/null || true
+'''

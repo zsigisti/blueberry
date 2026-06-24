@@ -1,0 +1,27 @@
+[package]
+name     = "krb5"
+version  = "1.22.2"
+release  = 1
+summary  = "MIT Kerberos 5 (libgssapi_krb5)"
+homepage = "https://blueberry.linux/"
+license  = ["custom"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "e2fsprogs", "libldap", "keyutils"]
+makedepends = ["bison", "perl"]
+options     = ["!lto"]
+
+[[source]]
+url    = "krb5-1.22.2.tar.gz::https://kerberos.org/dist/krb5/1.22/krb5-1.22.2.tar.gz"
+sha256 = "3243ffbc8ea4d4ac22ddc7dd2a1dc54c57874c40648b60ff97009763554eaf13"
+
+[steps]
+build = '''
+cd "krb5-1.22.2/src";
+./configure --prefix=/usr --libdir=/usr/lib --without-system-verto --disable-rpath;
+make WARN_CFLAGS=
+'''
+package = '''
+cd "krb5-1.22.2/src";
+make DESTDIR="$pkgdir" install
+'''

@@ -1,0 +1,28 @@
+[package]
+name     = "util-linux"
+version  = "2.40.2"
+release  = 1
+summary  = "Miscellaneous system utilities + libuuid/libblkid/libmount"
+homepage = "https://github.com/util-linux/util-linux"
+license  = ["GPL-2.0-or-later", "LGPL-2.1-or-later", "BSD-3-Clause"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libcap-ng", "readline", "file"]
+makedepends = ["pkgconf"]
+provides    = ["libuuid.so", "libblkid.so", "libmount.so", "libfdisk.so", "libsmartcols.so"]
+
+[[source]]
+url    = "https://www.kernel.org/pub/linux/utils/util-linux/v2.40/util-linux-2.40.2.tar.xz"
+sha256 = "d78b37a66f5922d70edf3bdfb01a6b33d34ed3c3cafd6628203b2a2b67c8e8b3"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --bindir=/usr/bin --sbindir=/usr/bin --sysconfdir=/etc --disable-static --disable-rpath --enable-libuuid --enable-libblkid --enable-libmount --enable-fs-paths-extra=/usr/bin --disable-lsfd --without-python --without-systemd --without-systemdsystemunitdir --without-selinux --without-audit;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install;
+install -Dm644 README.licensing "$pkgdir/usr/share/licenses/$name/README.licensing" 2> /dev/null || true
+'''

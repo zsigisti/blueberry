@@ -1,0 +1,25 @@
+[package]
+name     = "libwacom"
+version  = "2.19.0"
+release  = 1
+summary  = "Library to identify Wacom tablets (KWin tablet support)"
+homepage = "https://github.com/linuxwacom/libwacom"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "glib2", "libgudev", "libevdev"]
+makedepends = ["meson", "ninja", "pkgconf", "python"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://github.com/linuxwacom/libwacom/releases/download/libwacom-2.19.0/libwacom-2.19.0.tar.xz"
+sha256 = "8dd84e75d322aa5f33b2fe781cb67efa5706fedcf483737b4657557f33055a93"
+
+[steps]
+build = '''
+meson setup "libwacom-$version" build --prefix=/usr --libdir=/usr/lib --buildtype=release -Dtests=disabled -Ddocumentation=disabled;
+ninja -C build
+'''
+package = '''
+DESTDIR="$pkgdir" ninja -C build install
+'''

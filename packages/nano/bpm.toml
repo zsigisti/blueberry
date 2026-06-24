@@ -1,0 +1,26 @@
+[package]
+name     = "nano"
+version  = "8.2"
+release  = 1
+summary  = "Pico editor clone with enhancements"
+homepage = "https://www.nano-editor.org/"
+license  = ["GPL-3.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "ncurses", "file"]
+
+[[source]]
+url    = "https://www.nano-editor.org/dist/v8/nano-8.2.tar.xz"
+sha256 = "d5ad07dd862facae03051c54c6535e54c7ed7407318783fcad1ad2d7076fffeb"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --sysconfdir=/etc --enable-utf8 --enable-color --enable-nanorc;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install;
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

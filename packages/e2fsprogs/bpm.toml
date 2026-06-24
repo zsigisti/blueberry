@@ -1,0 +1,26 @@
+[package]
+name     = "e2fsprogs"
+version  = "1.47.2"
+release  = 2
+summary  = "Ext2/3/4 filesystem utilities (mkfs.ext4, e2fsck) + libext2fs/libcom_err"
+homepage = "https://e2fsprogs.sourceforge.net/"
+license  = ["GPL-2.0-only", "LGPL-2.0-only", "MIT"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "util-linux"]
+provides    = ["libe2p.so", "libext2fs.so", "libcom_err.so", "libss.so"]
+
+[[source]]
+url    = "https://mirrors.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/v1.47.2/e2fsprogs-1.47.2.tar.xz"
+sha256 = "08242e64ca0e8194d9c1caad49762b19209a06318199b63ce74ae4ef2d74e63c"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --with-root-prefix=/usr --enable-elf-shlibs --disable-libuuid --disable-libblkid --disable-fsck --disable-uuidd;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install
+'''

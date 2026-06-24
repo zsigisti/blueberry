@@ -1,0 +1,28 @@
+[package]
+name     = "libx11"
+version  = "1.8.10"
+release  = 1
+summary  = "Core X11 protocol client library"
+homepage = "https://gitlab.freedesktop.org/xorg/lib/libx11"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["libxcb", "glibc"]
+makedepends = ["xorgproto", "xtrans", "xorg-util-macros", "pkgconf"]
+provides    = ["libX11.so", "libX11-xcb.so"]
+
+[[source]]
+url    = "https://www.x.org/releases/individual/lib/libX11-1.8.10.tar.xz"
+sha256 = "2b3b3dad9347db41dca56beb7db5878f283bde1142f04d9f8e478af435dfdc53"
+
+[steps]
+build = '''
+cd "libX11-$version";
+./configure --prefix=/usr --sysconfdir=/etc --disable-static --enable-xcb --disable-specs;
+make
+'''
+package = '''
+cd "libX11-$version";
+make DESTDIR="$pkgdir" install;
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

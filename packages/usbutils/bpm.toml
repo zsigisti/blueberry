@@ -1,0 +1,26 @@
+[package]
+name     = "usbutils"
+version  = "018"
+release  = 2
+summary  = "USB device listing utility (lsusb)"
+homepage = "https://github.com/gregkh/usbutils"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libusb", "eudev"]
+makedepends = ["meson", "ninja", "pkgconf"]
+
+[[source]]
+url    = "https://mirrors.kernel.org/pub/linux/utils/usb/usbutils/usbutils-018.tar.xz"
+sha256 = "83f68b59b58547589c00266e82671864627593ab4362d8c807f50eea923cad93"
+
+[steps]
+build = '''
+cd "$name-$version";
+meson setup build --prefix=/usr --buildtype=release;
+meson compile -C build
+'''
+package = '''
+cd "$name-$version";
+meson install -C build --destdir="$pkgdir"
+'''

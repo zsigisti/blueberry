@@ -1,0 +1,28 @@
+[package]
+name     = "libxrandr"
+version  = "1.5.4"
+release  = 1
+summary  = "X Resize and Rotate extension library"
+homepage = "https://gitlab.freedesktop.org/xorg/lib"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["libxext", "libxrender"]
+makedepends = ["xorg-util-macros", "xorgproto", "pkgconf"]
+provides    = ["libXrandr.so"]
+
+[[source]]
+url    = "https://www.x.org/releases/individual/lib/libXrandr-1.5.4.tar.xz"
+sha256 = "1ad5b065375f4a85915aa60611cc6407c060492a214d7f9daf214be752c3b4d3"
+
+[steps]
+build = '''
+cd "libXrandr-$version";
+./configure --prefix=/usr --sysconfdir=/etc --disable-static;
+make
+'''
+package = '''
+cd "libXrandr-$version";
+make DESTDIR="$pkgdir" install;
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

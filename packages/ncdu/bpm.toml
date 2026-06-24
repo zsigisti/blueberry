@@ -1,0 +1,25 @@
+[package]
+name     = "ncdu"
+version  = "1.21"
+release  = 1
+summary  = "Disk usage analyzer with an ncurses interface"
+homepage = "https://dev.yorhel.nl/ncdu"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "ncurses"]
+
+[[source]]
+url    = "https://dev.yorhel.nl/download/ncdu-1.21.tar.gz"
+sha256 = "a894d3a9b46bce578a6039bef48f54533ec402fb589b0769bfbb1d1edf9601a6"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --with-ncursesw;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install
+'''

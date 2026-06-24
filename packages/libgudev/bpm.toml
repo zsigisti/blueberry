@@ -1,0 +1,25 @@
+[package]
+name     = "libgudev"
+version  = "238"
+release  = 1
+summary  = "GObject bindings for libudev (libwacom)"
+homepage = "https://gitlab.gnome.org/GNOME/libgudev"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "glib2", "systemd-libs"]
+makedepends = ["meson", "ninja", "pkgconf", "glib2", "glib2-devel"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.gnome.org/sources/libgudev/238/libgudev-238.tar.xz"
+sha256 = "61266ab1afc9d73dbc60a8b2af73e99d2fdff47d99544d085760e4fa667b5dd1"
+
+[steps]
+build = '''
+meson setup "libgudev-$version" build --prefix=/usr --libdir=/usr/lib --buildtype=release -Dtests=disabled -Dvapi=disabled -Dintrospection=disabled;
+ninja -C build
+'''
+package = '''
+DESTDIR="$pkgdir" ninja -C build install
+'''

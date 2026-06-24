@@ -1,0 +1,30 @@
+[package]
+name     = "linux"
+version  = "7.0"
+release  = 3
+summary  = "The Blueberry Linux kernel (monolithic, no modules)"
+homepage = "https://www.kernel.org/"
+license  = ["GPL-2.0-only"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["bc", "flex", "bison", "openssl", "perl", "cpio", "xz", "pahole"]
+
+[[source]]
+url    = "https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.0.tar.xz"
+sha256 = "bb7f6d80b387c757b7d14bb93028fcb90f793c5c0d367736ee815a100b3891f0"
+
+[steps]
+build = '''
+cd "linux-$version";
+cp "$startdir/../../src/kernel/config" .config;
+make olddefconfig;
+make -j"$(nproc)" bzImage
+'''
+package = '''
+cd "linux-$version";
+install -Dm644 arch/x86/boot/bzImage "$pkgdir/boot/vmlinuz";
+install -Dm644 arch/x86/boot/bzImage "$pkgdir/boot/vmlinuz-$version-blueberry";
+install -Dm644 System.map "$pkgdir/boot/System.map-$version-blueberry";
+install -Dm755 "$startdir/blueberry-grub-mkconfig" "$pkgdir/usr/bin/blueberry-grub-mkconfig"
+'''

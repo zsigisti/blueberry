@@ -1,0 +1,28 @@
+[package]
+name     = "libxrender"
+version  = "0.9.12"
+release  = 1
+summary  = "X Rendering Extension client library"
+homepage = "https://gitlab.freedesktop.org/xorg/lib"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["libx11"]
+makedepends = ["xorg-util-macros", "xorgproto", "pkgconf"]
+provides    = ["libXrender.so"]
+
+[[source]]
+url    = "https://www.x.org/releases/individual/lib/libXrender-0.9.12.tar.xz"
+sha256 = "b832128da48b39c8d608224481743403ad1691bf4e554e4be9c174df171d1b97"
+
+[steps]
+build = '''
+cd "libXrender-$version";
+./configure --prefix=/usr --sysconfdir=/etc --disable-static;
+make
+'''
+package = '''
+cd "libXrender-$version";
+make DESTDIR="$pkgdir" install;
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

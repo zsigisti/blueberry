@@ -1,0 +1,26 @@
+[package]
+name     = "gptfdisk"
+version  = "1.0.10"
+release  = 2
+summary  = "GPT partition table manipulator (sgdisk, gdisk)"
+homepage = "https://www.rodsbooks.com/gdisk/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "gcc-libs", "popt", "util-linux"]
+
+[[source]]
+url    = "https://downloads.sourceforge.net/gptfdisk/gptfdisk-1.0.10.tar.gz"
+sha256 = "2abed61bc6d2b9ec498973c0440b8b804b7a72d7144069b5a9209b2ad693a282"
+
+[steps]
+build = '''
+cd "$name-$version";
+make sgdisk gdisk fixparts
+'''
+package = '''
+cd "$name-$version";
+install -Dm755 sgdisk "$pkgdir/usr/bin/sgdisk";
+install -Dm755 gdisk "$pkgdir/usr/bin/gdisk";
+install -Dm755 fixparts "$pkgdir/usr/bin/fixparts"
+'''

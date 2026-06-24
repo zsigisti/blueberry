@@ -1,0 +1,25 @@
+[package]
+name     = "kconfigwidgets"
+version  = "6.27.0"
+release  = 1
+summary  = "KDE: widgets for configuration dialogs"
+homepage = "https://community.kde.org/Frameworks"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["qt6-base", "kauth", "kcodecs", "kconfig", "kcolorscheme", "kguiaddons", "ki18n", "kwidgetsaddons", "kcoreaddons"]
+makedepends = ["qt6-tools", "qt6-declarative", "extra-cmake-modules", "cmake", "ninja", "python", "qt6-base"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/frameworks/6.27/kconfigwidgets-6.27.0.tar.xz"
+sha256 = "404ed0606dfb13cc44c36deaf5f880eeec75018ae878125dabf83f32efeb0a7f"
+
+[steps]
+build = '''
+cmake -S "kconfigwidgets-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D KDE_INSTALL_LIBDIR=lib -D KDE_INSTALL_USE_QT_SYS_PATHS=ON -D BUILD_TESTING=OFF -D BUILD_QCH=OFF -D BUILD_PYTHON_BINDINGS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

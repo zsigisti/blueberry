@@ -1,0 +1,25 @@
+[package]
+name     = "baloo-widgets"
+version  = "26.04.2"
+release  = 1
+summary  = "KDE: widgets for Baloo file metadata"
+homepage = "https://kde.org/plasma-desktop/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["baloo", "kconfig", "kcoreaddons", "kfilemetadata", "ki18n", "kio", "kservice", "kwidgetsaddons", "qt6-base"]
+makedepends = ["extra-cmake-modules", "cmake", "ninja", "python", "qt6-base", "qt6-declarative", "qt6-tools"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/release-service/26.04.2/src/baloo-widgets-26.04.2.tar.xz"
+sha256 = "7daf3e6821b9988c171a316cb547591fba2caca78818c2da1d409603ea93c00a"
+
+[steps]
+build = '''
+cmake -S "baloo-widgets-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D KDE_INSTALL_LIBDIR=lib -D KDE_INSTALL_LIBEXECDIR=lib -D KDE_INSTALL_USE_QT_SYS_PATHS=ON -D BUILD_TESTING=OFF -D BUILD_QCH=OFF -D BUILD_PYTHON_BINDINGS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

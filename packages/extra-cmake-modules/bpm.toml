@@ -1,0 +1,25 @@
+[package]
+name     = "extra-cmake-modules"
+version  = "6.27.0"
+release  = 1
+summary  = "Extra CMake modules and macros — the shared build-system root for all KDE Frameworks 6"
+homepage = "https://community.kde.org/Frameworks"
+license  = ["BSD-3-Clause"]
+arch     = ["any"]
+
+depends     = ["cmake"]
+makedepends = ["qt6-tools", "qt6-declarative", "cmake", "ninja", "python"]
+
+[[source]]
+url    = "https://download.kde.org/stable/frameworks/6.27/extra-cmake-modules-6.27.0.tar.xz"
+sha256 = "f3b5af578017a6a0f127fb1c31609db2e4f016e99b900d5a11f6ffb6c55006a3"
+
+[steps]
+build = '''
+cmake -S "extra-cmake-modules-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D BUILD_TESTING=OFF -D BUILD_HTML_DOCS=OFF -D BUILD_MAN_DOCS=OFF -D BUILD_QTHELP_DOCS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build;
+install -Dm644 "extra-cmake-modules-$version/LICENSES/BSD-3-Clause.txt" "$pkgdir/usr/share/licenses/$name/LICENSE" 2> /dev/null || true
+'''

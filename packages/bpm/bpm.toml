@@ -1,0 +1,26 @@
+[package]
+name     = "bpm"
+version  = "1.7.1"
+release  = 1
+summary  = "Blueberry Package Manager — streaming installs, SHA-256 verified, pre/post-install hooks (Rust)"
+homepage = "https://github.com/zsigisti/blueberry"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "gcc-libs"]
+makedepends = ["rust"]
+options     = ["!lto"]
+
+[steps]
+build = '''
+rm -rf bpmsrc;
+cp -r "$startdir/../../src/bpm-rs" bpmsrc;
+cd bpmsrc;
+export CARGO_HOME="$srcdir/cargo";
+cargo build --release --locked
+'''
+package = '''
+install -Dm755 "$srcdir/bpmsrc/target/release/bpm" "$pkgdir/usr/bin/bpm";
+install -Dm644 "$startdir/../../etc/bpm/repos.conf" "$pkgdir/usr/share/bpm/repos.conf";
+install -Dm644 "$startdir/../../etc/bpm/provided" "$pkgdir/usr/share/bpm/provided"
+'''

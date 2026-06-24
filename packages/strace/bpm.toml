@@ -1,0 +1,26 @@
+[package]
+name     = "strace"
+version  = "6.13"
+release  = 2
+summary  = "A diagnostic, debugging and instructional userspace tracer"
+homepage = "https://strace.io/"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "elfutils"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://github.com/strace/strace/releases/download/v6.13/strace-6.13.tar.xz"
+sha256 = "e209daf0ee038ca5adcc4c277e9273b4d51f46a2ff86da575d36742ac3508a17"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --enable-mpers=check --enable-bundled=yes --disable-gcc-Werror;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install
+'''

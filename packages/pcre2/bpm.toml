@@ -1,0 +1,26 @@
+[package]
+name     = "pcre2"
+version  = "10.44"
+release  = 1
+summary  = "Perl Compatible Regular Expressions v2"
+homepage = "https://github.com/PCRE2Project/pcre2"
+license  = ["BSD-3-Clause"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "zlib", "bzip2"]
+provides    = ["libpcre2-8.so", "libpcre2-16.so", "libpcre2-32.so"]
+
+[[source]]
+url    = "https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.44/pcre2-10.44.tar.bz2"
+sha256 = "d34f02e113cf7193a1ebf2770d3ac527088d485d4e047ed10e5d217c6ef5de96"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --enable-jit --enable-pcre2-16 --enable-pcre2-32 --enable-pcre2grep-libz --enable-pcre2grep-libbz2 --disable-static;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install
+'''

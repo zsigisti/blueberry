@@ -1,0 +1,29 @@
+[package]
+name     = "cairo"
+version  = "1.18.4"
+release  = 1
+summary  = "2D graphics library with hardware acceleration"
+homepage = "https://www.freedesktop.org/"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["fontconfig", "freetype2", "glib2", "libpng", "pixman", "libx11", "libxcb", "libxext", "libxrender", "lzo", "zlib"]
+makedepends = ["meson", "ninja", "pkgconf"]
+options     = ["!lto"]
+
+[[source]]
+url    = "cairo-1.18.4.tar.xz::https://cairographics.org/releases/cairo-1.18.4.tar.xz"
+sha256 = "445ed8208a6e4823de1226a74ca319d3600e83f6369f99b14265006599c32ccb"
+
+[steps]
+build = '''
+function arch-meson () 
+{ 
+    meson setup "$@"
+};
+meson setup cairo-1.18.4 build --prefix=/usr --buildtype=release -Dwerror=false -Dtests=disabled -Dxlib=enabled -Dxcb=enabled;
+meson compile -C build
+'''
+package = '''
+meson install -C build --destdir "$pkgdir"
+'''

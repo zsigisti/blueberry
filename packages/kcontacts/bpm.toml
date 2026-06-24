@@ -1,0 +1,25 @@
+[package]
+name     = "kcontacts"
+version  = "6.27.0"
+release  = 1
+summary  = "KDE: address book data model (vCard)"
+homepage = "https://community.kde.org/Frameworks"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["qt6-base", "kcodecs", "kconfig", "kcoreaddons", "ki18n"]
+makedepends = ["qt6-tools", "qt6-declarative", "extra-cmake-modules", "cmake", "ninja", "python", "qt6-base"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/frameworks/6.27/kcontacts-6.27.0.tar.xz"
+sha256 = "dd8d6dd045b0fd71c7ce3fc18bb15b77ec8316e57f4d83ddae67f3a62b796efb"
+
+[steps]
+build = '''
+cmake -S "kcontacts-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D KDE_INSTALL_LIBDIR=lib -D KDE_INSTALL_USE_QT_SYS_PATHS=ON -D BUILD_TESTING=OFF -D BUILD_QCH=OFF -D BUILD_PYTHON_BINDINGS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

@@ -1,0 +1,25 @@
+[package]
+name     = "libkscreen"
+version  = "6.7.0"
+release  = 1
+summary  = "KDE: screen management library"
+homepage = "https://kde.org/plasma-desktop/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["libxcb", "qt6-base", "qt6-declarative", "wayland", "kconfig", "kwayland"]
+makedepends = ["kdoctools", "extra-cmake-modules", "cmake", "ninja", "python", "qt6-base", "qt6-declarative", "qt6-tools", "wayland-protocols", "plasma-wayland-protocols", "qt6-wayland"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/plasma/6.7.0/libkscreen-6.7.0.tar.xz"
+sha256 = "6efba58057a2635da6f1855ba6b08e57e636c976421ba5e3f5f667e6a57b0ce1"
+
+[steps]
+build = '''
+cmake -S "libkscreen-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D KDE_INSTALL_LIBDIR=lib -D KDE_INSTALL_LIBEXECDIR=lib -D KDE_INSTALL_USE_QT_SYS_PATHS=ON -D BUILD_TESTING=OFF -D BUILD_QCH=OFF -D BUILD_PYTHON_BINDINGS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

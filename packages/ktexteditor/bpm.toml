@@ -1,0 +1,25 @@
+[package]
+name     = "ktexteditor"
+version  = "6.27.0"
+release  = 1
+summary  = "KDE: advanced text editor component (Kate engine)"
+homepage = "https://community.kde.org/Frameworks"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["qt6-base", "qt6-declarative", "karchive", "kauth", "kcodecs", "kcompletion", "kconfig", "kconfigwidgets", "kcoreaddons", "kguiaddons", "ki18n", "kio", "kparts", "ktextwidgets", "kwidgetsaddons", "sonnet", "syntax-highlighting", "editorconfig-core-c"]
+makedepends = ["qt6-tools", "qt6-declarative", "extra-cmake-modules", "cmake", "ninja", "python", "qt6-base", "qt6-declarative", "editorconfig-core-c"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/frameworks/6.27/ktexteditor-6.27.0.tar.xz"
+sha256 = "2b737a61737e73650cd0b40d9e246a182dcccc6c8ae8121cfcb9415433ee41ae"
+
+[steps]
+build = '''
+cmake -S "ktexteditor-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D KDE_INSTALL_LIBDIR=lib -D KDE_INSTALL_USE_QT_SYS_PATHS=ON -D BUILD_TESTING=OFF -D BUILD_QCH=OFF -D BUILD_PYTHON_BINDINGS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

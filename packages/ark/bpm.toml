@@ -1,0 +1,25 @@
+[package]
+name     = "ark"
+version  = "26.04.2"
+release  = 1
+summary  = "KDE: the Ark archive manager"
+homepage = "https://kde.org/plasma-desktop/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["breeze-icons", "kcolorscheme", "kcompletion", "kconfig", "kconfigwidgets", "kcoreaddons", "kcrash", "kdbusaddons", "kfilemetadata", "ki18n", "kio", "kjobwidgets", "kparts", "kpty", "kservice", "kwidgetsaddons", "kwindowsystem", "kxmlgui", "libarchive", "libzip", "zlib", "qt6-base"]
+makedepends = ["kdoctools", "extra-cmake-modules", "cmake", "ninja", "python", "qt6-base", "qt6-declarative", "qt6-tools", "libarchive", "libzip"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/release-service/26.04.2/src/ark-26.04.2.tar.xz"
+sha256 = "b81c4055486c99f4f21ff228bf12485bc73e8e6b0064edee1043a11ad5d1e555"
+
+[steps]
+build = '''
+cmake -S "ark-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D KDE_INSTALL_LIBDIR=lib -D KDE_INSTALL_LIBEXECDIR=lib -D KDE_INSTALL_USE_QT_SYS_PATHS=ON -D BUILD_TESTING=OFF -D BUILD_QCH=OFF -D BUILD_PYTHON_BINDINGS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

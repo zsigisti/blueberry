@@ -1,0 +1,27 @@
+[package]
+name     = "brotli"
+version  = "1.1.0"
+release  = 1
+summary  = "Generic-purpose lossless compression algorithm library"
+homepage = "https://github.com/google/brotli"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["cmake"]
+provides    = ["libbrotlicommon.so", "libbrotlidec.so", "libbrotlienc.so"]
+
+[[source]]
+url    = "brotli-1.1.0.tar.gz::https://github.com/google/brotli/archive/refs/tags/v1.1.0.tar.gz"
+sha256 = "e720a6ca29428b803f4ad165371771f5398faba397edf6778837a18599ea13ff"
+
+[steps]
+build = '''
+cd "$name-$version";
+cmake -B build -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON;
+cmake --build build
+'''
+package = '''
+cd "$name-$version";
+DESTDIR="$pkgdir" cmake --install build
+'''

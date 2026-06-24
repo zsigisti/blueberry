@@ -1,0 +1,27 @@
+[package]
+name     = "duktape"
+version  = "2.7.0"
+release  = 1
+summary  = "Embeddable Javascript engine (polkit rules backend)"
+homepage = "https://duktape.org/"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["make"]
+provides    = ["libduktape.so", "libduktaped.so"]
+
+[[source]]
+url    = "https://duktape.org/duktape-2.7.0.tar.xz"
+sha256 = "90f8d2fa8b5567c6899830ddef2c03f3c27960b11aca222fa17aa7ac613c2890"
+
+[steps]
+build = '''
+cd "$name-$version";
+make -f Makefile.sharedlibrary INSTALL_PREFIX=/usr
+'''
+package = '''
+cd "$name-$version";
+make -f Makefile.sharedlibrary INSTALL_PREFIX=/usr DESTDIR="$pkgdir" install;
+install -Dm644 LICENSE.txt "$pkgdir/usr/share/licenses/$name/LICENSE.txt"
+'''

@@ -1,0 +1,27 @@
+[package]
+name     = "dbus"
+version  = "1.16.0"
+release  = 2
+summary  = "Freedesktop.org message bus system (libdbus + dbus-daemon)"
+homepage = "https://www.freedesktop.org/wiki/Software/dbus/"
+license  = ["GPL-2.0-or-later OR AFL-2.1"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "expat"]
+makedepends = ["meson", "ninja", "pkgconf"]
+
+[[source]]
+url    = "https://dbus.freedesktop.org/releases/dbus/dbus-1.16.0.tar.xz"
+sha256 = "9f8ca5eb51cbe09951aec8624b86c292990ae2428b41b856e2bed17ec65c8849"
+
+[steps]
+build = '''
+cd "$name-$version";
+meson setup build --prefix=/usr --buildtype=release -Dsystemd=enabled -Dsystemd_system_unitdir=/usr/lib/systemd/system -Dsystemd_user_unitdir=/usr/lib/systemd/user -Dselinux=disabled -Dapparmor=disabled -Dlibaudit=disabled -Dx11_autolaunch=disabled -Ddoxygen_docs=disabled -Dducktype_docs=disabled -Dxml_docs=disabled -Dmodular_tests=disabled;
+meson compile -C build
+'''
+package = '''
+cd "$name-$version";
+meson install -C build --destdir="$pkgdir";
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

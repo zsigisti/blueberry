@@ -1,0 +1,27 @@
+[package]
+name     = "libthai"
+version  = "0.1.30"
+release  = 1
+summary  = "Thai language support library"
+homepage = "https://www.freedesktop.org/"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["libdatrie", "glibc"]
+makedepends = ["pkgconf", "libdatrie"]
+options     = ["!lto"]
+
+[[source]]
+url    = "libthai-0.1.30.tar.xz::https://github.com/tlwg/libthai/releases/download/v0.1.30/libthai-0.1.30.tar.xz"
+sha256 = "ddba8b53dfe584c3253766030218a88825488a51a7deef041d096e715af64bdd"
+
+[steps]
+build = '''
+cd "libthai-0.1.30";
+./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var;
+make
+'''
+package = '''
+cd "libthai-0.1.30";
+make DESTDIR="$pkgdir" install
+'''

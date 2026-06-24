@@ -1,0 +1,24 @@
+[package]
+name     = "breeze-gtk"
+version  = "6.7.0"
+release  = 1
+summary  = "KDE: Breeze GTK 3 theme for consistent app theming"
+homepage = "https://kde.org/plasma-desktop/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+makedepends = ["kdoctools", "breeze", "sassc", "extra-cmake-modules", "cmake", "ninja", "python", "qt6-base", "qt6-declarative", "qt6-tools", "sassc", "python-cairo"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/plasma/6.7.0/breeze-gtk-6.7.0.tar.xz"
+sha256 = "28599e177b4166a7b332f834a72696cf882cf9f6a9ee192708a27f474c1027c0"
+
+[steps]
+build = '''
+cmake -S "breeze-gtk-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D KDE_INSTALL_LIBDIR=lib -D KDE_INSTALL_LIBEXECDIR=lib -D KDE_INSTALL_USE_QT_SYS_PATHS=ON -D BUILD_TESTING=OFF -D BUILD_QCH=OFF -D BUILD_PYTHON_BINDINGS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

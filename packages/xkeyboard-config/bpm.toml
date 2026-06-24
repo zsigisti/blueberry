@@ -1,0 +1,24 @@
+[package]
+name     = "xkeyboard-config"
+version  = "2.43"
+release  = 1
+summary  = "X keyboard configuration files (keymap data for libxkbcommon)"
+homepage = "https://www.freedesktop.org/wiki/Software/XKeyboardConfig/"
+license  = ["MIT"]
+arch     = ["any"]
+
+makedepends = ["meson", "ninja", "python", "xorg-xkbcomp", "gettext"]
+
+[[source]]
+url    = "https://www.x.org/releases/individual/data/xkeyboard-config/xkeyboard-config-2.43.tar.xz"
+sha256 = "c810f362c82a834ee89da81e34cd1452c99789339f46f6037f4b9e227dd06c01"
+
+[steps]
+build = '''
+arch-meson "$name-$version" build -D compat-rules=true;
+meson compile -C build
+'''
+package = '''
+meson install -C build --destdir "$pkgdir";
+install -Dm644 "$name-$version/COPYING" "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

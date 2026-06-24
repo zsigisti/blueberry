@@ -1,0 +1,26 @@
+[package]
+name     = "wayland"
+version  = "1.25.0"
+release  = 1
+summary  = "A protocol for a compositor to talk to its clients"
+homepage = "https://wayland.freedesktop.org/"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["libffi", "libxml2", "glibc"]
+makedepends = ["meson", "ninja"]
+provides    = ["libwayland-client.so", "libwayland-cursor.so", "libwayland-egl.so", "libwayland-server.so"]
+
+[[source]]
+url    = "https://gitlab.freedesktop.org/wayland/wayland/-/releases/1.25.0/downloads/wayland-1.25.0.tar.xz"
+sha256 = "c065f040afdff3177680600f249727e41a1afc22fccf27222f15f5306faa1f03"
+
+[steps]
+build = '''
+arch-meson "$name-$version" build -D documentation=false -D tests=false;
+meson compile -C build
+'''
+package = '''
+meson install -C build --destdir "$pkgdir";
+install -Dm644 "$name-$version/COPYING" "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

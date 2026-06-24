@@ -1,0 +1,28 @@
+[package]
+name     = "chrony"
+version  = "4.6.1"
+release  = 3
+summary  = "Versatile implementation of the Network Time Protocol (NTP)"
+homepage = "https://chrony-project.org/"
+license  = ["GPL-2.0-only"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libcap", "libedit"]
+
+[[source]]
+url    = "https://chrony-project.org/releases/chrony-4.6.1.tar.gz"
+sha256 = "571ff73fbf0ae3097f0604eca2e00b1d8bb2e91affe1a3494785ff21d6199c5c"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --sysconfdir=/etc --without-readline --without-nettle --without-gnutls --without-nss --without-seccomp --disable-sechash;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install;
+install -dm755 "$pkgdir/etc/sv/chrony";
+printf '#!/bin/sh\nexec /usr/bin/chronyd -d\n' > "$pkgdir/etc/sv/chrony/run";
+chmod 755 "$pkgdir/etc/sv/chrony/run"
+'''

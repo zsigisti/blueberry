@@ -1,0 +1,27 @@
+[package]
+name     = "qt6-svg"
+version  = "6.11.1"
+release  = 1
+summary  = "Qt 6 SVG rendering module (icons, Plasma theming, Calamares branding)"
+homepage = "https://www.qt.io/"
+license  = ["LGPL-3.0-only"]
+arch     = ["x86_64"]
+
+depends     = ["qt6-base", "zlib"]
+makedepends = ["cmake", "ninja", "python", "qt6-base", "perl"]
+provides    = ["libQt6Svg.so", "libQt6SvgWidgets.so"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.qt.io/official_releases/qt/6.11/6.11.1/submodules/qtsvg-everywhere-src-6.11.1.tar.xz"
+sha256 = "7f3cf02f4824bf03c2c5859ea6db173bf1482a1daf24e6cdf7bc78cfa26a8a94"
+
+[steps]
+build = '''
+cmake -S "qtsvg-everywhere-src-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D INSTALL_LIBDIR=/usr/lib -D INSTALL_ARCHDATADIR=/usr/lib/qt6 -D QT_BUILD_EXAMPLES=OFF -D QT_BUILD_TESTS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build;
+install -Dm644 "qtsvg-everywhere-src-$version/LICENSES/LGPL-3.0-only.txt" "$pkgdir/usr/share/licenses/$name/LICENSE" 2> /dev/null || true
+'''

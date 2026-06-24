@@ -1,0 +1,26 @@
+[package]
+name     = "cryptsetup"
+version  = "2.7.5"
+release  = 2
+summary  = "LUKS disk encryption setup tool"
+homepage = "https://gitlab.com/cryptsetup/cryptsetup"
+license  = ["GPL-2.0-or-later", "LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "device-mapper", "json-c", "openssl", "popt", "util-linux", "zlib"]
+provides    = ["libcryptsetup.so"]
+
+[[source]]
+url    = "https://cdn.kernel.org/pub/linux/utils/cryptsetup/v2.7/cryptsetup-2.7.5.tar.xz"
+sha256 = "d2be4395b8f503b0ebf4b2d81db90c35a97050a358ee21fe62a0dfb66e5d5522"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --sbindir=/usr/bin --disable-static --disable-asciidoc --disable-ssh-token --disable-external-tokens --disable-blkid --with-crypto_backend=openssl;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install
+'''

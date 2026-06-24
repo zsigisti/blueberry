@@ -1,0 +1,27 @@
+[package]
+name     = "python"
+version  = "3.13.3"
+release  = 3
+summary  = "CPython — the Python programming language interpreter"
+homepage = "https://www.python.org/"
+license  = ["Python-2.0.1"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "zlib", "openssl", "bzip2", "libffi", "xz", "ncurses", "readline", "gdbm", "mpdecimal", "sqlite", "expat", "util-linux"]
+provides    = ["python3"]
+
+[[source]]
+url    = "https://www.python.org/ftp/python/3.13.3/Python-3.13.3.tar.xz"
+sha256 = "40f868bcbdeb8149a3149580bb9bfd407b3321cd48f0be631af955ac92c0e041"
+
+[steps]
+build = '''
+cd "Python-$version";
+./configure --prefix=/usr --enable-shared --with-system-expat --with-ensurepip=install --without-static-libpython;
+make
+'''
+package = '''
+cd "Python-$version";
+make DESTDIR="$pkgdir" install;
+ln -sf python3 "$pkgdir/usr/bin/python"
+'''

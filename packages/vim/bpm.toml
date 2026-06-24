@@ -1,0 +1,32 @@
+[package]
+name     = "vim"
+version  = "9.1.0863"
+release  = 1
+summary  = "Vi Improved, a highly configurable text editor"
+homepage = "https://www.vim.org/"
+license  = ["Vim"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "ncurses", "acl", "libgcrypt"]
+makedepends = ["gpm"]
+
+[[source]]
+url    = "vim-9.1.0863.tar.gz::https://github.com/vim/vim/archive/refs/tags/v9.1.0863.tar.gz"
+sha256 = "07a0f185b9327b0e9cc383dd3706cec469fd5376a0b2eeb733c17b353aefa20a"
+
+[steps]
+build = '''
+cd "$name-$version/src";
+# vim's ./configure wrapper forwards --srcdir="${srcdir:-.}"; bpmbuild exports
+# srcdir=<build>/src which misdirects it ("cannot find sources (vim.h)"). Unset
+# it so vim uses "." (the src dir we just cd'd into).
+unset srcdir;
+./configure --prefix=/usr --localstatedir=/var/lib/vim --with-features=huge --enable-multibyte --enable-gui=no --without-x --disable-netbeans --disable-gpm --enable-terminal;
+make
+'''
+package = '''
+cd "$name-$version/src";
+make DESTDIR="$pkgdir" install;
+rm -rf "$pkgdir/usr/share/applications" "$pkgdir/usr/share/icons";
+install -Dm644 "../README.txt" "$pkgdir/usr/share/licenses/$name/README.txt"
+'''

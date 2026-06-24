@@ -1,0 +1,25 @@
+[package]
+name     = "pciutils"
+version  = "3.13.0"
+release  = 2
+summary  = "PCI bus configuration space access library and tools (lspci, setpci)"
+homepage = "https://mj.ucw.cz/sw/pciutils/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "zlib", "kmod"]
+provides    = ["libpci.so"]
+
+[[source]]
+url    = "https://mirrors.kernel.org/pub/software/utils/pciutils/pciutils-3.13.0.tar.xz"
+sha256 = "77f11f78298502634d1af50308f15a5788629f6cf45cba376f5009aea4cb4926"
+
+[steps]
+build = '''
+cd "$name-$version";
+make PREFIX=/usr SHARED=yes ZLIB=yes HWDB=no LIBKMOD=yes
+'''
+package = '''
+cd "$name-$version";
+make PREFIX=/usr DESTDIR="$pkgdir" SHARED=yes ZLIB=yes HWDB=no LIBKMOD=yes install install-lib
+'''

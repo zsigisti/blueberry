@@ -1,0 +1,28 @@
+[package]
+name     = "harfbuzz"
+version  = "10.1.0"
+release  = 1
+summary  = "OpenType text shaping engine"
+homepage = "https://github.com/harfbuzz/harfbuzz"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["glib2", "freetype2", "glibc"]
+makedepends = ["meson", "ninja", "python", "glib2-devel"]
+provides    = ["libharfbuzz.so", "libharfbuzz-subset.so"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://github.com/harfbuzz/harfbuzz/releases/download/10.1.0/harfbuzz-10.1.0.tar.xz"
+sha256 = "6ce3520f2d089a33cef0fc48321334b8e0b72141f6a763719aaaecd2779ecb82"
+
+[steps]
+build = '''
+export CXXFLAGS="${CXXFLAGS//-fexceptions/} -fno-exceptions";
+arch-meson "$name-$version" build -D b_lto=false -D glib=enabled -D freetype=enabled -D cairo=disabled -D icu=disabled -D graphite2=disabled -D chafa=disabled -D tests=disabled -D docs=disabled -D introspection=disabled;
+meson compile -C build
+'''
+package = '''
+meson install -C build --destdir "$pkgdir";
+install -Dm644 "$name-$version/COPYING" "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

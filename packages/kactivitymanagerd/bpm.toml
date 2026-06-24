@@ -1,0 +1,25 @@
+[package]
+name     = "kactivitymanagerd"
+version  = "6.7.0"
+release  = 1
+summary  = "KDE: activities management daemon"
+homepage = "https://kde.org/plasma-desktop/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["kconfig", "kcoreaddons", "kcrash", "kglobalaccel", "ki18n", "kio", "kservice", "kxmlgui", "qt6-base"]
+makedepends = ["kdoctools", "boost", "extra-cmake-modules", "cmake", "ninja", "python", "qt6-base", "qt6-declarative", "qt6-tools"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/plasma/6.7.0/kactivitymanagerd-6.7.0.tar.xz"
+sha256 = "ed065c2d76c85cf8e10dd72ff8f89e72136fc4c85561a6c985eb97dc518446a1"
+
+[steps]
+build = '''
+cmake -S "kactivitymanagerd-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D KDE_INSTALL_LIBDIR=lib -D KDE_INSTALL_LIBEXECDIR=lib -D KDE_INSTALL_USE_QT_SYS_PATHS=ON -D BUILD_TESTING=OFF -D BUILD_QCH=OFF -D BUILD_PYTHON_BINDINGS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

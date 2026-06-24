@@ -1,0 +1,29 @@
+[package]
+name     = "gtk3"
+version  = "3.24.52"
+release  = 1
+summary  = "GTK 3 GUI toolkit (runtime for Firefox, Brave, Spotify, GTK apps)"
+homepage = "https://www.freedesktop.org/"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["cairo", "pango", "gdk-pixbuf2", "at-spi2-core", "glib2", "libepoxy", "fribidi", "harfbuzz", "libxcursor", "libxcomposite", "libxdamage", "libxfixes", "libxinerama", "libxrandr", "libxi", "libxext", "libxkbcommon", "wayland", "mesa", "libcups", "shared-mime-info", "graphene", "fontconfig", "adwaita-icon-theme"]
+makedepends = ["glib2-devel", "meson", "ninja", "pkgconf", "wayland-protocols", "gtk-update-icon-cache", "hicolor-icon-theme"]
+options     = ["!lto"]
+
+[[source]]
+url    = "gtk-3.24.52.tar.xz::https://download.gnome.org/sources/gtk/3.24/gtk-3.24.52.tar.xz"
+sha256 = "80931fa472a77b9a164f6740e3c0b444fac6770054632d35a7ff9d679e5e7b9f"
+
+[steps]
+build = '''
+function arch-meson () 
+{ 
+    meson setup "$@"
+};
+meson setup gtk-3.24.52 build --prefix=/usr --buildtype=release -Dwerror=false -Dintrospection=false -Dman=false -Dtests=false -Ddemos=false -Dexamples=false -Dwayland_backend=true -Dx11_backend=true -Dcolord=no -Dcloudproviders=false;
+meson compile -C build
+'''
+package = '''
+meson install -C build --destdir "$pkgdir"
+'''

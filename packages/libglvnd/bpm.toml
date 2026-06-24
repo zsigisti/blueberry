@@ -1,0 +1,26 @@
+[package]
+name     = "libglvnd"
+version  = "1.7.0"
+release  = 1
+summary  = "The GL Vendor-Neutral Dispatch library (EGL/GLES dispatch for Wayland)"
+homepage = "https://gitlab.freedesktop.org/glvnd/libglvnd"
+license  = ["custom"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libx11", "libxext"]
+makedepends = ["meson", "ninja", "python", "libx11", "libxext"]
+provides    = ["libGL.so", "libGLX.so", "libGLdispatch.so", "libEGL.so", "libGLESv1_CM.so", "libGLESv2.so", "libOpenGL.so"]
+
+[[source]]
+url    = "https://gitlab.freedesktop.org/glvnd/libglvnd/-/archive/v1.7.0/libglvnd-v1.7.0.tar.gz"
+sha256 = "2b6e15b06aafb4c0b6e2348124808cbd9b291c647299eaaba2e3202f51ff2f3d"
+
+[steps]
+build = '''
+arch-meson "libglvnd-v$version" build -D x11=enabled -D glx=enabled -D egl=true -D gles1=true -D gles2=true;
+meson compile -C build
+'''
+package = '''
+meson install -C build --destdir "$pkgdir";
+install -Dm644 "libglvnd-v$version/README.md" "$pkgdir/usr/share/licenses/$name/README.md"
+'''

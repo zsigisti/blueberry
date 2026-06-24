@@ -1,0 +1,29 @@
+[package]
+name     = "libxml2"
+version  = "2.15.3"
+release  = 1
+summary  = "XML C parser and toolkit"
+homepage = "https://gitlab.gnome.org/GNOME/libxml2/-/wikis/home"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["zlib", "glibc"]
+makedepends = ["python"]
+provides    = ["libxml2.so"]
+options     = ["!emptydirs"]
+
+[[source]]
+url    = "https://download.gnome.org/sources/libxml2/2.15/libxml2-2.15.3.tar.xz"
+sha256 = "78262a6e7ac170d6528ebfe2efccdf220191a5af6a6cd61ea4a9a9a5042c7a07"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --with-threads --with-history --with-icu=no --without-python --without-lzma --disable-static;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install;
+install -Dm644 Copyright "$pkgdir/usr/share/licenses/$name/Copyright"
+'''

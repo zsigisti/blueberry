@@ -1,0 +1,29 @@
+[package]
+name     = "lib32-libxfixes"
+version  = "6.0.1"
+release  = 1
+summary  = "X11 fixes extension library (32-bit)"
+homepage = "https://www.freedesktop.org/"
+license  = ["custom"]
+arch     = ["x86_64"]
+
+depends     = ["lib32-glibc", "lib32-libx11"]
+makedepends = ["lib32-glibc", "lib32-gcc-libs", "xorgproto", "xorg-util-macros", "pkgconf", "lib32-libx11"]
+options     = ["!lto", "!strip"]
+
+[[source]]
+url    = "libXfixes-6.0.1.tar.xz::https://www.x.org/releases/individual/lib/libXfixes-6.0.1.tar.xz"
+sha256 = "b695f93cd2499421ab02d22744458e650ccc88c1d4c8130d60200213abc02d58"
+
+[steps]
+build = '''
+export CC="gcc -m32" CXX="g++ -m32" PKG_CONFIG_PATH=/usr/lib32/pkgconfig;
+cd "libXfixes-6.0.1";
+./configure --prefix=/usr --libdir=/usr/lib32 --host=i686-pc-linux-gnu --disable-static;
+make
+'''
+package = '''
+cd "libXfixes-6.0.1";
+make DESTDIR="$pkgdir" install;
+rm -rf "$pkgdir/usr/include" "$pkgdir/usr/share" "$pkgdir/usr/bin"
+'''

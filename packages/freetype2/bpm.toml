@@ -1,0 +1,26 @@
+[package]
+name     = "freetype2"
+version  = "2.13.3"
+release  = 1
+summary  = "Font rasterization library"
+homepage = "https://www.freetype.org/"
+license  = ["custom"]
+arch     = ["x86_64"]
+
+depends     = ["zlib", "bzip2", "libpng", "brotli", "glibc"]
+makedepends = ["meson", "ninja"]
+provides    = ["libfreetype.so"]
+
+[[source]]
+url    = "https://downloads.sourceforge.net/freetype/freetype-2.13.3.tar.xz"
+sha256 = "0550350666d427c74daeb85d5ac7bb353acba5f76956395995311a9c6f063289"
+
+[steps]
+build = '''
+arch-meson "freetype-$version" build -D harfbuzz=disabled -D png=enabled -D bzip2=enabled -D brotli=enabled -D zlib=enabled;
+meson compile -C build
+'''
+package = '''
+meson install -C build --destdir "$pkgdir";
+install -Dm644 "freetype-$version/LICENSE.TXT" "$pkgdir/usr/share/licenses/$name/LICENSE.TXT"
+'''

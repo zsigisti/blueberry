@@ -1,0 +1,25 @@
+[package]
+name     = "plasma-activities-stats"
+version  = "6.7.0"
+release  = 1
+summary  = "KDE: usage statistics for Plasma activities"
+homepage = "https://kde.org/plasma-desktop/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["kconfig", "plasma-activities", "qt6-base"]
+makedepends = ["kdoctools", "extra-cmake-modules", "cmake", "ninja", "python", "qt6-base", "qt6-declarative", "qt6-tools"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/plasma/6.7.0/plasma-activities-stats-6.7.0.tar.xz"
+sha256 = "2b4aaed9c4685bc2c056a0cba84d427ef2f1eb7a4f841d5877d0347b5b11cc13"
+
+[steps]
+build = '''
+cmake -S "plasma-activities-stats-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D KDE_INSTALL_LIBDIR=lib -D KDE_INSTALL_LIBEXECDIR=lib -D KDE_INSTALL_USE_QT_SYS_PATHS=ON -D BUILD_TESTING=OFF -D BUILD_QCH=OFF -D BUILD_PYTHON_BINDINGS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

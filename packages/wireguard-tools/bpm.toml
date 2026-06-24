@@ -1,0 +1,23 @@
+[package]
+name     = "wireguard-tools"
+version  = "1.0.20210914"
+release  = 1
+summary  = "Userspace tools (wg, wg-quick) for the in-kernel WireGuard VPN"
+homepage = "https://www.wireguard.com/"
+license  = ["GPL-2.0-only"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libmnl", "bash"]
+
+[[source]]
+url    = "https://git.zx2c4.com/wireguard-tools/snapshot/wireguard-tools-1.0.20210914.tar.xz"
+sha256 = "942ed32d1d6631932c82ff86c91ae8428d4c90bfec231a14ebdf6c29f068e60b"
+
+[steps]
+build = '''
+make -C "$name-$version/src"
+'''
+package = '''
+make -C "$name-$version/src" WITH_BASHCOMPLETION=yes WITH_WGQUICK=yes WITH_SYSTEMDUNITS=no DESTDIR="$pkgdir" PREFIX=/usr install;
+install -Dm644 "$name-$version/COPYING" "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

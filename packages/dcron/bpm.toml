@@ -1,0 +1,26 @@
+[package]
+name     = "dcron"
+version  = "4.5"
+release  = 1
+summary  = "Dillon cron daemon"
+homepage = "https://www.jimpryor.net/linux/dcron.html"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+provides    = ["cron"]
+
+[[source]]
+url    = "https://www.jimpryor.net/linux/releases/dcron-4.5.tar.gz"
+sha256 = "9e50edb6f5bd8153b16bad05087d985e5153ce45cc01ae77e7f842213fb4a824"
+
+[steps]
+build = '''
+cd "$name-$version";
+make CC="${CC:-gcc}" CFLAGS="$CFLAGS -std=gnu17"
+'''
+package = '''
+cd "$name-$version";
+install -Dm755 crond "$pkgdir/usr/bin/crond";
+install -Dm4755 crontab "$pkgdir/usr/bin/crontab"
+'''

@@ -1,0 +1,29 @@
+[package]
+name     = "lib32-libxcb"
+version  = "1.17.0"
+release  = 1
+summary  = "X11 client-side C binding (XCB) (32-bit)"
+homepage = "https://www.freedesktop.org/"
+license  = ["custom"]
+arch     = ["x86_64"]
+
+depends     = ["lib32-glibc", "lib32-libxau", "lib32-libxdmcp"]
+makedepends = ["lib32-glibc", "lib32-gcc-libs", "xorgproto", "xorg-util-macros", "pkgconf", "lib32-libxau", "lib32-libxdmcp", "libxcb", "python"]
+options     = ["!lto", "!strip"]
+
+[[source]]
+url    = "libxcb-1.17.0.tar.xz::https://xorg.freedesktop.org/archive/individual/lib/libxcb-1.17.0.tar.xz"
+sha256 = "599ebf9996710fea71622e6e184f3a8ad5b43d0e5fa8c4e407123c88a59a6d55"
+
+[steps]
+build = '''
+export CC="gcc -m32" CXX="g++ -m32" PKG_CONFIG_PATH=/usr/lib32/pkgconfig;
+cd "libxcb-1.17.0";
+./configure --prefix=/usr --libdir=/usr/lib32 --host=i686-pc-linux-gnu --disable-static;
+make
+'''
+package = '''
+cd "libxcb-1.17.0";
+make DESTDIR="$pkgdir" install;
+rm -rf "$pkgdir/usr/include" "$pkgdir/usr/share" "$pkgdir/usr/bin"
+'''

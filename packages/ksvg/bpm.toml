@@ -1,0 +1,25 @@
+[package]
+name     = "ksvg"
+version  = "6.27.0"
+release  = 1
+summary  = "KDE: scalable SVG-based theming"
+homepage = "https://community.kde.org/Frameworks"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["qt6-base", "qt6-declarative", "qt6-svg", "karchive", "kconfig", "kcoreaddons", "kguiaddons", "kcolorscheme", "kirigami"]
+makedepends = ["qt6-tools", "qt6-declarative", "extra-cmake-modules", "cmake", "ninja", "python", "qt6-base", "qt6-declarative", "qt6-svg"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/frameworks/6.27/ksvg-6.27.0.tar.xz"
+sha256 = "68d43f014639ae6097012cdd67bdbbefd5425b17d2322d94f55be2b138613e0a"
+
+[steps]
+build = '''
+cmake -S "ksvg-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D KDE_INSTALL_LIBDIR=lib -D KDE_INSTALL_USE_QT_SYS_PATHS=ON -D BUILD_TESTING=OFF -D BUILD_QCH=OFF -D BUILD_PYTHON_BINDINGS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

@@ -1,0 +1,26 @@
+[package]
+name     = "oniguruma"
+version  = "6.9.10"
+release  = 1
+summary  = "Regular expression library supporting many encodings"
+homepage = "https://github.com/kkos/oniguruma"
+license  = ["BSD"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+provides    = ["libonig.so"]
+
+[[source]]
+url    = "https://github.com/kkos/oniguruma/releases/download/v6.9.10/onig-6.9.10.tar.gz"
+sha256 = "2a5cfc5ae259e4e97f86b68dfffc152cdaffe94e2060b770cb827238d769fc05"
+
+[steps]
+build = '''
+cd "onig-$version";
+./configure --prefix=/usr --disable-static;
+make
+'''
+package = '''
+cd "onig-$version";
+make DESTDIR="$pkgdir" install
+'''

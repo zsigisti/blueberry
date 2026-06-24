@@ -1,0 +1,25 @@
+[package]
+name     = "openssh"
+version  = "9.9p2"
+release  = 1
+summary  = "OpenSSH — full SSH server and client suite"
+homepage = "https://www.openssh.com/"
+license  = ["BSD-2-Clause"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "openssl", "zlib"]
+
+[[source]]
+url    = "https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-9.9p2.tar.gz"
+sha256 = "91aadb603e08cc285eddf965e1199d02585fa94d994d6cae5b41e1721e215673"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --sysconfdir=/etc/ssh --with-privsep-path=/var/empty --with-privsep-user=nobody --without-pam --with-ssl-engine --with-zlib;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install
+'''

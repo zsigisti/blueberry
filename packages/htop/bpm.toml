@@ -1,0 +1,26 @@
+[package]
+name     = "htop"
+version  = "3.3.0"
+release  = 1
+summary  = "Interactive process viewer"
+homepage = "https://htop.dev/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "ncurses", "libcap"]
+
+[[source]]
+url    = "https://github.com/htop-dev/htop/releases/download/3.3.0/htop-3.3.0.tar.xz"
+sha256 = "a69acf9b42ff592c4861010fce7d8006805f0d6ef0e8ee647a6ee6e59b743d5c"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --sysconfdir=/etc --enable-unicode --enable-affinity --enable-capabilities --disable-delayacct;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install;
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

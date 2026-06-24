@@ -1,0 +1,28 @@
+[package]
+name     = "pkgconf"
+version  = "2.4.3"
+release  = 1
+summary  = "pkg-config compatible utility to manage compile/link flags"
+homepage = "https://github.com/pkgconf/pkgconf"
+license  = ["ISC"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+provides    = ["pkg-config", "libpkgconf.so"]
+
+[[source]]
+url    = "https://distfiles.ariadne.space/pkgconf/pkgconf-2.4.3.tar.xz"
+sha256 = "51203d99ed573fa7344bf07ca626f10c7cc094e0846ac4aa0023bd0c83c25a41"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --disable-static;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install;
+ln -s pkgconf "$pkgdir/usr/bin/pkg-config";
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

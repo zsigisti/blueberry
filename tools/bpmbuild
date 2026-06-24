@@ -1,0 +1,262 @@
+#!/usr/bin/env python3
+"""bpmbuild — build a Blueberry `.bpm` package from a `bpm.toml` recipe.
+
+EXPERIMENTAL (feature/bpm-pkg-format). Replaces makepkg+PKGBUILD for the native
+package format. See doc/BPM-FORMAT.md.
+
+  bpmbuild <recipe-dir> <out-dir>
+
+A recipe is a directory containing `bpm.toml`. The builder fetches+verifies
+sources, runs the `build` then `package` shell steps (package under fakeroot),
+synthesises the `.BPM` TOML manifest, and emits `name-ver-rel-arch.bpm`
+(zstd-compressed tar with `.BPM` as the first member).
+"""
+import hashlib
+import os
+import shutil
+import subprocess
+import sys
+import tarfile
+import tempfile
+import time
+import tomllib
+import urllib.request
+
+ARCH = os.environ.get("BPM_ARCH", "x86_64")
+SDE = int(os.environ.get("SOURCE_DATE_EPOCH", "1767225600"))
+
+
+def die(msg):
+    print(f"bpmbuild: FATAL: {msg}", file=sys.stderr)
+    sys.exit(1)
+
+
+def log(msg):
+    print(f"\033[1;36m==> {msg}\033[0m")
+
+
+def toml_str(v):
+    """Minimal TOML value serialiser (strings, ints, list-of-strings)."""
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, int):
+        return str(v)
+    if isinstance(v, list):
+        return "[" + ", ".join(toml_str(x) for x in v) + "]"
+    return '"' + str(v).replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def fetch(url, dest):
+    log(f"fetch {url}")
+    # curl handles redirects/TLS uniformly; fall back to urllib if absent.
+    # Retry transient failures (vendor CDNs / GitHub rate-limit large binary
+    # downloads when many packages build in parallel). --retry-all-errors also
+    # retries HTTP 4xx/5xx, not just connection errors.
+    if shutil.which("curl"):
+        subprocess.run(
+            ["curl", "-fL", "--retry", "5", "--retry-delay", "3",
+             "--retry-all-errors", "-o", dest, url],
+            check=True,
+        )
+    else:
+        urllib.request.urlretrieve(url, dest)
+
+
+def sha256_file(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def run_step(script, cwd, env, fakeroot=False):
+    if not script or not script.strip():
+        return
+    argv = ["/bin/sh", "-e", "-c", script]
+    if fakeroot and shutil.which("fakeroot"):
+        argv = ["fakeroot", "--"] + argv
+    subprocess.run(argv, cwd=cwd, env=env, check=True)
+
+
+def main():
+    if len(sys.argv) != 3:
+        die("usage: bpmbuild <recipe-dir> <out-dir>")
+    recipe_dir, out_dir = os.path.abspath(sys.argv[1]), os.path.abspath(sys.argv[2])
+    recipe_path = os.path.join(recipe_dir, "bpm.toml")
+    if not os.path.isfile(recipe_path):
+        die(f"no bpm.toml in {recipe_dir}")
+    with open(recipe_path, "rb") as f:
+        recipe = tomllib.load(f)
+
+    pkg = recipe.get("package") or die("recipe has no [package] table")
+    name = pkg.get("name") or die("package.name missing")
+    version = pkg.get("version") or die("package.version missing")
+    release = int(pkg.get("release", 1))
+    arches = pkg.get("arch", ["x86_64"])
+    if ARCH not in arches and "any" not in arches:
+        die(f"recipe does not target {ARCH} (arch = {arches})")
+    arch_tag = "any" if arches == ["any"] else ARCH
+
+    work = tempfile.mkdtemp(prefix=f"bpmbuild-{name}.")
+    srcdir = os.path.join(work, "src")
+    pkgdir = os.path.join(work, "pkg")
+    os.makedirs(srcdir)
+    os.makedirs(pkgdir)
+    log(f"building {name} {version}-{release} ({arch_tag}) in {work}")
+
+    # ── sources: fetch, verify, auto-extract tarballs ─────────────────────────
+    sources = recipe.get("source", []) or recipe.get("sources", [])
+    for s in sources:
+        raw = s["url"]
+        # `filename::url` (makepkg convention) lets a recipe name a download
+        # whose URL has no usable basename (e.g. a ?query= redirect). An explicit
+        # `name =` field overrides. Otherwise derive from the URL/path basename.
+        if "::" in raw:
+            fn, url = raw.split("::", 1)
+        else:
+            url, fn = raw, raw.split("/")[-1]
+        fn = s.get("name", fn)
+        dest = os.path.join(srcdir, fn)
+        if "://" in url:
+            fetch(url, dest)
+        else:
+            # Local source file shipped beside the recipe (.desktop, .patch,
+            # .service, …) — copy it in instead of trying to curl a bare name.
+            local = os.path.join(recipe_dir, url)
+            if not os.path.isfile(local):
+                die(f"local source '{url}' not found in {recipe_dir}")
+            log(f"local source {fn}")
+            shutil.copy2(local, dest)
+        want = s.get("sha256", "SKIP")
+        if want != "SKIP":
+            got = sha256_file(dest)
+            if got != want:
+                die(f"sha256 mismatch for {fn}\n  want {want}\n  got  {got}")
+            log(f"verified {fn} (sha256 ok)")
+        else:
+            log(f"{fn} (sha256 SKIP)")
+        # Auto-extract archives so build() can cd into them, like makepkg.
+        if fn.endswith((".tar.gz", ".tar.xz", ".tar.bz2", ".tar.zst", ".tgz")):
+            try:
+                with tarfile.open(dest) as t:
+                    t.extractall(srcdir, filter="data")
+            except Exception as e:
+                log(f"note: could not auto-extract {fn} ({e})")
+
+    env = dict(os.environ)
+    env.update(
+        srcdir=srcdir, pkgdir=pkgdir, name=name, version=str(version),
+        release=str(release), arch=arch_tag, SOURCE_DATE_EPOCH=str(SDE),
+        # startdir = the recipe directory (makepkg semantics). Recipes that pull
+        # in-repo files reach them via "$startdir/../../<path>" (e.g. bpm copies
+        # src/bpm-rs, linux copies src/kernel/config). Without it the path
+        # resolves to /../../... and the step fails.
+        startdir=recipe_dir,
+    )
+
+    log("build()")
+    run_step(pkg_step(recipe, "build"), srcdir, env)
+    log("package()")
+    run_step(pkg_step(recipe, "package"), srcdir, env, fakeroot=True)
+
+    # Declarative systemd enablement: `[package] enable = ["foo.service"]` drops
+    # the markers bpm reads (usr/lib/bpm/enable/<unit>) to wire up + start the
+    # unit on install. "if the app wants that" → list it in enable.
+    enable = pkg.get("enable", []) or []
+    if isinstance(enable, str):
+        enable = [enable]
+    if enable:
+        endir = os.path.join(pkgdir, "usr/lib/bpm/enable")
+        os.makedirs(endir, exist_ok=True)
+        for unit in enable:
+            open(os.path.join(endir, unit), "w").close()
+            log(f"will enable systemd unit: {unit}")
+
+    write_bpm(recipe, pkg, name, version, release, arch_tag, pkgdir, out_dir)
+    shutil.rmtree(work, ignore_errors=True)
+
+
+def pkg_step(recipe, key):
+    # Build/package shell steps live in the [steps] table (an explicit table
+    # avoids the TOML collision between a `package` key and the [package] table).
+    return (recipe.get("steps", {}) or {}).get(key, "") or ""
+
+
+def write_bpm(recipe, pkg, name, version, release, arch_tag, pkgdir, out_dir):
+    os.makedirs(out_dir, exist_ok=True)
+    out = os.path.join(out_dir, f"{name}-{version}-{release}-{arch_tag}.bpm")
+
+    # installed size + reproducible payload tar (sorted, fixed mtime/owner).
+    members = []
+    for root, dirs, files in os.walk(pkgdir):
+        dirs.sort()
+        for d in sorted(dirs):
+            members.append(os.path.join(root, d))
+        for fn in sorted(files):
+            members.append(os.path.join(root, fn))
+    installed_size = sum(
+        os.path.getsize(m) for m in members if os.path.isfile(m) and not os.path.islink(m)
+    )
+
+    def reset(ti):
+        ti.mtime = SDE
+        ti.uid = ti.gid = 0
+        ti.uname = ti.gname = "root"
+        return ti
+
+    # payload tar (for the sha) then the final .bpm tar with .BPM first.
+    import io
+    payload = io.BytesIO()
+    with tarfile.open(fileobj=payload, mode="w") as t:
+        for m in members:
+            arc = "./" + os.path.relpath(m, pkgdir)
+            t.add(m, arcname=arc, recursive=False, filter=reset)
+    payload_sha = hashlib.sha256(payload.getvalue()).hexdigest()
+
+    meta = bpm_manifest(recipe, pkg, name, version, release, arch_tag,
+                        installed_size, payload_sha)
+    log(f"writing {out}")
+    raw = os.path.join(out_dir, f".{name}.tar")
+    with tarfile.open(raw, "w") as t:
+        info = tarfile.TarInfo(".BPM")
+        data = meta.encode()
+        info.size = len(data)
+        reset(info)
+        t.addfile(info, io.BytesIO(data))
+        for m in members:
+            arc = "./" + os.path.relpath(m, pkgdir)
+            t.add(m, arcname=arc, recursive=False, filter=reset)
+    # zstd-compress (level 19) to the final .bpm
+    with open(raw, "rb") as fi, open(out, "wb") as fo:
+        subprocess.run(["zstd", "-19", "-q", "-c"], stdin=fi, stdout=fo, check=True)
+    os.remove(raw)
+    log(f"built {out} ({os.path.getsize(out)} bytes, installed {installed_size})")
+
+
+def bpm_manifest(recipe, pkg, name, version, release, arch_tag, size, payload_sha):
+    lines = [
+        "format = 1",
+        f"name = {toml_str(name)}",
+        f"version = {toml_str(str(version))}",
+        f"release = {release}",
+        f"arch = {toml_str(arch_tag)}",
+        f"summary = {toml_str(pkg.get('summary',''))}",
+        f"depends = {toml_str(pkg.get('depends',[]))}",
+        f"provides = {toml_str(pkg.get('provides',[]))}",
+        f"installed_size = {size}",
+        f"build_date = {SDE}",
+        f"payload_sha256 = {toml_str(payload_sha)}",
+    ]
+    scripts = recipe.get("scripts", {})
+    if scripts:
+        lines.append("")
+        lines.append("[scripts]")
+        for k in ("post_install", "post_upgrade", "post_remove"):
+            if scripts.get(k):
+                lines.append(f"{k} = {toml_str(scripts[k])}")
+    return "\n".join(lines) + "\n"
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,25 @@
+[package]
+name     = "layer-shell-qt"
+version  = "6.7.0"
+release  = 1
+summary  = "KDE: Qt bindings for the Wayland layer-shell protocol"
+homepage = "https://kde.org/plasma-desktop/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["qt6-base", "qt6-declarative", "wayland", "libxkbcommon"]
+makedepends = ["kdoctools", "extra-cmake-modules", "cmake", "ninja", "python", "qt6-base", "qt6-declarative", "qt6-tools", "wayland-protocols", "qt6-wayland"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.kde.org/stable/plasma/6.7.0/layer-shell-qt-6.7.0.tar.xz"
+sha256 = "e6f48b6ebe2c3caaa3c2ef6d8470550904d030ad3496bc10a5409875db2daab0"
+
+[steps]
+build = '''
+cmake -S "layer-shell-qt-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D KDE_INSTALL_LIBDIR=lib -D KDE_INSTALL_LIBEXECDIR=lib -D KDE_INSTALL_USE_QT_SYS_PATHS=ON -D BUILD_TESTING=OFF -D BUILD_QCH=OFF -D BUILD_PYTHON_BINDINGS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

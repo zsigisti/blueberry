@@ -1,0 +1,25 @@
+[package]
+name     = "qt6-location"
+version  = "6.11.1"
+release  = 1
+summary  = "Qt 6 mapping and navigation module"
+homepage = "https://www.qt.io/"
+license  = ["LGPL-3.0-only"]
+arch     = ["x86_64"]
+
+depends     = ["qt6-base", "qt6-declarative", "qt6-positioning"]
+makedepends = ["cmake", "ninja", "python", "qt6-base", "qt6-declarative", "perl", "qt6-positioning"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://download.qt.io/official_releases/qt/6.11/6.11.1/submodules/qtlocation-everywhere-src-6.11.1.tar.xz"
+sha256 = "3791ce77299e6f600a593d0fbfa5bd32fbcfc2d16104782b84acc489e382e41b"
+
+[steps]
+build = '''
+cmake -S "qtlocation-everywhere-src-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D INSTALL_LIBDIR=/usr/lib -D INSTALL_ARCHDATADIR=/usr/lib/qt6 -D QT_BUILD_EXAMPLES=OFF -D QT_BUILD_TESTS=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

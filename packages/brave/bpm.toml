@@ -1,0 +1,34 @@
+[package]
+name     = "brave"
+version  = "1.91.175"
+release  = 1
+summary  = "Brave web browser (official binary)"
+homepage = "https://brave.com/"
+license  = ["MPL-2.0"]
+arch     = ["x86_64"]
+
+depends     = ["gtk3", "nss", "alsa-lib", "libcups", "libxcb", "libx11", "libxext", "libxrandr", "libxcomposite", "libxdamage", "libxfixes", "libxkbcommon", "mesa", "pango", "cairo", "dbus", "libpulse"]
+options     = ["!strip", "!debug"]
+
+[[source]]
+url    = "brave-1.91.175.zip::https://github.com/brave/brave-browser/releases/download/v1.91.175/brave-browser-1.91.175-linux-amd64.zip"
+sha256 = "SKIP"
+
+[[source]]
+url    = "brave.desktop"
+sha256 = "SKIP"
+
+[steps]
+package = '''
+install -d "$pkgdir/opt/brave" "$pkgdir/usr/bin";
+cp -a brave-browser-$version-linux-amd64/* "$pkgdir/opt/brave/" 2> /dev/null || cp -a ./* "$pkgdir/opt/brave/";
+rm -f "$pkgdir/opt/brave/brave.desktop";
+cat > "$pkgdir/usr/bin/brave" <<'EOF'
+#!/bin/sh
+exec /opt/brave/brave "$@"
+EOF
+
+chmod 755 "$pkgdir/usr/bin/brave"
+[ -f "$pkgdir/opt/brave/product_logo_128.png" ] && install -Dm644 "$pkgdir/opt/brave/product_logo_128.png" "$pkgdir/usr/share/icons/hicolor/128x128/apps/brave.png";
+install -Dm644 "$srcdir/brave.desktop" "$pkgdir/usr/share/applications/brave.desktop"
+'''

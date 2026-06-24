@@ -1,0 +1,39 @@
+[package]
+name     = "lib32-glibc"
+version  = "2.43"
+release  = 1
+summary  = "GNU C Library (32-bit) — multilib runtime for i686 software"
+homepage = "https://www.gnu.org/software/libc/"
+license  = ["GPL-2.0-or-later", "LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["lib32-gcc-libs", "linux-api-headers", "python"]
+options     = ["staticlibs", "!lto"]
+
+[[source]]
+url    = "https://ftp.gnu.org/gnu/glibc/glibc-2.43.tar.xz"
+sha256 = "d9c86c6b5dbddb43a3e08270c5844fc5177d19442cf5b8df4be7c07cd5fa3831"
+
+[steps]
+build = '''
+export CC="gcc -m32" CXX="g++ -m32";
+# glibc refuses to build without optimization. makepkg's makepkg.conf supplies
+# -O2 by default, but bpmbuild does not, and the explicit -m32 makes CFLAGS
+# non-empty so glibc won't auto-add -O2. Set it ourselves.
+export CFLAGS="-O2 ${CFLAGS//-Wp,-D_FORTIFY_SOURCE=3/} -m32";
+export CFLAGS="${CFLAGS//-Werror=format-security/}";
+mkdir -p build && cd build;
+../"glibc-$version"/configure --prefix=/usr --libdir=/usr/lib32 --libexecdir=/usr/lib32 --host=i686-pc-linux-gnu --with-headers=/usr/include --enable-kernel=5.4 --enable-bind-now --enable-stack-protector=strong --disable-profile --disable-werror --without-selinux --disable-nscd;
+make
+'''
+package = '''
+cd build;
+make install_root="$pkgdir" install;
+install -d "$pkgdir/usr/lib32.keep";
+mv "$pkgdir/usr/lib32"/* "$pkgdir/usr/lib32.keep/" 2> /dev/null || true;
+rm -rf "$pkgdir/usr/include" "$pkgdir/usr/bin" "$pkgdir/usr/sbin" "$pkgdir/usr/share" "$pkgdir/etc" "$pkgdir/var" "$pkgdir/usr/lib" "$pkgdir/sbin" "$pkgdir/lib";
+mkdir -p "$pkgdir/usr/lib32";
+mv "$pkgdir/usr/lib32.keep"/* "$pkgdir/usr/lib32/" 2> /dev/null || true;
+rmdir "$pkgdir/usr/lib32.keep" 2> /dev/null || true
+'''

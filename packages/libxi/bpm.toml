@@ -1,0 +1,28 @@
+[package]
+name     = "libxi"
+version  = "1.8.2"
+release  = 1
+summary  = "X11 Input extension library"
+homepage = "https://gitlab.freedesktop.org/xorg/lib"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["libxext", "libxfixes"]
+makedepends = ["xorg-util-macros", "xorgproto", "pkgconf"]
+provides    = ["libXi.so"]
+
+[[source]]
+url    = "https://www.x.org/releases/individual/lib/libXi-1.8.2.tar.xz"
+sha256 = "d0e0555e53d6e2114eabfa44226ba162d2708501a25e18d99cfb35c094c6c104"
+
+[steps]
+build = '''
+cd "libXi-$version";
+./configure --prefix=/usr --sysconfdir=/etc --disable-static;
+make
+'''
+package = '''
+cd "libXi-$version";
+make DESTDIR="$pkgdir" install;
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''
