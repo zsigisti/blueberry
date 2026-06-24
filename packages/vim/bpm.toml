@@ -17,6 +17,10 @@ sha256 = "07a0f185b9327b0e9cc383dd3706cec469fd5376a0b2eeb733c17b353aefa20a"
 [steps]
 build = '''
 cd "$name-$version/src";
+# vim's ./configure wrapper forwards --srcdir="${srcdir:-.}"; bpmbuild exports
+# srcdir=<build>/src which misdirects it ("cannot find sources (vim.h)"). Unset
+# it so vim uses "." (the src dir we just cd'd into).
+unset srcdir;
 ./configure --prefix=/usr --localstatedir=/var/lib/vim --with-features=huge --enable-multibyte --enable-gui=no --without-x --disable-netbeans --disable-gpm --enable-terminal;
 make
 '''
