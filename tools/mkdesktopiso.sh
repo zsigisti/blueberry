@@ -210,14 +210,26 @@ cat > "$LIVEROOT/home/live/.bash_profile" <<'EOF'
 # systemd base does not ship.
 if [ "${XDG_VTNR:-0}" = "1" ] && [ -z "$WAYLAND_DISPLAY" ] && [ -z "$DISPLAY" ]; then
     export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
-    export LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe KWIN_DRM_USE_QPAINTER=1
+    # Software rendering for VMs with no native GPU driver. virtio-gpu (and QXL)
+    # have no Mesa gallium driver, so the GBM/EGL loader must be forced onto the
+    # software KMS driver (kms_swrast) — otherwise it looks up "virtio_gpu_dri.so",
+    # fails ("driver missing"), and KWin cannot open the DRM node → black screen.
+    export LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe
+    export MESA_LOADER_DRIVER_OVERRIDE=kms_swrast
+    export KWIN_DRM_USE_QPAINTER=1
     export XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=KDE
     # Mirror the session log. Prefer /dev/ttyS1 (a tty → line-buffered → flushes
     # immediately to the host serial file for diagnostics); a regular file would
     # be block-buffered and stay empty until Plasma exits. Falls back to the home
     # dir on real hardware without a second serial port.
     _plog="$HOME/.plasma.log"; [ -w /dev/ttyS1 ] && _plog=/dev/ttyS1
-    echo "=== blueberry: launching Plasma session (log=$_plog) ===" > "$_plog" 2>&1
+    {
+        echo "=== blueberry: launching Plasma session (log=$_plog) ==="
+        echo "--- /dev/dri ---"; ls -la /dev/dri 2>&1
+        echo "--- card0 udev ---"; udevadm info -q all -n /dev/dri/card0 2>&1 | grep -iE 'DEVNAME|ID_SEAT|TAGS|CURRENT_TAGS' || true
+        echo "--- Xwayland: $(command -v Xwayland 2>/dev/null || echo MISSING) ---"
+        echo "--- dri drivers ---"; ls /usr/lib/dri 2>&1
+    } > "$_plog" 2>&1
     exec dbus-run-session startplasma-wayland >> "$_plog" 2>&1
 fi
 EOF
