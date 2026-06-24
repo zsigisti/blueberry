@@ -1,0 +1,2 @@
+# Diagnostic: let the live Plasma session write its log to the 2nd serial port
+KERNEL=="ttyS1", MODE="0666"

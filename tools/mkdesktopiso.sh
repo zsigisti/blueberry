@@ -217,7 +217,8 @@ if [ "${XDG_VTNR:-0}" = "1" ] && [ -z "$WAYLAND_DISPLAY" ] && [ -z "$DISPLAY" ];
     # be block-buffered and stay empty until Plasma exits. Falls back to the home
     # dir on real hardware without a second serial port.
     _plog="$HOME/.plasma.log"; [ -w /dev/ttyS1 ] && _plog=/dev/ttyS1
-    exec dbus-run-session startplasma-wayland > "$_plog" 2>&1
+    echo "=== blueberry: launching Plasma session (log=$_plog) ===" > "$_plog" 2>&1
+    exec dbus-run-session startplasma-wayland >> "$_plog" 2>&1
 fi
 EOF
 chown -R 1000:1000 "$LIVEROOT/home/live" 2>/dev/null || true
