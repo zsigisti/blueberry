@@ -174,66 +174,42 @@ for g in sddm-greeter-qt6 sddm-greeter; do
         cat > "$gb" <<WRAP
 #!/bin/sh
 export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+# Software GL for the greeter's kwin_wayland compositor (virtio-gpu has no native
+# Mesa driver); without kms_swrast the greeter compositor can't open the DRM node.
+export LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe
+export MESA_LOADER_DRIVER_OVERRIDE=kms_swrast KWIN_DRM_USE_QPAINTER=1
 exec /usr/bin/$g.real "\$@"
 WRAP
         chmod 0755 "$gb"
     fi
 done
 
-# Live session launch. SDDM's session helper does not give the autologin session
-# DRM-master / active-VT status on this seat (startplasma-wayland exits before
-# kwin can open the DRM node). So drive the live desktop the robust way: autologin
-# `live` on tty1 via getty and let the user's profile exec the Plasma Wayland
-# session directly — now kwin is the sole compositor on the *active* VT and
-# acquires DRM master cleanly. (SDDM stays installed for the on-disk system.)
-log "live desktop: getty autologin → Plasma on tty1"
-ln -sf /usr/lib/systemd/system/multi-user.target "$LIVEROOT/etc/systemd/system/default.target"
-# agetty defaults to /bin/login; this rootfs has login at /usr/bin/login and a
-# real (non-merged) /bin, so point agetty at it explicitly + add the symlink.
-[ -e "$LIVEROOT/bin/login" ] || ln -sf /usr/bin/login "$LIVEROOT/bin/login"
-mkdir -p "$LIVEROOT/etc/systemd/system/getty@tty1.service.d"
-cat > "$LIVEROOT/etc/systemd/system/getty@tty1.service.d/10-autologin.conf" <<'EOF'
-[Service]
-ExecStart=
-ExecStart=-/usr/bin/agetty --login-program /usr/bin/login --autologin live --noclear %I 38400 linux
-EOF
+# Live session launch: boot to graphical.target and let SDDM bring up the Wayland
+# greeter (kwin_wayland compositor). SDDM then autologins `live` into the Plasma
+# session. This is the stable, "reaches-SDDM" path.
+log "live desktop: graphical.target → $DEFAULT_DM (SDDM Wayland greeter)"
+ln -sf /usr/lib/systemd/system/graphical.target "$LIVEROOT/etc/systemd/system/default.target"
+mkdir -p "$LIVEROOT/etc/systemd/system/graphical.target.wants"
+ln -sf "/usr/lib/systemd/system/$DEFAULT_DM.service" \
+    "$LIVEROOT/etc/systemd/system/graphical.target.wants/$DEFAULT_DM.service"
 ln -sf /usr/lib/systemd/system/NetworkManager.service \
     "$LIVEROOT/etc/systemd/system/multi-user.target.wants/NetworkManager.service" 2>/dev/null || true
-
-# On tty1 the live user's shell launches the Plasma Wayland session once (guarded
-# so logging out doesn't relaunch into a loop). Software GL for VMs without a
-# native Mesa driver. Calamares is reachable from the desktop once it's up.
 install -d -m 0755 "$LIVEROOT/home/live"
-cat > "$LIVEROOT/home/live/.bash_profile" <<'EOF'
-# Auto-start the Plasma (Wayland) session on the first VT. Use $XDG_VTNR (set by
-# pam_systemd for the login session) rather than the `tty` command, which the
-# systemd base does not ship.
-if [ "${XDG_VTNR:-0}" = "1" ] && [ -z "$WAYLAND_DISPLAY" ] && [ -z "$DISPLAY" ]; then
-    export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
-    # Software rendering for VMs with no native GPU driver. virtio-gpu (and QXL)
-    # have no Mesa gallium driver, so the GBM/EGL loader must be forced onto the
-    # software KMS driver (kms_swrast) — otherwise it looks up "virtio_gpu_dri.so",
-    # fails ("driver missing"), and KWin cannot open the DRM node → black screen.
-    export LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe
-    export MESA_LOADER_DRIVER_OVERRIDE=kms_swrast
-    export KWIN_DRM_USE_QPAINTER=1
-    export XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=KDE
-    # Mirror the session log. Prefer /dev/ttyS1 (a tty → line-buffered → flushes
-    # immediately to the host serial file for diagnostics); a regular file would
-    # be block-buffered and stay empty until Plasma exits. Falls back to the home
-    # dir on real hardware without a second serial port.
-    _plog="$HOME/.plasma.log"; [ -w /dev/ttyS1 ] && _plog=/dev/ttyS1
-    {
-        echo "=== blueberry: launching Plasma session (log=$_plog) ==="
-        echo "--- /dev/dri ---"; ls -la /dev/dri 2>&1
-        echo "--- card0 udev ---"; udevadm info -q all -n /dev/dri/card0 2>&1 | grep -iE 'DEVNAME|ID_SEAT|TAGS|CURRENT_TAGS' || true
-        echo "--- Xwayland: $(command -v Xwayland 2>/dev/null || echo MISSING) ---"
-        echo "--- dri drivers ---"; ls /usr/lib/dri 2>&1
-    } > "$_plog" 2>&1
-    exec dbus-run-session startplasma-wayland >> "$_plog" 2>&1
-fi
-EOF
 chown -R 1000:1000 "$LIVEROOT/home/live" 2>/dev/null || true
+
+# Software rendering for VMs with no native GPU driver. virtio-gpu (and QXL) have
+# no Mesa gallium driver, so the GBM/EGL loader must be forced onto the software
+# KMS driver (kms_swrast) — otherwise it looks up "virtio_gpu_dri.so", fails
+# ("driver missing"), and KWin (greeter compositor AND session) cannot open the
+# DRM node → black screen. Land these system-wide so pam_env feeds both the
+# greeter and the autologin Plasma session.
+log "software GL env (kms_swrast / llvmpipe) → /etc/environment"
+cat >> "$LIVEROOT/etc/environment" <<'ENVEOF'
+LIBGL_ALWAYS_SOFTWARE=1
+GALLIUM_DRIVER=llvmpipe
+MESA_LOADER_DRIVER_OVERRIDE=kms_swrast
+KWIN_DRM_USE_QPAINTER=1
+ENVEOF
 
 # Free-but-honest /etc/os-release so the live + installed system identify right.
 cat > "$LIVEROOT/etc/os-release" <<EOF
