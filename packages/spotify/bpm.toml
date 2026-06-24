@@ -15,11 +15,13 @@ url    = "spotify-client_1.2.92.147.g5b8f9367_amd64.deb::https://repository.spot
 sha256 = "SKIP"
 
 [steps]
+# The source is a .deb (an `ar` archive of control.tar + data.tar). bpmbuild
+# leaves it in $srcdir (not a tarball it auto-extracts), so unpack it here:
+# `ar x` the .deb to get data.tar.*, then extract that into $pkgdir.
 package = '''
-bsdtar -xf data.tar.* -C "$pkgdir" 2> /dev/null || { 
-    ar x "$srcdir/$_deb";
-    bsdtar -xf data.tar.* -C "$pkgdir"
-};
+cd "$srcdir";
+ar x spotify-client_*.deb;
+bsdtar -xf data.tar.* -C "$pkgdir";
 install -d "$pkgdir/usr/bin";
 ln -sf /usr/share/spotify/spotify "$pkgdir/usr/bin/spotify" 2> /dev/null || true
 '''
