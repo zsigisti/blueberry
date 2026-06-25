@@ -2,7 +2,7 @@
 
 A package is a recipe in [`packages/<name>/`](../packages). The forward format is
 the declarative **`bpm.toml`**, built into a native `.bpm` via
-`tools/build-bpm.sh`. The legacy `PKGBUILD` → `.pkg.tar.zst` flow
+`tools/build-bpm-pkg.sh`. The legacy `PKGBUILD` → `.pkg.tar.zst` flow
 (`tools/build-pkgs.sh`) still works for the existing tree, but **new recipes
 should be `bpm.toml`**. `tools/pkgbuild2bpm` converts an existing PKGBUILD.
 
@@ -40,7 +40,7 @@ make DESTDIR="$pkgdir" install
 The shell steps get `$srcdir $pkgdir $name $version $release $arch`. Build it:
 
 ```sh
-ENGINE=podman tools/build-bpm.sh ../out hello
+ENGINE=podman tools/build-bpm-pkg.sh ../out hello
 # → ../out/hello-2.12.1-1-x86_64.bpm
 bpm install ../out/hello-2.12.1-1-x86_64.bpm
 ```
