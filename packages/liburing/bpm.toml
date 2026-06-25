@@ -24,5 +24,14 @@ make -C src
 '''
 package = '''
 cd "liburing-liburing-$version";
-make -C src install DESTDIR="$pkgdir" prefix=/usr libdir=/usr/lib libdevdir=/usr/lib includedir=/usr/include relativelibdir=
+# liburing's src/Makefile install target ignores DESTDIR, so install by hand.
+install -d "$pkgdir/usr/lib" "$pkgdir/usr/include/liburing";
+install -Dm755 "src/liburing.so.$version"     "$pkgdir/usr/lib/liburing.so.$version";
+install -Dm755 "src/liburing-ffi.so.$version" "$pkgdir/usr/lib/liburing-ffi.so.$version";
+ln -sf "liburing.so.$version"     "$pkgdir/usr/lib/liburing.so.2";
+ln -sf "liburing.so.$version"     "$pkgdir/usr/lib/liburing.so";
+ln -sf "liburing-ffi.so.$version" "$pkgdir/usr/lib/liburing-ffi.so.2";
+ln -sf "liburing-ffi.so.$version" "$pkgdir/usr/lib/liburing-ffi.so";
+cp -a src/include/liburing.h "$pkgdir/usr/include/";
+cp -a src/include/liburing/*.h "$pkgdir/usr/include/liburing/" 2>/dev/null || true
 '''
