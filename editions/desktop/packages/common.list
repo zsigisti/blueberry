@@ -101,3 +101,11 @@ libgudev                    # libgudev-1.0.so.0 — libwacom
 
 # Qt6 accessibility bridge (kwin QSpiAccessibleBridge)
 at-spi2-core
+liburing
+libice
+libsm
+tdb
+breeze-icons
+xcb-util-cursor
+xcb-util-wm
+xcb-util-keysyms
