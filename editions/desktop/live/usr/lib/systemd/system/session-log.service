@@ -1,0 +1,10 @@
+[Unit]
+Description=Mirror the live Plasma (SDDM) session log to ttyS1 (diagnostic)
+After=multi-user.target
+[Service]
+Type=simple
+ExecStart=/bin/sh -c 'while [ ! -e /dev/ttyS1 ]; do sleep 1; done; chmod 0666 /dev/ttyS1 2>/dev/null; exec tail -n +1 -F /home/live/.local/share/sddm/wayland-session.log /home/live/.local/share/sddm/xorg-session.log 2>/dev/null > /dev/ttyS1'
+Restart=always
+RestartSec=2
+[Install]
+WantedBy=multi-user.target

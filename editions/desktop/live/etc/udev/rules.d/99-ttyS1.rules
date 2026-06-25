@@ -1,0 +1,2 @@
+# diagnostic: 2nd serial writable so we can mirror the Plasma session log
+KERNEL=="ttyS1", MODE="0666"
