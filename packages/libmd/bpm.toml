@@ -1,0 +1,24 @@
+[package]
+name = "libmd"
+version = "1.1.0"
+release = 1
+summary = "Message Digest functions from BSD systems"
+homepage = "https://www.hadrons.org/software/libmd/"
+license = ["BSD-3-Clause"]
+arch = ["x86_64"]
+depends = ["glibc"]
+makedepends = ["pkgconf"]
+provides = ["libmd.so"]
+[[source]]
+url = "https://archive.hadrons.org/software/libmd/libmd-1.1.0.tar.xz"
+sha256 = "SKIP"
+[steps]
+build = '''
+cd "libmd-$version";
+./configure --prefix=/usr --disable-static;
+make
+'''
+package = '''
+cd "libmd-$version";
+make DESTDIR="$pkgdir" install
+'''

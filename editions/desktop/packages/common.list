@@ -116,3 +116,5 @@ libxcvt
 xorg-xwayland
 libxkbfile
 xorg-xkbcomp
+libmd
+libbsd

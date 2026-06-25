@@ -6,8 +6,8 @@ summary = "Run X clients under Wayland (Xwayland server)"
 homepage = "https://xorg.freedesktop.org/"
 license = ["MIT"]
 arch = ["x86_64"]
-depends = ["glibc", "libdrm", "libepoxy", "mesa", "pixman", "wayland", "libxkbcommon", "libxcvt", "libxfont2", "libxkbfile", "openssl", "libxau", "libxdmcp"]
-makedepends = ["meson", "ninja", "xorgproto", "xtrans", "wayland-protocols", "font-util", "pkgconf", "python", "libxkbfile"]
+depends = ["glibc", "libdrm", "libepoxy", "mesa", "pixman", "wayland", "libxkbcommon", "libxcvt", "libxfont2", "libxkbfile", "libbsd", "openssl", "libxau", "libxdmcp"]
+makedepends = ["meson", "ninja", "xorgproto", "xtrans", "wayland-protocols", "font-util", "pkgconf", "python", "libxkbfile", "libbsd"]
 provides = ["Xwayland"]
 [[source]]
 url = "https://www.x.org/releases/individual/xserver/xwayland-24.1.6.tar.xz"
