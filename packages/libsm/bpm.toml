@@ -1,0 +1,27 @@
+[package]
+name     = "libsm"
+version  = "1.2.5"
+release  = 1
+summary  = "X11 Session Management library"
+homepage = "https://xorg.freedesktop.org/"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libice", "util-linux"]
+makedepends = ["xorgproto", "xtrans", "pkgconf"]
+provides    = ["libSM.so"]
+
+[[source]]
+url    = "https://www.x.org/releases/individual/lib/libSM-1.2.5.tar.xz"
+sha256 = "SKIP"
+
+[steps]
+build = '''
+cd "libSM-$version";
+./configure --prefix=/usr --disable-static --without-libuuid;
+make
+'''
+package = '''
+cd "libSM-$version";
+make DESTDIR="$pkgdir" install
+'''

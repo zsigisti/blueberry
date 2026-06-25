@@ -21,7 +21,7 @@ function arch-meson ()
 { 
     meson setup "$@"
 };
-meson setup "libinput-1.31.3" build --prefix=/usr --buildtype=release -Dwerror=false -Ddocumentation=false -Dtests=false -Ddebug-gui=false;
+meson setup "libinput-1.31.3" build --prefix=/usr --buildtype=release -Dwerror=false -Ddocumentation=false -Dtests=false -Ddebug-gui=false -Dlua-plugins=disabled;
 meson compile -C build
 '''
 package = '''

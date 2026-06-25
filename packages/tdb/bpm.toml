@@ -1,0 +1,28 @@
+[package]
+name     = "tdb"
+version  = "1.4.10"
+release  = 1
+summary  = "Trivial Database library"
+homepage = "https://tdb.samba.org/"
+license  = ["LGPL-3.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["python", "pkgconf"]
+provides    = ["libtdb.so"]
+
+[[source]]
+url    = "https://download.samba.org/pub/tdb/tdb-1.4.10.tar.gz"
+sha256 = "SKIP"
+
+[steps]
+build = '''
+cd "tdb-$version";
+./configure --prefix=/usr --localstatedir=/var --sysconfdir=/etc --bundled-libraries=ALL --builtin-libraries=replace --disable-rpath --disable-python;
+make
+'''
+package = '''
+cd "tdb-$version";
+make DESTDIR="$pkgdir" install;
+rm -rf "$pkgdir/usr/bin" "$pkgdir/usr/include" "$pkgdir/usr/share"
+'''

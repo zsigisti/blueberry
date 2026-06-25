@@ -1,0 +1,28 @@
+[package]
+name     = "liburing"
+version  = "2.8"
+release  = 1
+summary  = "Linux kernel io_uring access library"
+homepage = "https://github.com/axboe/liburing"
+license  = ["LGPL-2.1-or-later", "MIT"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+provides    = ["liburing.so"]
+
+[[source]]
+url    = "liburing-2.8.tar.gz::https://github.com/axboe/liburing/archive/refs/tags/liburing-2.8.tar.gz"
+sha256 = "SKIP"
+
+[steps]
+build = '''
+cd "liburing-liburing-$version";
+./configure --prefix=/usr;
+make -C src
+'''
+package = '''
+cd "liburing-liburing-$version";
+make -C src DESTDIR="$pkgdir" install;
+install -d "$pkgdir/usr/lib";
+cp -a src/liburing.so* "$pkgdir/usr/lib/" 2>/dev/null || true
+'''

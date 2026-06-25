@@ -1,0 +1,27 @@
+[package]
+name     = "libice"
+version  = "1.1.2"
+release  = 1
+summary  = "X11 Inter-Client Exchange library"
+homepage = "https://xorg.freedesktop.org/"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["xorgproto", "xtrans", "pkgconf"]
+provides    = ["libICE.so"]
+
+[[source]]
+url    = "https://www.x.org/releases/individual/lib/libICE-1.1.2.tar.xz"
+sha256 = "SKIP"
+
+[steps]
+build = '''
+cd "libICE-$version";
+./configure --prefix=/usr --disable-static;
+make
+'''
+package = '''
+cd "libICE-$version";
+make DESTDIR="$pkgdir" install
+'''
