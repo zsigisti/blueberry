@@ -75,6 +75,20 @@ for u in sshd.service systemd-networkd.service systemd-resolved.service; do
   [ -e "$LIVEROOT/usr/lib/systemd/system/$u" ] && \
     ln -sf "/usr/lib/systemd/system/$u" "$LIVEROOT/etc/systemd/system/multi-user.target.wants/$u" 2>/dev/null || true
 done
+# DHCP on the first wired NIC so the live server has network out of the box
+# (bpm update/install over HTTPS, ssh). resolv.conf → networkd's managed file so
+# DNS from DHCP works with plain glibc nss (no nss-resolve needed).
+mkdir -p "$LIVEROOT/etc/systemd/network"
+cat > "$LIVEROOT/etc/systemd/network/10-dhcp.network" <<'EOF'
+[Match]
+Name=en* eth*
+
+[Network]
+DHCP=yes
+EOF
+ln -sf /run/systemd/resolve/resolv.conf "$LIVEROOT/etc/resolv.conf"
+# networkd must own /etc/resolv.conf target dir; ensure the runtime dir parents exist.
+mkdir -p "$LIVEROOT/run/systemd/resolve"
 
 log "building squashfs (zstd)"
 mksquashfs "$LIVEROOT" "$ISO_ROOT/live/filesystem.squashfs" \
