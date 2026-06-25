@@ -114,3 +114,5 @@ libfontenc
 libxfont2
 libxcvt
 xorg-xwayland
+libxkbfile
+xorg-xkbcomp

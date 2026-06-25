@@ -1,0 +1,24 @@
+[package]
+name = "xorg-xkbcomp"
+version = "1.4.7"
+release = 1
+summary = "X Keyboard description compiler"
+homepage = "https://xorg.freedesktop.org/"
+license = ["MIT"]
+arch = ["x86_64"]
+depends = ["glibc", "libx11", "libxkbfile"]
+makedepends = ["xorgproto", "pkgconf"]
+provides = ["xkbcomp"]
+[[source]]
+url = "https://www.x.org/releases/individual/app/xkbcomp-1.4.7.tar.xz"
+sha256 = "SKIP"
+[steps]
+build = '''
+cd "xkbcomp-$version";
+./configure --prefix=/usr;
+make
+'''
+package = '''
+cd "xkbcomp-$version";
+make DESTDIR="$pkgdir" install
+'''
