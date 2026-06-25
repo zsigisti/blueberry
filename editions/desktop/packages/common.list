@@ -104,7 +104,6 @@ at-spi2-core
 liburing
 libice
 libsm
-tdb
 breeze-icons
 xcb-util-cursor
 xcb-util-wm

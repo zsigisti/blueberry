@@ -15,14 +15,14 @@ url    = "liburing-2.8.tar.gz::https://github.com/axboe/liburing/archive/refs/ta
 sha256 = "SKIP"
 
 [steps]
+# Build only the library (top-level make also builds examples/tests wanting a
+# live kernel). Install the lib + headers explicitly into /usr/lib.
 build = '''
 cd "liburing-liburing-$version";
-./configure --prefix=/usr;
+./configure --prefix=/usr --libdir=/usr/lib --libdevdir=/usr/lib --includedir=/usr/include --mandir=/usr/share/man;
 make -C src
 '''
 package = '''
 cd "liburing-liburing-$version";
-make -C src DESTDIR="$pkgdir" install;
-install -d "$pkgdir/usr/lib";
-cp -a src/liburing.so* "$pkgdir/usr/lib/" 2>/dev/null || true
+make -C src install DESTDIR="$pkgdir" prefix=/usr libdir=/usr/lib libdevdir=/usr/lib includedir=/usr/include relativelibdir=
 '''
