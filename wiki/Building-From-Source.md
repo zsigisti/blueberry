@@ -51,7 +51,7 @@ The native package format is **`.bpm`** (declarative `bpm.toml` recipes — see
 New packages should be authored as `bpm.toml`.
 
 ```sh
-ENGINE=podman tools/build-bpm.sh  <out-dir> <pkg>...   # build .bpm   (recipes: bpm.toml)
+ENGINE=podman tools/build-bpm-pkg.sh  <out-dir> <pkg>...   # build .bpm   (recipes: bpm.toml)
 ENGINE=podman tools/build-pkgs.sh <out-dir> <pkg>...   # build .pkg.tar.zst (legacy PKGBUILD)
 ```
 
@@ -59,7 +59,7 @@ Both run in an ephemeral Arch container (the self-hosted toolchain). Long builds
 survive the shell with:
 
 ```sh
-setsid bash -c 'ENGINE=podman tools/build-bpm.sh OUT pkg... > LOG 2>&1' </dev/null &
+setsid bash -c 'ENGINE=podman tools/build-bpm-pkg.sh OUT pkg... > LOG 2>&1' </dev/null &
 ```
 
 ## Desktop edition

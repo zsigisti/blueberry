@@ -82,7 +82,7 @@ Useful when testing a recipe you just built (see [Creating Packages](Creating-Pa
 Any recipe in [`packages/`](../packages) can be built into a package:
 
 ```sh
-ENGINE=podman tools/build-bpm.sh <out-dir> firefox kate kwin   # native .bpm
+ENGINE=podman tools/build-bpm-pkg.sh <out-dir> firefox kate kwin   # native .bpm
 ```
 
 This runs the build inside an ephemeral container, fetching build dependencies,
