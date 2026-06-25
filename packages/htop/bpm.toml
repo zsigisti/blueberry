@@ -16,7 +16,7 @@ sha256 = "a69acf9b42ff592c4861010fce7d8006805f0d6ef0e8ee647a6ee6e59b743d5c"
 [steps]
 build = '''
 cd "$name-$version";
-./configure --prefix=/usr --sysconfdir=/etc --enable-unicode --enable-affinity --enable-capabilities --disable-delayacct;
+./configure --prefix=/usr --sysconfdir=/etc --enable-unicode --enable-affinity --enable-capabilities --disable-delayacct --disable-unwind;
 make
 '''
 package = '''

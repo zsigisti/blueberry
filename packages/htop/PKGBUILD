@@ -18,7 +18,8 @@ build() {
     --enable-unicode \
     --enable-affinity \
     --enable-capabilities \
-    --disable-delayacct
+    --disable-delayacct \
+    --disable-unwind
   make
 }
 
