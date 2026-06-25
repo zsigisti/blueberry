@@ -110,7 +110,6 @@ xcb-util-wm
 xcb-util-keysyms
 xcb-util-image
 xcb-util-renderutil
-libtirpc
 libfontenc
 libxfont2
 libxcvt
