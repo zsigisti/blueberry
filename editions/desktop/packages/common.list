@@ -108,3 +108,5 @@ breeze-icons
 xcb-util-cursor
 xcb-util-wm
 xcb-util-keysyms
+xcb-util-image
+xcb-util-renderutil
