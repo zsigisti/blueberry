@@ -6,7 +6,7 @@ summary = "Run X clients under Wayland (Xwayland server)"
 homepage = "https://xorg.freedesktop.org/"
 license = ["MIT"]
 arch = ["x86_64"]
-depends = ["glibc", "libdrm", "libepoxy", "mesa", "pixman", "wayland", "libxkbcommon", "libxcvt", "libxfont2", "libtirpc", "openssl", "libxau", "libxdmcp"]
+depends = ["glibc", "libdrm", "libepoxy", "mesa", "pixman", "wayland", "libxkbcommon", "libxcvt", "libxfont2", "openssl", "libxau", "libxdmcp"]
 makedepends = ["meson", "ninja", "xorgproto", "xtrans", "wayland-protocols", "font-util", "pkgconf", "python"]
 provides = ["Xwayland"]
 [[source]]
@@ -20,6 +20,7 @@ meson setup "xwayland-$version" build --prefix=/usr --buildtype=release \
   -D xkb_output_dir=/var/lib/xkb \
   -D default_font_path=/usr/share/fonts/misc \
   -D sha1=libcrypto \
+  -D secure-rpc=false \
   -D ipv6=true \
   -D xcsecurity=true \
   -D dri3=true \
