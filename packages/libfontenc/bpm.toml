@@ -1,0 +1,24 @@
+[package]
+name = "libfontenc"
+version = "1.1.8"
+release = 1
+summary = "X11 font encoding library"
+homepage = "https://xorg.freedesktop.org/"
+license = ["MIT"]
+arch = ["x86_64"]
+depends = ["glibc", "zlib"]
+makedepends = ["xorgproto", "pkgconf"]
+provides = ["libfontenc.so"]
+[[source]]
+url = "https://www.x.org/releases/individual/lib/libfontenc-1.1.8.tar.xz"
+sha256 = "SKIP"
+[steps]
+build = '''
+cd "libfontenc-$version";
+./configure --prefix=/usr --disable-static --with-encodingsdir=/usr/share/fonts/encodings;
+make
+'''
+package = '''
+cd "libfontenc-$version";
+make DESTDIR="$pkgdir" install
+'''

@@ -1,0 +1,24 @@
+[package]
+name = "libxfont2"
+version = "2.0.7"
+release = 1
+summary = "X11 font rasterisation library (server-side)"
+homepage = "https://xorg.freedesktop.org/"
+license = ["MIT"]
+arch = ["x86_64"]
+depends = ["glibc", "libfontenc", "freetype2"]
+makedepends = ["xorgproto", "xtrans", "pkgconf"]
+provides = ["libXfont2.so"]
+[[source]]
+url = "https://www.x.org/releases/individual/lib/libXfont2-2.0.7.tar.xz"
+sha256 = "SKIP"
+[steps]
+build = '''
+cd "libXfont2-$version";
+./configure --prefix=/usr --disable-static --disable-devel-docs;
+make
+'''
+package = '''
+cd "libXfont2-$version";
+make DESTDIR="$pkgdir" install
+'''
