@@ -1,50 +1,26 @@
 # Blueberry Linux Wiki
 
-Welcome to the Blueberry Linux wiki — the complete reference for both editions,
-the package ecosystem, and the build system.
-
 Blueberry is a **self-hosted Linux distribution built entirely from source**.
-One monorepo produces two editions that share a base (kernel, glibc, the `bpm`
-package manager, the build system):
+One monorepo produces two editions that share a base (a pinned prebuilt kernel,
+glibc, the `bpm` package manager, the build system). There are **no upstream
+binary mirrors** — every package is a recipe in [`packages/`](../packages), built
+from source into one ed25519-signed mirror at `https://repo.mmzsigmond.me/`.
 
-- **🖥️ Blueberry Server** — a minimal, **rolling** CLI system.
-- **🪟 Blueberry Desktop** — a polished GUI edition with **Ubuntu-style stable
-  releases** and a live Calamares installer (KDE Plasma 6 default, GNOME
-  optional).
+The wiki is split by edition — pick yours:
 
-There are **no upstream binary mirrors**. Every package is a recipe in
-[`packages/`](../packages), built from source into one ed25519-signed mirror at
-`https://repo.mmzsigmond.me/`.
+## 🖥️ [Blueberry Server →](server/Home)
 
-## Start here
+A minimal, **rolling** CLI system. systemd (or runit), headless, always latest.
 
-| If you want to… | Read |
-|---|---|
-| Understand the project in 5 minutes | [Overview](Overview) |
-| Try Blueberry on your machine | [Getting Started](Getting-Started) |
-| Install the GUI desktop | [Installing Blueberry Desktop](Installing-Blueberry-Desktop) |
-| Install the server/CLI | [Installing Blueberry Server](Installing-Blueberry-Server) |
-| Manage software | [Package Management (bpm)](Package-Management) |
-| Build the OS yourself | [Building From Source](Building-From-Source) |
-| Write a package recipe | [Creating Packages](Creating-Packages) |
-| Run your own mirror | [Hosting a Mirror](Hosting-a-Mirror) |
-| Understand kernel updates | [The Kernel Model](The-Kernel-Model) |
-| Learn the desktop release cycle | [Release Process](Release-Process) |
-| Look under the hood | [Architecture](Architecture) |
-| Fix a problem | [Troubleshooting](Troubleshooting) · [FAQ](FAQ) |
+## 🪟 [Blueberry Desktop →](desktop/Home)
 
-## Wiki map
+A polished GUI edition with **Ubuntu-style stable releases** and a live Calamares
+installer (KDE Plasma 6 default, GNOME optional).
 
-- **Concepts** — [Overview](Overview) · [Architecture](Architecture) ·
-  [The Kernel Model](The-Kernel-Model) · [Self-Hosting Philosophy](Self-Hosting-Philosophy)
-- **Using Blueberry** — [Getting Started](Getting-Started) ·
-  [Installing Blueberry Desktop](Installing-Blueberry-Desktop) ·
-  [Installing Blueberry Server](Installing-Blueberry-Server) ·
-  [Package Management](Package-Management)
-- **Blueberry Desktop** — [Desktop Edition](Desktop-Edition) ·
-  [Release Process](Release-Process) · [The Calamares Installer](The-Calamares-Installer) ·
-  [GNOME Spin](GNOME-Spin)
-- **Building & contributing** — [Building From Source](Building-From-Source) ·
-  [Creating Packages](Creating-Packages) · [Hosting a Mirror](Hosting-a-Mirror) ·
-  [Contributing](Contributing)
-- **Help** — [Troubleshooting](Troubleshooting) · [FAQ](FAQ)
+---
+
+Both editions share the same concepts — [Overview](server/Overview),
+[Architecture](server/Architecture), [The Kernel Model](server/The-Kernel-Model),
+[Package Management](server/Package-Management), and
+[Building From Source](server/Building-From-Source) — so those pages appear in
+both edition wikis.
