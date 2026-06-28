@@ -9,6 +9,8 @@ releases**, and a live Calamares installer. It lives in-monorepo at
 - **GNOME** is the documented alternative (`DE=gnome`) — see [GNOME Spin](GNOME-Spin).
 - The installer is a **live ISO**: boot, try, install.
 
+![Blueberry Desktop — KDE Plasma 6](images/desktop.png)
+
 ## Layout
 
 ```

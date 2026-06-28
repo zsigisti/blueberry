@@ -5,6 +5,8 @@ installer — as the "try then install" tool on the live ISO. This page covers
 how it is configured and branded in Blueberry, for users who want to understand
 or customize it.
 
+![Calamares on Blueberry Desktop](images/installer-welcome.png)
+
 ## Where it lives
 
 ```

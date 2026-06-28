@@ -26,12 +26,21 @@ Or test it in a VM — `make run-desktop` is the easy path:
 make run-desktop
 # equivalent to:
 qemu-system-x86_64 -enable-kvm -cpu host -m 4G -smp 4 \
-  -cdrom iso/blueberry-desktop-*.iso -vga virtio
+  -cdrom iso/blueberry-desktop-*.iso -vga virtio \
+  -drive file=blueberry-disk.qcow2,if=virtio,format=qcow2   # disk to install onto
 ```
 
 > **`-cpu host` is required.** The live desktop renders with software OpenGL
 > (Mesa llvmpipe), which needs AVX; the default `qemu64` CPU lacks it and the
 > screen stays black.
+
+> **Attach a disk, or the installer has nowhere to go.** A CD-only VM makes
+> Calamares report *"There are no partitions to install on / not enough drive
+> space"* — there is simply no disk. `make run-desktop` creates and attaches a
+> persistent 20 GB `qcow2` for you (override with `BLUEBERRY_DISK` /
+> `BLUEBERRY_DISK_SIZE`); after installing, boot the result by swapping `-boot d`
+> for `-boot c`. Rolling your own `qemu` line? Create the disk first with
+> `qemu-img create -f qcow2 blueberry-disk.qcow2 20G` and add the `-drive` above.
 
 ## 2. Boot the live session
 
@@ -42,13 +51,24 @@ the KDE Plasma (Wayland) greeter** — log in as **`live`** (no password).
 
 ![Blueberry Desktop — SDDM Breeze greeter](images/desktop-greeter.png)
 
+Once logged in you get a full KDE Plasma 6 (Wayland) session — wallpaper, panel,
+launcher, and system tray:
+
+![Blueberry Desktop — KDE Plasma 6 live session](images/desktop.png)
+
 > **Try before you install.** Wi-Fi, trackpad, display scaling, sound — verify
 > them in the live session. What works live will work installed.
 
 ## 3. Run Calamares
 
-Double-click **Install Blueberry Desktop** on the desktop (or launch it from the
-panel). Calamares walks you through:
+The installer **launches automatically** a few seconds into the live session. If
+you closed it, reopen it from the launcher as **Install System** (or run
+`/usr/local/bin/blueberry-install`). It needs no password — the live session is
+pre-authorized.
+
+![Blueberry Desktop — Calamares welcome page](images/installer-welcome.png)
+
+Calamares walks you through:
 
 1. **Welcome** — language.
 2. **Location** — region & timezone (auto-detected where possible).
