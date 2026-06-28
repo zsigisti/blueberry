@@ -1,0 +1,25 @@
+[package]
+name     = "libdmtx"
+version  = "0.7.7"
+release  = 1
+summary  = "Data Matrix barcode library — libdmtx.so.0 (Plasma clipboard/klipper)"
+homepage = "https://github.com/dmtx/libdmtx"
+license  = ["BSD-3-Clause"]
+arch     = ["x86_64"]
+depends     = ["glibc"]
+makedepends = ["gcc", "make", "pkgconf", "autoconf", "automake", "libtool"]
+options     = ["!lto"]
+[[source]]
+url    = "https://github.com/dmtx/libdmtx/archive/refs/tags/v0.7.7.tar.gz"
+sha256 = "7aa62adcefdd6e24bdabeb82b3ce41a8d35f4a0c95ab0c4438206aecafd6e1a1"
+[steps]
+build = '''
+cd "libdmtx-$version"
+./autogen.sh
+./configure --prefix=/usr --disable-static
+make
+'''
+package = '''
+cd "libdmtx-$version"
+make DESTDIR="$pkgdir" install
+'''

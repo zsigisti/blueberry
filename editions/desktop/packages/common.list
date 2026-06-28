@@ -126,4 +126,6 @@ kirigami-addons             # org.kde.kirigamiaddons.components QML — Plasma k
 parted                      # libparted.so.2 — Calamares 'welcome'/partition modules
 libpwquality                # libpwquality.so.1 — Calamares 'users' module
 qrencode                    # libqrencode.so.4 — Plasma clipboard/klipper applet
+libdmtx                     # libdmtx.so.0 — Plasma clipboard/klipper (Data Matrix)
 pulseaudio-qt               # libKF6PulseAudioQt.so.5 — Plasma volume/sound applet
+libasyncns                  # libasyncns.so.0 — libpulse dep (volume applet)

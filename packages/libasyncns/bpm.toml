@@ -1,0 +1,26 @@
+[package]
+name     = "libasyncns"
+version  = "0.8"
+release  = 1
+summary  = "Asynchronous name service library — libasyncns.so.0 (libpulse dependency)"
+homepage = "http://0pointer.de/lennart/projects/libasyncns/"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+depends     = ["glibc"]
+makedepends = ["gcc", "make", "pkgconf"]
+options     = ["!lto"]
+[[source]]
+url    = "http://0pointer.de/lennart/projects/libasyncns/libasyncns-0.8.tar.gz"
+sha256 = "4f1a66e746cbe54ff3c2fbada5843df4fbbbe7481d80be003e8d11161935ab74"
+[steps]
+build = '''
+cd "libasyncns-$version"
+# 2009-era code; relax modern GCC strictness and pull in GNU extensions.
+export CFLAGS="-O2 -Wno-error -Wno-incompatible-pointer-types -D_GNU_SOURCE"
+./configure --prefix=/usr --disable-static --disable-lynx
+make
+'''
+package = '''
+cd "libasyncns-$version"
+make DESTDIR="$pkgdir" install
+'''
