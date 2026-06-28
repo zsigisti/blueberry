@@ -1,0 +1,27 @@
+[package]
+name     = "grep"
+version  = "3.11"
+release  = 1
+summary  = "GNU grep — core CLI tool (desktop base; busybox covers the server)"
+homepage = "https://www.gnu.org/software/grep/"
+license  = ["GPL-3.0-or-later"]
+arch     = ["x86_64"]
+depends     = ["glibc", "pcre2"]
+makedepends = ["gcc", "make", "pkgconf", "pcre2"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://ftp.gnu.org/gnu/grep/grep-3.11.tar.xz"
+sha256 = "1db2aedde89d0dea42b16d9528f894c8d15dae4e190b59aecc78f5a951276eab"
+
+[steps]
+build = '''
+cd "grep-$version"
+export CFLAGS="-O2 -std=gnu17"
+./configure --prefix=/usr
+make
+'''
+package = '''
+cd "grep-$version"
+make DESTDIR="$pkgdir" install
+'''
