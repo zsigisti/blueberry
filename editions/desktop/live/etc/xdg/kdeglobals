@@ -1,0 +1,8 @@
+# System-wide KDE defaults for the live session. Pin the Breeze icon theme so
+# Plasma/Qt resolve icons from the staged breeze theme instead of leaving gaps.
+[Icons]
+Theme=breeze
+
+[KDE]
+contrast=4
+widgetStyle=Breeze
