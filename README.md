@@ -30,18 +30,20 @@ its spins from one tree. You pick the edition; the base — kernel, glibc, the
 | **Interface** | Live CLI (busybox + bash) | KDE Plasma 6 (default) · GNOME (optional) |
 | **Init** | systemd (default) · runit (`INIT=runit`) | systemd |
 | **Release model** | **Rolling** — always latest | **Stable releases** — `YY.04` / `YY.10`, Ubuntu-style |
-| **Kernel** | **Rolling** `linux` package — `bpm upgrade` moves it forward | **Pinned per release** — *not* a rolling package; a new kernel arrives with the next release |
+| **Kernel** | **Pinned prebuilt artifact** — bumped deliberately, never compiled locally | **Pinned per release** — one validated kernel for the release's life |
 | **Install** | `blueberry-install` (guided CLI) | **Live Calamares ISO** — boot, try, install |
 | **Cadence** | Continuous | Two/year · April of even years is **LTS** (24 mo) |
 
-> **Why the kernel differs.** On **Server**, the kernel is just another `bpm`
-> package and rolls forward continuously — you always run the newest tested
-> kernel. On **Desktop** we deliberately **do not ship the kernel as a rolling
-> package**: each stable release pins one kernel + driver stack, validated for
-> the life of that release, exactly like Ubuntu. You get a newer kernel by
-> **upgrading to the next release** — userspace and apps still update from the
-> rolling repo, but the kernel stays a stable, known-good anchor so a routine
-> `bpm upgrade` can never break your graphics or boot.
+> **The kernel is not a package and is not compiled on your machine.** It is a
+> fixed, signed prebuilt artifact (`vmlinuz` + modules) hosted on the repo:
+> `make kernel` downloads ~20 MB and verifies its hash instead of running a
+> multi-hour compile (gcc/glibc are host-provided too). It changes **only** when
+> a maintainer runs `make kernel-publish` — never on a rolling `bpm upgrade`. On
+> **Desktop** that pinned kernel + driver + Mesa stack is the known-good anchor
+> for the whole release (apps still roll from the repo, the kernel does not), so
+> a routine update can never break your graphics or boot. See
+> [doc/KERNEL.md](doc/KERNEL.md) and the [Kernel Model](wiki/The-Kernel-Model.md)
+> wiki page.
 
 ---
 

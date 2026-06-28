@@ -112,16 +112,24 @@ Alias for `make busybox runit dropbear` (all dynamic glibc).
 
 ### `make kernel`
 
-Downloads Linux $(LINUX_VERSION) if needed, applies patches from
-`src/kernel/patches/`, copies `src/kernel/config`, runs `olddefconfig`, then
-builds. The config enables serial console (`ttyS0`), initramfs/zstd, and PCI —
-everything needed to boot under QEMU and on real x86_64 hardware.
+**Fetches a pinned, prebuilt kernel — it does not compile.** Downloads the fixed
+`blueberry-kernel-<version>-<arch>.tar.zst` (~20 MB: `vmlinuz` + `System.map` +
+modules) from the repo, verifies its SHA‑256, and unpacks it. Cached under
+`../blueberry-build/src/` (survives `make clean`), so it's a few seconds after
+the first run. Small machines never compile a kernel.
 
 Outputs:
 - `../blueberry-build/boot/vmlinuz` — compressed kernel image
 - `../blueberry-build/boot/System.map` — symbol map
+- kernel modules into the staged rootfs
 
-This is the longest step (~8–15 min). Speed it up with `make kernel JOBS=16`.
+**Compiling (opt-in, build boxes only):**
+- `make kernel-rebuild` — compile from source this once (`KERNEL_BUILD=1`);
+  applies `src/kernel/patches/`, copies `src/kernel/config`, runs `olddefconfig`,
+  then builds. Speed it up with `make kernel-rebuild JOBS=16`.
+- `make kernel-publish` — compile **and** upload a new pinned artifact to the
+  repo (do this when bumping `LINUX_VERSION` / `src/kernel/config`; see
+  [KERNEL.md](KERNEL.md) §9).
 
 ### `make initramfs`
 
@@ -253,7 +261,8 @@ Force a full rebuild of a component:
 
 ```sh
 rm ../blueberry-build/.stamp-busybox && make busybox
-rm ../blueberry-build/.stamp-kernel  && make kernel
+rm ../blueberry-build/.stamp-kernel  && make kernel          # re-fetches the pinned artifact
+rm ../blueberry-build/.stamp-kernel  && make kernel-rebuild  # re-compiles from source instead
 ```
 
 ---
@@ -262,9 +271,13 @@ rm ../blueberry-build/.stamp-kernel  && make kernel
 
 1. On a networked machine:
    ```sh
-   make fetch
+   make fetch          # busybox/runit/dropbear/linux sources
+   make kernel         # also caches the prebuilt kernel artifact into src/
    tar -czf blueberry-sources.tar.gz -C .. blueberry-build/src/
    ```
+   (`make kernel` is what pulls `blueberry-kernel-*.tar.zst` into `src/`; without
+   it the air-gapped build can't fetch the pinned kernel — use `kernel-rebuild`
+   there instead, which needs the linux source `make fetch` already cached.)
 2. Copy `blueberry-sources.tar.gz` across.
 3. On the air-gapped machine:
    ```sh

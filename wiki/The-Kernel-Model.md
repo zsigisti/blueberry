@@ -1,68 +1,79 @@
 # The Kernel Model
 
-Blueberry treats the kernel **differently in each edition**. This is a
-deliberate design decision, and it is the single biggest difference between
-Server and Desktop.
+In Blueberry the kernel is a **pinned, prebuilt binary artifact** — not a rolling
+package, and **not compiled on your machine**. This is the same for both editions,
+and it is a deliberate design decision.
 
-## Server: the kernel rolls
+## The kernel is prebuilt and pinned
 
-On **Blueberry Server**, the kernel is just another `bpm` package named `linux`.
-
-- `bpm upgrade` moves it forward continuously, along with the rest of userspace.
-- You always run the newest kernel that has passed the build/boot test.
-- This suits servers and builders, where you want current drivers, current
-  hardware support, and a single update stream.
+`make` does **not** compile the kernel. Instead it downloads a fixed, versioned
+artifact (`vmlinuz` + `System.map` + modules, ~20 MB) from the package repo and
+verifies its SHA‑256:
 
 ```sh
-bpm upgrade          # may pull a newer linux package + everything else
+make kernel        # fetches the pinned prebuilt kernel — no multi-hour compile
 ```
 
-## Desktop: the kernel is pinned per release
+The artifact lives at
+`https://repo.mmzsigmond.me/kernel/blueberry-kernel-<version>-<arch>.tar.zst`
+and is cached locally, so subsequent builds don't even re-download it. Small
+machines never have to build a kernel (nor gcc/glibc — those are host-provided
+too; see [Building From Source](Building-From-Source)).
 
-On **Blueberry Desktop**, the kernel is **not a rolling package**. Each stable
-release (e.g. `26.04 LTS`) ships **one kernel**, baked into the release image
-and validated for the life of that release.
+## Bumping the kernel (maintainers)
 
-- A routine `bpm upgrade` updates **userspace and apps**, but **never the
-  kernel**. The desktop edition does not publish the kernel as a rolling
-  package, so your graphics stack and boot path stay on a known-good
-  combination.
-- You get a newer kernel by **upgrading to the next release** — exactly how
-  Ubuntu ships a new kernel with each `YY.MM` (and how an LTS keeps a stable
-  kernel for two years).
+Compiling is **opt-in** and done on a build box only when the kernel version or
+config actually changes:
 
-```
-26.04 LTS  ─ kernel A (pinned, 24 months)
-26.10      ─ kernel B (pinned, 9 months)
-27.04      ─ kernel C …
+```sh
+make kernel-rebuild   # compile from source this once (KERNEL_BUILD=1)
+make kernel-publish   # compile + upload a NEW pinned artifact to the repo
 ```
 
-### Why pin it?
+To change the kernel you edit `Make.config` (`LINUX_VERSION`) and/or
+`src/kernel/config`, then run `make kernel-publish` once. Every other build then
+fetches the new pinned artifact. The kernel is therefore versioned and changes
+**deliberately**, never silently and never on a rolling basis.
 
-The desktop's value is *stability you can trust*. A user should be able to run
-`bpm upgrade` every day without ever worrying that an automatic kernel bump
-breaks their NVIDIA/AMD/Intel graphics, their Wi-Fi, or their ability to boot.
-Pinning the kernel makes the kernel + driver + Mesa combination a **fixed,
-tested anchor** for the whole release — the same contract Ubuntu, Debian
-stable, and RHEL make.
+## Per-edition delivery
 
-It also keeps the desktop's `common.list` honest: it contains the graphical
-base (Wayland, Mesa, SDDM, PipeWire…) but **no `linux` entry**, because the
-kernel is part of the *release*, not the *rolling repo*.
-
-## Summary
+The kernel artifact is shared; what differs is **how often it is bumped** and how
+userspace around it moves:
 
 | | Server | Desktop |
 |---|---|---|
-| Kernel delivery | Rolling `bpm` package | Pinned in the release image |
-| `bpm upgrade` touches kernel? | **Yes** | **No** |
-| How you get a new kernel | Automatically | By upgrading to the next release |
-| Best for | Servers, current hardware | Stable daily-driver desktops |
+| Kernel | Pinned prebuilt artifact | Pinned prebuilt artifact |
+| Compiled on your machine? | **No** | **No** |
+| Userspace / apps | **Rolling** (`bpm upgrade`) | **Pinned per release** (`YY.04`/`YY.10`) |
+| Kernel bumps | When a new artifact is published | Once per stable release, validated for its life |
+| How you get a new kernel | New image / artifact | Upgrade to the next release |
+
+On **Desktop** the kernel + driver + Mesa combination is a **fixed, tested
+anchor** for the whole release — the same contract Ubuntu, Debian stable, and
+RHEL make. A routine `bpm upgrade` updates apps and libraries but never the
+kernel, so your graphics and boot path stay on a known-good combination.
+
+On **Server**, userspace rolls continuously, but the kernel is still the pinned
+prebuilt anchor — it advances when a new artifact is published, not on every
+`bpm upgrade`.
+
+This also keeps the desktop's `common.list` honest: it lists the graphical base
+(Wayland, Mesa, SDDM, PipeWire…) but **no `linux` package**, because the kernel
+is a release artifact, not a repo package.
+
+## What's in the kernel
+
+The single config (`src/kernel/config`) serves both editions. Notable
+desktop-critical options that **must** stay enabled:
+
+- **DRM stack** (`CONFIG_DRM`, `VIRTIO_GPU`, `SIMPLEDRM`, …) — KWin/Wayland needs
+  a DRM device to render.
+- **`CONFIG_INPUT_EVDEV`** — creates `/dev/input/event*`; without it libinput has
+  no pointer/keyboard and the GUI has an invisible cursor and dead input.
 
 ## See also
 
-- [Release Process](Release-Process) — how desktop releases (and their pinned
-  kernels) are cut.
-- [Package Management](Package-Management) — what `bpm upgrade` does on each
-  edition.
+- [Building From Source](Building-From-Source) — the prebuilt-kernel fetch and
+  the `kernel-publish` workflow.
+- [Release Process](Release-Process) — how desktop releases pin a kernel.
 - [doc/KERNEL.md](../doc/KERNEL.md) — kernel config and patch workflow.

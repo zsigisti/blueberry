@@ -1,22 +1,36 @@
 # Kernel Configuration Guide
 
+> **The kernel is a pinned, prebuilt artifact — `make` does not compile it.**
+> `make kernel` downloads a fixed, signed `vmlinuz`+modules tarball (~20 MB) from
+> the repo and verifies its SHA‑256 (see [BUILD.md](BUILD.md) and the
+> [Kernel Model](../wiki/The-Kernel-Model.md)). Compiling is opt-in:
+> `make kernel-rebuild` builds it locally; `make kernel-publish` builds **and**
+> uploads a new pinned artifact. The sections below describe the config that
+> those rebuilds use.
+
 ## 1. Configuration File
 
 The Blueberry kernel configuration is at `src/kernel/config`. It is a
-standard Linux `.config` file — the exact format produced by `make menuconfig`.
+standard Linux `.config` file — the exact format produced by `make menuconfig`,
+and a **single config serves both editions** (server + desktop).
 
-When the kernel build runs, this file is copied to the kernel source tree
-and `make olddefconfig` is run to fill in any missing options added by a
-newer kernel version.
+When a kernel **rebuild** runs (`make kernel-rebuild` / `make kernel-publish`),
+this file is copied to the kernel source tree and `make olddefconfig` is run to
+fill in any missing options added by a newer kernel version.
 
 ---
 
 ## 2. Philosophy
 
-The server kernel config follows these principles:
+The kernel config follows these principles:
 
-1. **Nothing you don't need.** No sound (CONFIG_SOUND=n), no wireless
-   (CONFIG_WIRELESS=n), no Bluetooth, no V4L2, no DRM/framebuffer.
+1. **Nothing the targets don't need.** No wireless (CONFIG_WIRELESS=n) by
+   default; trimmed where it doesn't cost desktop/server functionality.
+
+   > **The DRM stack and the input event interface are required.** The desktop
+   > (KWin/Wayland) needs `CONFIG_DRM` + `VIRTIO_GPU`/`SIMPLEDRM` to render, and
+   > `CONFIG_INPUT_EVDEV` to create `/dev/input/event*` (without it libinput has
+   > no pointer/keyboard → invisible cursor, dead input). Do not disable these.
 
 2. **Everything a server does need.** ext4, xfs, btrfs, LVM, RAID, NVMe,
    virtio, nftables, WireGuard, eBPF, cgroups, namespaces — all built in
@@ -262,16 +276,19 @@ make kernel KERNEL_CONFIG=src/kernel/config.debug
 
 ---
 
-## 9. Kernel Version Policy
+## 9. Kernel Version Policy & Publishing
 
 The source tree targets a specific kernel version (`LINUX_VERSION` in
-`Make.config`). Updating the kernel requires:
+`Make.config`). Because the kernel ships as a **pinned prebuilt artifact**,
+changing it means publishing a new artifact. On a build box:
 
-1. Updating `LINUX_VERSION` in `Make.config`.
-2. Running `make kernel` to verify the new version builds.
-3. Running `make olddefconfig` and reviewing any new CONFIG_ options.
-4. Updating `src/kernel/config` with the result.
-5. Committing the config change.
+1. Update `LINUX_VERSION` in `Make.config` and/or edit `src/kernel/config`.
+2. Run `make kernel-rebuild` — compiles the new kernel locally (KERNEL_BUILD=1),
+   running `make olddefconfig` and surfacing any new CONFIG_ options to review.
+3. Run `make kernel-publish` — recompiles and uploads the new
+   `blueberry-kernel-<version>-<arch>.tar.zst` (+ `.sha256`) to the repo.
+4. Commit the `Make.config`/`src/kernel/config` change.
 
-Long-term stable (LTS) kernels are preferred for production use. When Linux
-7.0 becomes EOL, the recommended migration path is to the next LTS release.
+Every other machine then just `make kernel`-fetches the new pinned artifact; no
+one else recompiles. Long-term stable (LTS) kernels are preferred for production
+use; when Linux 7.0 becomes EOL, migrate to the next LTS release.

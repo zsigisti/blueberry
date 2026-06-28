@@ -122,3 +122,4 @@ exiv2
 libkexiv2
 plasma-activities-stats
 appstream                   # libAppStreamQt.so.3 — Plasma kicker (Application Launcher); pulls libxmlb + libfyaml
+kirigami-addons             # org.kde.kirigamiaddons.components QML — Plasma kickoff launcher

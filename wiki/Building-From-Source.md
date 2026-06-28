@@ -20,13 +20,19 @@ All build output goes to `../blueberry-build/` — **never** inside the tree.
 ## Core OS (Server)
 
 ```sh
-make world          # kernel + busybox + runit + dropbear + initramfs
-make kernel         # just the kernel
+make world          # busybox + runit + dropbear + initramfs + (fetch) kernel
+make kernel         # fetch the PINNED PREBUILT kernel (~20 MB) — does NOT compile
 make install        # stage the rootfs (INIT=systemd by default)
 make iso            # busybox live-CLI / installer ISO
 make server-iso     # systemd Server live ISO  → iso/blueberry-server-x86_64.iso
 make disk           # raw disk image
 ```
+
+> The kernel is **not compiled** on a normal build — `make kernel` downloads a
+> fixed prebuilt artifact and verifies its hash (so a small machine never has to
+> build a kernel; gcc/glibc are host-provided too). To compile it yourself use
+> `make kernel-rebuild`, or `make kernel-publish` to release a new pinned
+> artifact. See [The Kernel Model](The-Kernel-Model).
 
 ### Run & test
 
