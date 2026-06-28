@@ -1,0 +1,22 @@
+#!/bin/sh
+# blueberry-install — launch Calamares as root from the live Plasma session.
+#
+# pkexec sanitises the environment, which strips WAYLAND_DISPLAY /
+# XDG_RUNTIME_DIR / QT_QPA_PLATFORM. Without them the root Calamares (a Qt GUI)
+# has no display to connect to and the window never appears — clicking "Install
+# System" silently does nothing. We pass the live user's session env through to
+# root (root can read the user's runtime dir and connect to its Wayland socket),
+# so the installer GUI actually shows up.
+#
+# The live polkit rule (49-live-calamares.rules) grants org.freedesktop.policykit.exec
+# to the 'wheel' group with Result.YES, so no password prompt is needed.
+set -e
+RT="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+exec pkexec env \
+    XDG_RUNTIME_DIR="$RT" \
+    WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-0}" \
+    QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-wayland}" \
+    DISPLAY="${DISPLAY:-}" \
+    XAUTHORITY="${XAUTHORITY:-}" \
+    QT_SCALE_FACTOR="${QT_SCALE_FACTOR:-1}" \
+    calamares

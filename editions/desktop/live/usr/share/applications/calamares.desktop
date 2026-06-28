@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Install System
+GenericName=System Installer
+Comment=Install Blueberry Desktop to disk
+Exec=/usr/local/bin/blueberry-install
+Icon=calamares
+Terminal=false
+Categories=Qt;System;
+Keywords=calamares;system;installer;install;
