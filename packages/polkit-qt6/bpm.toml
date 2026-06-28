@@ -1,0 +1,24 @@
+[package]
+name     = "polkit-qt6"
+version  = "0.200.0"
+release  = 1
+summary  = "Qt6 wrapper around polkit (libpolkit-qt6-core-1.so.1) — Calamares/kpmcore auth"
+homepage = "https://invent.kde.org/libraries/polkit-qt-1"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+depends     = ["polkit", "glib2", "qt6-base"]
+makedepends = ["extra-cmake-modules", "cmake", "ninja", "pkgconf", "qt6-base", "polkit", "glib2", "glib2-devel"]
+options     = ["!lto"]
+[[source]]
+url    = "https://download.kde.org/stable/polkit-qt-1/polkit-qt-1-0.200.0.tar.xz"
+sha256 = "5d3b611c062d2b76a93750bb10c907bfd21d1ff08d0a15dc2cf63e278e1677fb"
+[steps]
+build = '''
+cmake -S "polkit-qt-1-$version" -B build -G Ninja \
+  -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr \
+  -D KDE_INSTALL_LIBDIR=lib -D QT_MAJOR_VERSION=6 -D BUILD_TESTING=OFF
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''
