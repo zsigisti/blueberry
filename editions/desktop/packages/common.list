@@ -118,5 +118,6 @@ libxkbfile
 xorg-xkbcomp
 libmd
 libbsd
+exiv2
 libkexiv2
 plasma-activities-stats

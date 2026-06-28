@@ -1,0 +1,34 @@
+[package]
+name     = "exiv2"
+version  = "0.28.8"
+release  = 1
+summary  = "Image metadata (Exif/IPTC/XMP) library and toolkit — provides libexiv2.so.28"
+homepage = "https://exiv2.org/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["expat", "zlib", "brotli"]
+makedepends = ["cmake", "ninja", "expat", "zlib", "brotli", "gcc"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://github.com/Exiv2/exiv2/archive/refs/tags/v0.28.8.tar.gz"
+sha256 = "ea51b0609f58a9afa063b60daa1539948b62247721e154f4fff0ad3aec9f9756"
+
+[steps]
+build = '''
+cmake -S "exiv2-$version" -B build -G Ninja \
+  -D CMAKE_BUILD_TYPE=Release \
+  -D CMAKE_INSTALL_PREFIX=/usr \
+  -D BUILD_SHARED_LIBS=ON \
+  -D EXIV2_ENABLE_INIH=OFF \
+  -D EXIV2_ENABLE_NLS=OFF \
+  -D EXIV2_BUILD_SAMPLES=OFF \
+  -D EXIV2_BUILD_EXIV2_COMMAND=OFF \
+  -D EXIV2_BUILD_UNIT_TESTS=OFF \
+  -D BUILD_TESTING=OFF
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''
