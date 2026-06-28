@@ -1,0 +1,30 @@
+# Maintainer: Blueberry Linux <blueberry@mmzsigmond.me>
+pkgname=iproute2
+pkgver=7.1.0
+pkgrel=1
+pkgdesc='IP routing utilities — ip, ss, tc, bridge'
+arch=('x86_64')
+url='https://wiki.linuxfoundation.org/networking/iproute2'
+license=('GPL2')
+depends=('glibc' 'libmnl' 'libcap')
+makedepends=('bison' 'flex' 'pkgconf' 'libmnl' 'libcap')
+provides=('ip' 'ss' 'tc')
+options=('!lto')
+source=("https://www.kernel.org/pub/linux/utils/net/iproute2/iproute2-$pkgver.tar.xz")
+sha256sums=('fd9fa1b95809417157ca83dd72957e3261bdbce896353cb936f80af0b33a4b5c')
+
+build() {
+  cd "$pkgname-$pkgver"
+  ./configure
+  # configure auto-links whatever it finds in the build container. Strip the
+  # optional libs NOT in the Blueberry repo (libtirpc/libelf/libbpf/libselinux)
+  # so the runtime closure stays at libmnl + libcap. These are #ifdef-guarded.
+  sed -i -E '/-l(elf|bpf|tirpc|selinux|z)\b/d; /HAVE_(ELF|RPC|LIBBPF|SELINUX)/d; /tirpc|libbpf|libelf|libselinux/d' config.mk
+  make
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  # merged-usr target: land ip/ss/tc/bridge in /usr/bin.
+  make DESTDIR="$pkgdir" SBINDIR=/usr/bin install
+}

@@ -1,0 +1,33 @@
+[package]
+name     = "iputils"
+version  = "20250605"
+release  = 1
+summary  = "Network monitoring tools — ping, tracepath, arping"
+homepage = "https://github.com/iputils/iputils"
+license  = ["BSD-3-Clause", "GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["libcap"]
+makedepends = ["gcc", "meson", "ninja", "pkgconf", "libcap"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://github.com/iputils/iputils/archive/refs/tags/20250605.tar.gz"
+sha256 = "19e680c9eef8c079da4da37040b5f5453763205b4edfb1e2c114de77908927e4"
+
+[steps]
+build = '''
+# IDN off → no libidn2 dep; mans off → no docbook/xsltproc; ping links libcap only.
+meson setup "iputils-$version" build \
+  --prefix=/usr --buildtype=release \
+  -D USE_IDN=false \
+  -D USE_GETTEXT=false \
+  -D BUILD_MANS=false \
+  -D BUILD_HTML_MANS=false \
+  -D BUILD_CLOCKDIFF=false \
+  -D SKIP_TESTS=true
+meson compile -C build
+'''
+package = '''
+DESTDIR="$pkgdir" meson install -C build --no-rebuild
+'''

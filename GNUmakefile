@@ -49,7 +49,12 @@ INIT ?= systemd
 # into the rootfs via systemd's ldd closure in bundle-glibc.
 SYSTEMD_BASE_PKGS := systemd util-linux coreutils libseccomp kmod dbus acl \
                      cryptsetup libcap libcap-ng readline file zlib bzip2 expat \
-                     attr device-mapper json-c openssl popt openssh pam glibc-locales gmp
+                     attr device-mapper json-c openssl popt openssh pam glibc-locales gmp \
+                     iproute2 iputils libmnl
+# Networking userland: ip/ss/tc/bridge (iproute2, needs libmnl) + ping/tracepath
+# (iputils). The stack itself (systemd-networkd/resolved) is in systemd; these are
+# the diagnostic CLI tools. The base extraction is flat (no dep resolution), so
+# libmnl is listed explicitly; libcap (also needed) is already above.
 ifeq ($(INIT),systemd)
   BASE_PKGS += $(SYSTEMD_BASE_PKGS)
 endif
