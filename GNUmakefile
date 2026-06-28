@@ -2,7 +2,9 @@
 #
 # Primary targets
 #   make world        Build everything: busybox, runit, dropbear, kernel, initramfs
-#   make kernel       Build the Linux kernel and modules
+#   make kernel       Fetch the pinned prebuilt kernel (NOT compiled by default)
+#   make kernel-rebuild  Compile the kernel from source this once (needs a build box)
+#   make kernel-publish  Compile + upload a new pinned kernel artifact (build box)
 #   make userland     Build busybox + runit + dropbear (glibc, dynamic)
 #   make initramfs    Build the initramfs image
 #   make run          Boot the live CLI in QEMU (interactive)
@@ -213,10 +215,19 @@ $(STAMP_DROPBEAR): $(STAMP_FETCH_DROPBEAR) $(SRCDIR)/dropbear/Makefile | $(STAGE
 userland: busybox runit dropbear
 
 # ── Linux kernel ─────────────────────────────────────────────────────────────
+# The kernel is NOT rolling and NOT compiled on every build. It is a pinned,
+# prebuilt binary artifact (vmlinuz + System.map + modules) hosted on the repo,
+# so small machines never have to compile the kernel. Compiling is opt-in:
+#   make kernel                  fetch the pinned prebuilt artifact (default)
+#   make kernel-rebuild          compile from source this once (KERNEL_BUILD=1)
+#   make kernel-publish          compile + upload a new pinned artifact (build box)
+# Bump LINUX_VERSION / src/kernel/config, then `make kernel-publish` to release it.
+KERNEL_BUILD ?= 0
 kernel: $(STAMP_KERNEL)
 
+ifeq ($(KERNEL_BUILD),1)
 $(STAMP_KERNEL): $(STAMP_FETCH_LINUX) $(TOPDIR)/src/kernel/config | $(BOOTDIR)
-	@echo "[build] linux-$(LINUX_VERSION)"
+	@echo "[build] linux-$(LINUX_VERSION) (compiling from source — KERNEL_BUILD=1)"
 	@$(MAKE) -C $(SRCDIR)/kernel \
 	    LINUX_SRC=$(LINUX_SRC) \
 	    LINUX_VERSION=$(LINUX_VERSION) \
@@ -227,6 +238,24 @@ $(STAMP_KERNEL): $(STAMP_FETCH_LINUX) $(TOPDIR)/src/kernel/config | $(BOOTDIR)
 	    CROSS_COMPILE="$(CROSS_COMPILE)" \
 	    JOBS=$(JOBS)
 	@touch $@
+else
+$(STAMP_KERNEL): $(TOPDIR)/tools/fetch-kernel.sh | $(BOOTDIR)
+	@echo "[kernel] using pinned prebuilt linux-$(LINUX_VERSION)$(KERNEL_LOCALVERSION) (set KERNEL_BUILD=1 to compile)"
+	@sh $(TOPDIR)/tools/fetch-kernel.sh \
+	    $(BOOTDIR) $(STAGEDIR) $(LINUX_VERSION) $(KERNEL_LOCALVERSION) $(ARCH)
+	@touch $@
+endif
+
+# Compile the kernel from source (opt-in; needs a real build box + the linux tree).
+.PHONY: kernel-rebuild kernel-publish
+kernel-rebuild:
+	@rm -f $(STAMP_KERNEL)
+	@$(MAKE) kernel KERNEL_BUILD=1
+
+# Compile + upload a new pinned artifact so every other build can fetch it.
+kernel-publish: kernel-rebuild
+	@sh $(TOPDIR)/tools/publish-kernel.sh \
+	    $(BOOTDIR) $(STAGEDIR) $(LINUX_VERSION) $(KERNEL_LOCALVERSION) $(ARCH)
 
 # ── initramfs ─────────────────────────────────────────────────────────────────
 initramfs: $(STAMP_INITRAMFS)
@@ -404,7 +433,9 @@ help:
 	@echo ""
 	@echo "OS build targets:"
 	@echo "  world          Build everything (default)"
-	@echo "  kernel         Build Linux $(LINUX_VERSION) kernel + modules"
+	@echo "  kernel         Fetch pinned prebuilt Linux $(LINUX_VERSION) (not compiled)"
+	@echo "  kernel-rebuild Compile Linux $(LINUX_VERSION) from source (opt-in; build box)"
+	@echo "  kernel-publish Compile + upload a new pinned kernel artifact (build box)"
 	@echo "  userland       Build busybox + runit + dropbear (glibc, dynamic)"
 	@echo "  busybox        Build busybox"
 	@echo "  runit          Build runit init"
