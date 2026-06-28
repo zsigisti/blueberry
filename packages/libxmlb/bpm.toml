@@ -1,0 +1,33 @@
+[package]
+name     = "libxmlb"
+version  = "0.3.27"
+release  = 1
+summary  = "Library to help create and query binary XML blobs (provides libxmlb.so.2)"
+homepage = "https://github.com/hughsie/libxmlb"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glib2"]
+makedepends = ["meson", "ninja", "gcc", "pkgconf", "glib2"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://github.com/hughsie/libxmlb/archive/refs/tags/0.3.27.tar.gz"
+sha256 = "e7a6d493e25b38a85fb3c46ec25be0b4eeae851a5ed1b850c8dd04e7c0a7cef8"
+
+[steps]
+build = '''
+meson setup "libxmlb-$version" build \
+  --prefix=/usr --buildtype=release \
+  -D gtkdoc=false \
+  -D introspection=false \
+  -D tests=false \
+  -D stemmer=false \
+  -D cli=false \
+  -D lzma=disabled \
+  -D zstd=enabled
+meson compile -C build
+'''
+package = '''
+DESTDIR="$pkgdir" meson install -C build --no-rebuild
+'''

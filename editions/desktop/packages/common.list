@@ -121,3 +121,4 @@ libbsd
 exiv2
 libkexiv2
 plasma-activities-stats
+appstream                   # libAppStreamQt.so.3 — Plasma kicker (Application Launcher); pulls libxmlb + libfyaml

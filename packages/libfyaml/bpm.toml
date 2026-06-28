@@ -1,0 +1,27 @@
+[package]
+name     = "libfyaml"
+version  = "0.9.6"
+release  = 1
+summary  = "Fully-featured YAML parser/emitter library (provides libfyaml.so.0)"
+homepage = "https://github.com/pantoniou/libfyaml"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["gcc", "make", "pkgconf"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://github.com/pantoniou/libfyaml/releases/download/v0.9.6/libfyaml-0.9.6.tar.gz"
+sha256 = "a59cc3331e2eb903ec36933ad52a45888041cac31e44f553a00511131242c483"
+
+[steps]
+build = '''
+cd "libfyaml-$version"
+./configure --prefix=/usr --disable-static --disable-network
+make
+'''
+package = '''
+cd "libfyaml-$version"
+make DESTDIR="$pkgdir" install
+'''

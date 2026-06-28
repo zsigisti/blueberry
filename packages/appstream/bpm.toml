@@ -1,0 +1,50 @@
+[package]
+name     = "appstream"
+version  = "1.1.3"
+release  = 1
+summary  = "Software component metadata library + Qt6 bindings (libappstream.so.5, libAppStreamQt.so.3)"
+homepage = "https://www.freedesktop.org/wiki/Distributions/AppStream/"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glib2", "libxml2", "libxmlb", "libfyaml", "curl", "qt6-base"]
+makedepends = ["meson", "ninja", "gcc", "pkgconf", "gettext", "gperf", "itstool",
+               "glib2", "glib2-devel", "libxml2", "libxmlb", "libfyaml", "curl", "qt6-base"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://github.com/ximion/appstream/archive/refs/tags/v1.1.3.tar.gz"
+sha256 = "437c0564facc63f36b7b7907293182446a9c535619a09ec93840147f685c2f64"
+
+[steps]
+build = '''
+# bpmbuild's Python tarfile auto-extract (filter="data") aborts on appstream's
+# intentional absolute-symlink test sample, leaving an incomplete tree. Re-extract
+# with system tar (handles the symlink) to get the full source.
+rm -rf "appstream-$version"
+tar xf "v$version.tar.gz"
+# Qt6 bindings only (what Plasma's kicker needs). Disable the compose tool and
+# its heavy font/image deps, plus stemming/systemd/blake3/docs, to keep the
+# runtime closure to glib2/libxml2/libxmlb/libfyaml/curl/qt6-base.
+meson setup "appstream-$version" build \
+  --prefix=/usr --buildtype=release \
+  -D qt=true \
+  -D compose=false \
+  -D stemming=false \
+  -D systemd=false \
+  -D vapi=false \
+  -D gir=false \
+  -D apt-support=false \
+  -D bash-completion=false \
+  -D svg-support=false \
+  -D blake3-support=false \
+  -D zstd-support=true \
+  -D docs=false \
+  -D apidocs=false \
+  -D install-docs=false \
+  -D man=false
+meson compile -C build
+'''
+package = '''
+DESTDIR="$pkgdir" meson install -C build --no-rebuild
+'''
