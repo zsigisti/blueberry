@@ -1,0 +1,25 @@
+[package]
+name     = "libpwquality"
+version  = "1.4.5"
+release  = 1
+summary  = "Password quality checking library — libpwquality.so.1 (Calamares users module)"
+homepage = "https://github.com/libpwquality/libpwquality"
+license  = ["BSD-3-Clause", "GPL-2.0-or-later"]
+arch     = ["x86_64"]
+depends     = ["glibc"]
+makedepends = ["gcc", "make", "pkgconf"]
+options     = ["!lto"]
+[[source]]
+url    = "https://github.com/libpwquality/libpwquality/releases/download/libpwquality-1.4.5/libpwquality-1.4.5.tar.bz2"
+sha256 = "6fcf18b75d305d99d04d2e42982ed5b787a081af2842220ed63287a2d6a10988"
+[steps]
+build = '''
+cd "libpwquality-$version"
+# no cracklib (dictionary check) → no libcrack dep; no python bindings.
+./configure --prefix=/usr --disable-static --disable-cracklib-check --disable-python-bindings
+make
+'''
+package = '''
+cd "libpwquality-$version"
+make DESTDIR="$pkgdir" install
+'''
