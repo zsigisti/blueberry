@@ -236,8 +236,23 @@ cp -a "$LIVEROOT/etc/os-release" "$ISO_ROOT/" 2>/dev/null || true
 
 # ── Squash the live root ──────────────────────────────────────────────────────
 log "building squashfs (zstd) — this is the bulk of the build"
+# Restore setuid-root on binaries that require it. stage-desktop extracts .bpm
+# as a normal user, so setuid bits + root ownership are lost and mksquashfs would
+# bake in the wrong modes. Fix them with squashfs pseudo-file modifications
+# (`<path> m <mode> <uid> <gid>`) so they land as -rwsr-xr-x root:root. WITHOUT
+# this, pkexec is not setuid root and the installer (pkexec calamares) fails with
+# "pkexec must be setuid root" — so 'Install System' silently does nothing.
+SETUID_PSEUDO="$WORK/setuid.pseudo"; : > "$SETUID_PSEUDO"
+for _b in usr/bin/pkexec usr/lib/polkit-1/polkit-agent-helper-1 \
+          usr/bin/sudo usr/bin/su usr/bin/mount usr/bin/umount \
+          usr/bin/passwd usr/bin/chsh usr/bin/chfn usr/bin/newgrp usr/bin/crontab; do
+    [ -e "$LIVEROOT/$_b" ] && echo "$_b m 4755 0 0" >> "$SETUID_PSEUDO"
+done
+log "restoring setuid-root on $(wc -l < "$SETUID_PSEUDO") binaries (pkexec, mount, su…)"
+
 mksquashfs "$LIVEROOT" "$ISO_ROOT/live/filesystem.squashfs" \
     -comp zstd -Xcompression-level 19 -noappend -quiet \
+    -pf "$SETUID_PSEUDO" \
     -e boot/vmlinuz boot/initramfs.cpio.zst
 
 # ── Boot assets ───────────────────────────────────────────────────────────────
