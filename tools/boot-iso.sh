@@ -23,8 +23,19 @@ ACCEL=""; [ -e /dev/kvm ] && ACCEL="-enable-kvm -cpu host"
 case "$MODE" in
 run)
     if [ "$EDITION" = desktop ]; then
+        # Calamares needs a target disk. A CD-only VM shows "no partitions / not
+        # enough drive space", so attach a persistent virtual disk (reused across
+        # runs, so you can install once and boot the result with -boot c).
+        DISK=${BLUEBERRY_DISK:-${ISO%.iso}-disk.qcow2}
+        SIZE=${BLUEBERRY_DISK_SIZE:-20G}
+        if [ ! -f "$DISK" ]; then
+            echo "[run] creating $SIZE installer target disk: $DISK"
+            qemu-img create -f qcow2 "$DISK" "$SIZE" >/dev/null
+        fi
         echo "[run] booting $EDITION ISO in QEMU (close the window or Ctrl-A X to quit)"
-        exec qemu-system-x86_64 $ACCEL -m "$MEM" -smp "$SMP" -cdrom "$ISO" $VGA -boot d
+        echo "[run] install target: $DISK  (boot the installed system with: -boot c)"
+        exec qemu-system-x86_64 $ACCEL -m "$MEM" -smp "$SMP" -cdrom "$ISO" \
+            -drive file="$DISK",if=virtio,format=qcow2 $VGA -boot d
     fi
     # Server is headless: route the serial console to this terminal (-nographic).
     # The ISO autologins root on ttyS0, so it drops straight to a shell. Ctrl-A X
