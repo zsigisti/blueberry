@@ -129,3 +129,5 @@ qrencode                    # libqrencode.so.4 — Plasma clipboard/klipper appl
 libdmtx                     # libdmtx.so.0 — Plasma clipboard/klipper (Data Matrix)
 pulseaudio-qt               # libKF6PulseAudioQt.so.5 — Plasma volume/sound applet
 libasyncns                  # libasyncns.so.0 — libpulse dep (volume applet)
+libnsl                      # libnsl.so.3 — libpulse/volume (pulls libtirpc)
+libtirpc                    # libtirpc.so.3 — libnsl dep

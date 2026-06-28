@@ -1,0 +1,25 @@
+[package]
+name="libnsl"
+version="2.0.1"
+release=1
+summary="Public client interface for NIS(YP) — libnsl.so.3 (libpulse/volume applet)"
+homepage="https://github.com/thkukuk/libnsl"
+license=["LGPL-2.1-or-later"]
+arch=["x86_64"]
+depends=["glibc","libtirpc"]
+makedepends=["gcc","make","pkgconf","autoconf","automake","libtool","gettext","libtirpc"]
+options=["!lto"]
+[[source]]
+url="https://github.com/thkukuk/libnsl/archive/refs/tags/v2.0.1.tar.gz"
+sha256="59048b53be8d3904bf939313debf13956a881b0de79da40f7719a77bcd1e9c53"
+[steps]
+build='''
+cd "libnsl-$version"
+./autogen.sh
+./configure --prefix=/usr --disable-static
+make
+'''
+package='''
+cd "libnsl-$version"
+make DESTDIR="$pkgdir" install
+'''
