@@ -161,6 +161,15 @@ if command -v fc-cache >/dev/null 2>&1 && [ -d "$LIVEROOT/usr/share/fonts" ]; th
     HOME="$LIVEROOT/root" XDG_CACHE_HOME="$LIVEROOT/var/cache" \
         fc-cache -f "$LIVEROOT/usr/share/fonts" >/dev/null 2>&1 || true
 fi
+# Icon-theme caches: KIconLoader/Qt resolve icons faster (and some lookups only
+# succeed) when each theme has an icon-theme.cache. Build them on the host for
+# the staged themes if a generator is available; harmless if it isn't.
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    for t in breeze breeze-dark Breeze_Light hicolor; do
+        d="$LIVEROOT/usr/share/icons/$t"
+        [ -f "$d/index.theme" ] && gtk-update-icon-cache -q -f -t "$d" >/dev/null 2>&1 || true
+    done
+fi
 # SDDM has no GreeterEnvironment key and sddm-helper rebuilds a clean env for the
 # greeter from pam_getenvlist(), so /etc/environment/DefaultEnvironment don't
 # reach it and Qt keeps detecting "C". Wrap the greeter binary to force the
