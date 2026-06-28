@@ -2,7 +2,7 @@
 Type=Application
 Name=Install Blueberry Desktop
 Comment=Launch the Blueberry Desktop installer
-Exec=sh -c 'test -e /run/live/medium && exec /usr/local/bin/blueberry-install'
+Exec=sh -c 'test -e /lib/live/medium && exec /usr/local/bin/blueberry-install'
 Icon=calamares
 Terminal=false
 # Only autostart inside the live session (the medium marker is absent on the
