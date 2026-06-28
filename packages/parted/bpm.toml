@@ -1,0 +1,27 @@
+[package]
+name     = "parted"
+version  = "3.6"
+release  = 1
+summary  = "GNU Parted disk partitioning tool + libparted.so.2 (Calamares installer)"
+homepage = "https://www.gnu.org/software/parted/"
+license  = ["GPL-3.0-or-later"]
+arch     = ["x86_64"]
+depends     = ["device-mapper", "util-linux", "readline", "glibc"]
+makedepends = ["gcc", "make", "pkgconf", "device-mapper", "util-linux", "readline"]
+options     = ["!lto"]
+[[source]]
+url    = "https://ftp.gnu.org/gnu/parted/parted-3.6.tar.xz"
+sha256 = "3b43dbe33cca0f9a18601ebab56b7852b128ec1a3df3a9b30ccde5e73359e612"
+[steps]
+build = '''
+cd "parted-$version"
+# GCC16: -Wincompatible-pointer-types is a hard error in the parted CLI; downgrade
+# it so libparted.so.2 (all Calamares needs) builds.
+export CFLAGS="-O2 -Wno-error=incompatible-pointer-types"
+./configure --prefix=/usr --disable-static
+make
+'''
+package = '''
+cd "parted-$version"
+make DESTDIR="$pkgdir" install
+'''
