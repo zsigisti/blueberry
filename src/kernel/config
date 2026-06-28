@@ -308,6 +308,13 @@ CONFIG_HID=y
 CONFIG_HID_GENERIC=y
 CONFIG_INPUT_KEYBOARD=y
 CONFIG_INPUT_MOUSE=y
+# Event interface: creates /dev/input/event* nodes. WITHOUT this, input devices
+# register in the kernel input core (loginctl/udev see them) but there are NO
+# device nodes for libinput to read → KWin/Wayland has no pointer or keyboard →
+# invisible mouse cursor + dead input. evdev MUST be builtin (=y) for the GUI.
+CONFIG_INPUT_EVDEV=y
+CONFIG_INPUT_MOUSEDEV=y
+CONFIG_INPUT_MOUSEDEV_PSAUX=y
 
 #
 # Firmware loading (real NICs/devices that need blobs in /lib/firmware)
