@@ -245,7 +245,8 @@ log "building squashfs (zstd) — this is the bulk of the build"
 SETUID_PSEUDO="$WORK/setuid.pseudo"; : > "$SETUID_PSEUDO"
 for _b in usr/bin/pkexec usr/lib/polkit-1/polkit-agent-helper-1 \
           usr/bin/sudo usr/bin/su usr/bin/mount usr/bin/umount \
-          usr/bin/passwd usr/bin/chsh usr/bin/chfn usr/bin/newgrp usr/bin/crontab; do
+          usr/bin/passwd usr/bin/chsh usr/bin/chfn usr/bin/newgrp usr/bin/crontab \
+          usr/libexec/dbus-daemon-launch-helper; do
     [ -e "$LIVEROOT/$_b" ] && echo "$_b m 4755 0 0" >> "$SETUID_PSEUDO"
 done
 log "restoring setuid-root on $(wc -l < "$SETUID_PSEUDO") binaries (pkexec, mount, su…)"
