@@ -46,6 +46,14 @@ jobs:
       - name: Static recipe validation
         run: bash tools/check-pkgbuilds.sh
 
+  closure:
+    name: .bpm dependency closure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert every recipe dependency has a recipe (or is provided)
+        run: python3 tools/check-closure.py
+
   bpm:
     name: Build bpm + test
     runs-on: ubuntu-latest

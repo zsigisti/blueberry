@@ -1,0 +1,27 @@
+[package]
+name     = "sed"
+version  = "4.9"
+release  = 1
+summary  = "GNU sed — core CLI tool (desktop base; busybox covers the server)"
+homepage = "https://www.gnu.org/software/sed/"
+license  = ["GPL-3.0-or-later"]
+arch     = ["x86_64"]
+depends     = ["glibc"]
+makedepends = ["gcc", "make", "pkgconf"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://ftp.gnu.org/gnu/sed/sed-4.9.tar.xz"
+sha256 = "6e226b732e1cd739464ad6862bd1a1aba42d7982922da7a53519631d24975181"
+
+[steps]
+build = '''
+cd "sed-$version"
+export CFLAGS="-O2 -std=gnu17"
+./configure --prefix=/usr
+make
+'''
+package = '''
+cd "sed-$version"
+make DESTDIR="$pkgdir" install
+'''

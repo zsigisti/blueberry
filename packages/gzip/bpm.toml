@@ -1,0 +1,27 @@
+[package]
+name     = "gzip"
+version  = "1.13"
+release  = 1
+summary  = "GNU gzip — core CLI tool (desktop base; busybox covers the server)"
+homepage = "https://www.gnu.org/software/gzip/"
+license  = ["GPL-3.0-or-later"]
+arch     = ["x86_64"]
+depends     = ["glibc"]
+makedepends = ["gcc", "make", "pkgconf"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://ftp.gnu.org/gnu/gzip/gzip-1.13.tar.xz"
+sha256 = "7454eb6935db17c6655576c2e1b0fabefd38b4d0936e0f87f48cd062ce91a057"
+
+[steps]
+build = '''
+cd "gzip-$version"
+export CFLAGS="-O2 -std=gnu17"
+./configure --prefix=/usr
+make
+'''
+package = '''
+cd "gzip-$version"
+make DESTDIR="$pkgdir" install
+'''

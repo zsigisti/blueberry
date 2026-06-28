@@ -15,6 +15,12 @@ pixman
 libxml2
 libpciaccess
 coreutils                   # cat/ls/cp/tail/tty/env/sleep — base CLI tools (no busybox)
+grep                        # GNU grep (desktop has no busybox)
+sed                         # GNU sed
+gawk                        # GNU awk
+findutils                   # find/xargs
+tar                         # GNU tar
+gzip                        # gzip
 freetype2
 glib2
 glibc-locales               # en_US.UTF-8 locale-archive

@@ -408,6 +408,22 @@ test-desktop:
 $(OBJDIR_SRC) $(STAGEDIR) $(BOOTDIR) $(OBJDIR):
 	@mkdir -p $@
 
+# ── Repo: build-the-world + closure gate ──────────────────────────────────────
+# Every name under packages/ that has a bpm.toml.
+ALL_BPM_PKGS := $(notdir $(patsubst %/bpm.toml,%,$(wildcard $(TOPDIR)/packages/*/bpm.toml)))
+
+# Assert the recipe tree is dependency-closed (every `depends` has a recipe or is
+# host-provided). Catches "declared but never packaged" before it ships.
+.PHONY: check-closure repo-build
+check-closure:
+	@python3 $(TOPDIR)/tools/check-closure.py
+
+# Build every .bpm package (idempotent: skips up-to-date ones). The bulk of the
+# repo; run on a build box. ENGINE=podman|docker.
+repo-build:
+	@echo "[repo] building all $(words $(ALL_BPM_PKGS)) .bpm packages"
+	@sh $(TOPDIR)/tools/build-bpm-pkg.sh $(OBJDIR)/bpm-out $(ALL_BPM_PKGS)
+
 # ── Utility targets ───────────────────────────────────────────────────────────
 clean:
 	@echo "[clean] removing build artefacts"
