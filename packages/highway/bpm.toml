@@ -1,0 +1,28 @@
+[package]
+name     = "highway"
+version  = "1.2.0"
+release  = 1
+summary  = "Performance-portable SIMD intrinsics library (libhwy)"
+homepage = "https://github.com/google/highway"
+license  = ["Apache-2.0", "BSD-3-Clause"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "gcc-libs"]
+makedepends = ["cmake", "ninja"]
+provides    = ["libhwy.so", "libhwy_contrib.so", "libhwy_test.so"]
+
+[[source]]
+url    = "https://github.com/google/highway/archive/1.2.0/highway-1.2.0.tar.gz"
+sha256 = "7e0be78b8318e8bdbf6fa545d2ecb4c90f947df03f7aadc42c1967f019e63343"
+
+[steps]
+build = '''
+cmake -B build -S "$name-$version" -G Ninja \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_SHARED_LIBS=ON -DHWY_ENABLE_TESTS=OFF -DHWY_ENABLE_EXAMPLES=OFF \
+  -DHWY_ENABLE_CONTRIB=ON
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''

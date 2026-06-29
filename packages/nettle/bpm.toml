@@ -1,0 +1,27 @@
+[package]
+name     = "nettle"
+version  = "3.10"
+release  = 1
+summary  = "Low-level cryptographic library (libnettle + libhogweed)"
+homepage = "https://www.lysator.liu.se/~nisse/nettle/"
+license  = ["LGPL-3.0-or-later", "GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "gmp"]
+makedepends = ["m4", "gmp", "pkgconf"]
+provides    = ["libnettle.so", "libhogweed.so"]
+
+[[source]]
+url    = "https://ftp.gnu.org/gnu/nettle/nettle-3.10.tar.gz"
+sha256 = "b4c518adb174e484cb4acea54118f02380c7133771e7e9beb98a0787194ee47c"
+
+[steps]
+build = '''
+cd "$name-$version"
+./configure --prefix=/usr --disable-static --enable-shared
+make
+'''
+package = '''
+cd "$name-$version"
+make DESTDIR="$pkgdir" install
+'''
