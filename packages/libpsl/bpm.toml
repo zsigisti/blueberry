@@ -1,0 +1,25 @@
+[package]
+name     = "libpsl"
+version  = "0.21.5"
+release  = 1
+summary  = "Public Suffix List library"
+homepage = "https://rockdaboot.github.io/libpsl/"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libidn2", "libunistring"]
+makedepends = ["meson", "ninja", "pkgconf", "libidn2", "libunistring", "python"]
+provides    = ["libpsl.so"]
+
+[[source]]
+url    = "https://github.com/rockdaboot/libpsl/releases/download/0.21.5/libpsl-0.21.5.tar.gz"
+sha256 = "1dcc9ceae8b128f3c0b3f654decd0e1e891afc6ff81098f227ef260449dae208"
+
+[steps]
+build = '''
+arch-meson "$name-$version" build -D runtime=libidn2 -D builtin=true
+meson compile -C build
+'''
+package = '''
+meson install -C build --destdir "$pkgdir"
+'''
