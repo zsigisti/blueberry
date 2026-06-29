@@ -1,0 +1,27 @@
+[package]
+name     = "alsa-lib"
+version  = "1.2.12"
+release  = 1
+summary  = "Advanced Linux Sound Architecture userspace library (libasound)"
+homepage = "https://www.alsa-project.org/"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["pkgconf"]
+provides    = ["libasound.so", "libatopology.so"]
+
+[[source]]
+url    = "https://www.alsa-project.org/files/pub/lib/alsa-lib-1.2.12.tar.bz2"
+sha256 = "4868cd908627279da5a634f468701625be8cc251d84262c7e5b6a218391ad0d2"
+
+[steps]
+build = '''
+cd "$name-$version"
+./configure --prefix=/usr --disable-static --without-debug
+make
+'''
+package = '''
+cd "$name-$version"
+make DESTDIR="$pkgdir" install
+'''
