@@ -15,3 +15,6 @@ zstd
 xz
 lz4
 ca-certificates
+# The systemd base package ships libsystemd.so.0 + libudev.so.1 into the rootfs,
+# so anything depending on systemd-libs (libgudev, libpulse, …) is satisfied.
+systemd-libs
