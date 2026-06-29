@@ -1,0 +1,26 @@
+[package]
+name     = "libzip"
+version  = "1.11.4"
+release  = 1
+summary  = "C library for reading, creating, and modifying zip archives"
+homepage = "https://libzip.org/"
+license  = ["BSD-3-Clause"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "zlib", "bzip2", "xz", "zstd", "openssl"]
+makedepends = ["cmake", "ninja", "zlib", "bzip2", "xz", "zstd", "openssl"]
+provides    = ["libzip.so"]
+
+[[source]]
+url    = "https://libzip.org/download/libzip-1.11.4.tar.gz"
+sha256 = "82e9f2f2421f9d7c2466bbc3173cd09595a88ea37db0d559a9d0a2dc60dc722e"
+
+[steps]
+build = '''
+cmake -B build -S "$name-$version" -G Ninja \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''
