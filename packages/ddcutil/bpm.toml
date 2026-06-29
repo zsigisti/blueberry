@@ -1,0 +1,30 @@
+[package]
+name     = "ddcutil"
+version  = "2.1.4"
+release  = 1
+summary  = "Query and change monitor settings over DDC/CI (libddcutil)"
+homepage = "https://www.ddcutil.com/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "glib2", "libdrm", "libusb", "kmod"]
+makedepends = ["autoconf", "automake", "libtool", "pkgconf", "glib2", "libdrm", "libusb"]
+provides    = ["libddcutil.so"]
+
+[[source]]
+url    = "https://github.com/rockowitz/ddcutil/archive/v2.1.4/ddcutil-2.1.4.tar.gz"
+sha256 = "cd8325d399399edba3df4ec58a4051c7c54fcf4fbc8f62937c6f19adb303f4ba"
+
+[steps]
+build = '''
+cd "$name-$version"
+./autogen.sh
+# GCC 16 promotes -Wunused-but-set-variable to an error; ddcutil's tree isn't
+# clean against it, so drop -Werror for the build.
+./configure --prefix=/usr --disable-static CFLAGS="-O2 -Wno-error"
+make
+'''
+package = '''
+cd "$name-$version"
+make DESTDIR="$pkgdir" install
+'''
