@@ -1,0 +1,27 @@
+[package]
+name     = "p11-kit"
+version  = "0.25.5"
+release  = 1
+summary  = "Library to load and enumerate PKCS#11 modules"
+homepage = "https://p11-glue.github.io/p11-glue/p11-kit.html"
+license  = ["BSD-3-Clause"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libtasn1", "libffi"]
+makedepends = ["meson", "ninja", "pkgconf", "libtasn1", "libffi"]
+provides    = ["libp11-kit.so"]
+
+[[source]]
+url    = "https://github.com/p11-glue/p11-kit/releases/download/0.25.5/p11-kit-0.25.5.tar.xz"
+sha256 = "04d0a86450cdb1be018f26af6699857171a188ac6d5b8c90786a60854e1198e5"
+
+[steps]
+build = '''
+arch-meson "$name-$version" build \
+  -D trust_paths=/etc/ssl/certs/ca-certificates.crt \
+  -D systemd=disabled -D bash_completion=disabled
+meson compile -C build
+'''
+package = '''
+meson install -C build --destdir "$pkgdir"
+'''
