@@ -1,0 +1,47 @@
+[package]
+name     = "nss"
+version  = "3.108"
+release  = 1
+summary  = "Network Security Services — TLS/crypto libraries (libnss3 et al)"
+homepage = "https://firefox-source-docs.mozilla.org/security/nss/"
+license  = ["MPL-2.0"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "nspr", "sqlite", "zlib"]
+makedepends = ["nspr", "sqlite", "zlib", "perl", "python"]
+provides    = ["libnss3.so", "libnssutil3.so", "libsmime3.so", "libssl3.so", "libsoftokn3.so", "libfreebl3.so", "libnssckbi.so", "libnssdbm3.so", "libnsssysinit.so"]
+
+[[source]]
+url    = "https://ftp.mozilla.org/pub/security/nss/releases/NSS_3_108_RTM/src/nss-3.108.tar.gz"
+sha256 = "a0f6fcb5dbadc1635b43827517a979e3a6d005d0788527802a6b31e2c5f66eec"
+
+# NSS's make expects the NSPR source as a sibling (../nspr); the nss-only tarball
+# omits it, so fetch nspr too and position it before building.
+[[source]]
+url    = "https://ftp.mozilla.org/pub/nspr/releases/v4.36/src/nspr-4.36.tar.gz"
+sha256 = "55dec317f1401cd2e5dba844d340b930ab7547f818179a4002bce62e6f1c6895"
+
+[steps]
+build = '''
+# Put NSPR where NSS's coreconf looks for it (nss-3.108/nspr), then build the
+# whole tree. We ship only the nss libs; the separate `nspr` package provides
+# the matching libnspr4.so soname.
+cp -r nspr-4.36/nspr "nss-$version/nspr"
+cd "nss-$version/nss"
+make BUILD_OPT=1 USE_64=1 \
+  NSS_USE_SYSTEM_SQLITE=1 USE_SYSTEM_ZLIB=1 \
+  NSS_ENABLE_WERROR=0 NSS_DISABLE_GTESTS=1 \
+  nss_build_all
+'''
+package = '''
+cd "nss-$version"
+# We only need the runtime shared libs (+ the freebl/softokn .chk integrity
+# files) for the closure — NSS-linking packages are built against the container's
+# nss headers. Skip NSS's awkward manual header/pkgconfig install.
+# NSS names its output dir by platform+config (e.g. Linux…_OPT.OBJ), not Release.
+OBJ=$(ls -d dist/*.OBJ | head -1)
+install -d "$pkgdir/usr/lib" "$pkgdir/usr/include/nss"
+install -m644 "$OBJ"/lib/*.so  "$pkgdir/usr/lib/"
+install -m644 "$OBJ"/lib/*.chk "$pkgdir/usr/lib/" 2>/dev/null || true
+cp -RL dist/public/nss/* "$pkgdir/usr/include/nss/" 2>/dev/null || true
+'''

@@ -1,0 +1,30 @@
+[package]
+name     = "nspr"
+version  = "4.36"
+release  = 1
+summary  = "Netscape Portable Runtime (libnspr4/libplc4/libplds4)"
+homepage = "https://firefox-source-docs.mozilla.org/nspr/"
+license  = ["MPL-2.0"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["pkgconf"]
+provides    = ["libnspr4.so", "libplc4.so", "libplds4.so"]
+
+[[source]]
+url    = "https://ftp.mozilla.org/pub/nspr/releases/v4.36/src/nspr-4.36.tar.gz"
+sha256 = "55dec317f1401cd2e5dba844d340b930ab7547f818179a4002bce62e6f1c6895"
+
+[steps]
+build = '''
+cd "nspr-$version/nspr"
+./configure --prefix=/usr --libdir=/usr/lib \
+  --enable-64bit --disable-debug --enable-optimize
+make
+'''
+package = '''
+cd "nspr-$version/nspr"
+make DESTDIR="$pkgdir" install
+# drop the static libs + the perl wrapper we don't ship
+rm -f "$pkgdir"/usr/lib/*.a
+'''
