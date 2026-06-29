@@ -1,0 +1,27 @@
+[package]
+name     = "jansson"
+version  = "2.14"
+release  = 1
+summary  = "C library for encoding, decoding and manipulating JSON"
+homepage = "https://github.com/akheron/jansson"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["pkgconf"]
+provides    = ["libjansson.so"]
+
+[[source]]
+url    = "https://github.com/akheron/jansson/releases/download/v2.14/jansson-2.14.tar.gz"
+sha256 = "5798d010e41cf8d76b66236cfb2f2543c8d082181d16bc3085ab49538d4b9929"
+
+[steps]
+build = '''
+cd "$name-$version"
+./configure --prefix=/usr --disable-static
+make
+'''
+package = '''
+cd "$name-$version"
+make DESTDIR="$pkgdir" install
+'''
