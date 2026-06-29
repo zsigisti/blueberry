@@ -1,0 +1,40 @@
+# .github/workflows/build-world.yml — the "build the world" closure gate.
+#
+# This is the slow counterpart to checks.yml. It builds EVERY package from source
+# and asserts both closures hold, so a package can never be published with a
+# missing dependency and the whole tree is guaranteed to still compile. It is
+# intentionally NOT run per-push (hours of compilation); it runs weekly and on
+# demand, on a self-hosted builder that has podman + disk for the Arch toolchain.
+#
+# The recipe-closure job is cheap and runs on a hosted runner every time; the
+# build-world job needs a runner labelled [self-hosted, blueberry-builder].
+
+name: build-world
+
+on:
+  schedule:
+    - cron: "0 4 * * 1" # Mondays 04:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  closure:
+    name: Recipe dependency closure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Static recipe closure
+        run: python3 tools/check-closure.py
+
+  build-world:
+    name: Build every package + runtime closure
+    runs-on: [self-hosted, blueberry-builder]
+    needs: closure
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the whole repo (.bpm)
+        run: make repo-build
+      - name: Stage the desktop closure and assert runtime closure
+        run: make desktop-stage check-runtime-closure

@@ -414,15 +414,34 @@ ALL_BPM_PKGS := $(notdir $(patsubst %/bpm.toml,%,$(wildcard $(TOPDIR)/packages/*
 
 # Assert the recipe tree is dependency-closed (every `depends` has a recipe or is
 # host-provided). Catches "declared but never packaged" before it ships.
-.PHONY: check-closure repo-build
+.PHONY: check-closure check-runtime-closure closure-gate build-world repo-build
 check-closure:
 	@python3 $(TOPDIR)/tools/check-closure.py
+
+# Assert the *staged desktop rootfs* is dynamically self-contained: every
+# DT_NEEDED soname of the session binaries + plugins is present. Catches a
+# missing soname even when a recipe nominally exists. Needs a staged rootfs
+# (run 'make desktop-stage' first).
+check-runtime-closure:
+	@python3 $(TOPDIR)/tools/check-runtime-closure.py $(OBJDIR)/desktop-rootfs
+
+# The full closure gate: recipe-level (static) + runtime ELF (against the staged
+# desktop rootfs). This is what must stay green so applets/media/network can't
+# silently regress.
+closure-gate: check-closure desktop-stage check-runtime-closure
+	@echo "[closure-gate] recipe + runtime closure both green"
 
 # Build every .bpm package (idempotent: skips up-to-date ones). The bulk of the
 # repo; run on a build box. ENGINE=podman|docker.
 repo-build:
 	@echo "[repo] building all $(words $(ALL_BPM_PKGS)) .bpm packages"
 	@sh $(TOPDIR)/tools/build-bpm-pkg.sh $(OBJDIR)/bpm-out $(ALL_BPM_PKGS)
+
+# "Build the world" gate: recipe closure must hold, then build every package
+# from source (fails if any recipe doesn't build). Run on a build box / nightly
+# CI — far too slow for per-push checks.
+build-world: check-closure repo-build
+	@echo "[build-world] all $(words $(ALL_BPM_PKGS)) packages built; recipe closure green"
 
 # ── Utility targets ───────────────────────────────────────────────────────────
 clean:
