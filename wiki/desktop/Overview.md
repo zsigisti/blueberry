@@ -15,8 +15,8 @@ blueberry/                 ← one git repo
 └── doc/ + wiki/           ← documentation
 ```
 
-`make world` builds a bootable system. `tools/build-pkgs.sh` builds any package
-from `packages/` into a `.pkg.tar.zst`. `tools/mkrepo.sh` indexes and signs a
+`make world` builds a bootable system. `tools/build-bpm-pkg.sh` builds any package
+from `packages/` into a `.bpm`. `tools/mkrepo.sh` indexes and signs a
 mirror. That is the entire supply chain, and you own all of it.
 
 ## Two editions
@@ -34,7 +34,7 @@ in [`editions/desktop/`](../editions/desktop). See [Desktop Edition](Desktop-Edi
 
 ## The package manager: bpm
 
-`bpm` is a native package manager written in Rust. It installs `.pkg.tar.zst`
+`bpm` is a native package manager written in Rust. It installs `.bpm`
 packages from an HTTP(S) repo, streaming and verifying each one:
 
 - the repo **index is ed25519-signed** (`bpm.index.sig`), verified against a

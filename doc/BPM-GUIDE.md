@@ -1,8 +1,9 @@
 # The `.bpm` Package Format — Complete Guide
 
-> **Status: EXPERIMENTAL — `feature/bpm-pkg-format` branch only.**
-> Verified end-to-end (build → index → install → run → remove) but not yet used
-> in production. Production still ships `PKGBUILD` + `.pkg.tar.zst`.
+> **Status: SHIPPING — the native format is the only package format.**
+> Verified end-to-end (build → index → install → run → remove). All recipes are
+> `bpm.toml` and the whole tree builds to `.bpm`; the `PKGBUILD`/`makepkg` path
+> has been removed.
 
 This is the full reference for Blueberry's native package format: the `.bpm`
 file, the `bpm.toml` recipe, the build/index/install tools, and how it all fits
@@ -18,7 +19,7 @@ together. For the terse design rationale see [BPM-FORMAT.md](BPM-FORMAT.md).
 4. [Building a package: `bpmbuild`](#4-building-a-package-bpmbuild)
 5. [Indexing a repo: `bpmrepo.sh`](#5-indexing-a-repo-bpmreposh)
 6. [Installing: how `bpm` reads `.bpm`](#6-installing-how-bpm-reads-bpm)
-7. [Converting PKGBUILD → bpm.toml](#7-converting-pkgbuild--bpmtoml)
+7. [How the PKGBUILD → bpm.toml conversion was done (historical)](#7-how-the-pkgbuild--bpmtoml-conversion-was-done-historical)
 8. [End-to-end walkthrough](#8-end-to-end-walkthrough)
 9. [Reference tables](#9-reference-tables)
 10. [Design decisions & FAQ](#10-design-decisions--faq)
@@ -282,21 +283,19 @@ in bounded chunks (no full-archive buffering, even for a 200 MB package).
 
 ---
 
-## 7. Converting PKGBUILD → bpm.toml
+## 7. How the PKGBUILD → bpm.toml conversion was done (historical)
 
-```sh
-tools/pkgbuild2bpm packages/<name>/PKGBUILD > packages/<name>/bpm.toml
-```
+The one-time migration used a `pkgbuild2bpm` converter (since removed): it
+**sourced** each PKGBUILD in a sandboxed bash (so every `${pkgver%.*}`-style
+expansion resolved exactly as makepkg would), captured the variables and the
+bodies of `prepare()`/`build()`/`package()` via `declare -f`, mapped
+`$pkgver→$version` etc., and emitted `bpm.toml` (folding `prepare()` into the
+front of `build`).
 
-It **sources** the PKGBUILD in a sandboxed bash (so every `${pkgver%.*}`-style
-expansion resolves exactly as makepkg would), captures the variables and the
-bodies of `prepare()`/`build()`/`package()` via `declare -f`, maps
-`$pkgver→$version` etc., and emits `bpm.toml`. `prepare()` is folded into the
-front of `build`.
-
-All **303** existing recipes convert without error. The output is a faithful
-starting point to review — exotic bash (arrays built by loops, unusual quoting)
-should be eyeballed, exactly like any automated port.
+All existing recipes converted without error and were then reviewed by hand —
+exotic bash (arrays built by loops, unusual quoting) gets eyeballed, exactly like
+any automated port. `bpm.toml` is now the only recipe format; there is nothing
+left to convert.
 
 ---
 
@@ -343,8 +342,8 @@ Every step above has been run and passes on the `feature/bpm-pkg-format` branch.
 | `doc/BPM-FORMAT.md` | Terse design spec |
 | `doc/BPM-GUIDE.md` | This guide |
 | `tools/bpmbuild` | recipe → `.bpm` (Python) |
+| `tools/build-bpm-pkg.sh` | build `bpm.toml` in an Arch container → `.bpm` |
 | `tools/bpmrepo.sh` | `.bpm` dir → signed `bpm.index` (sh) |
-| `tools/pkgbuild2bpm` | `PKGBUILD` → `bpm.toml` (Python) |
 | `experimental/recipes/<name>/bpm.toml` | example recipes (zlib, hello) |
 | `src/bpm-rs/src/pkg.rs` | `.BPM` translator + install path |
 
@@ -394,10 +393,10 @@ wrapper around shell steps keeps metadata machine-readable while keeping every
 build expressible — the same split makepkg uses, just with a parseable shell.
 
 **Do both formats coexist?**
-Yes, by design. bpm reads `.PKGINFO` and `.BPM`; the indexers and install path
-handle either. This is what makes a gradual, reversible migration possible.
+`bpm` can still *read* a legacy `.pkg.tar.zst` (it understands `.PKGINFO` as well
+as `.BPM`), which made the migration reversible. But nothing produces them
+anymore: every recipe is `bpm.toml` and the build/repo tooling emits `.bpm` only.
 
-**What's left before production?**
-Build the **whole** package set to `.bpm`, install-verify a desktop closure, then
-flip the build/repo tooling — keeping `.pkg.tar.zst` readable for one release as
-a rollback path. Until then this lives only on the dev branch.
+**Is it in production?**
+Yes. The whole package set builds to `.bpm`, the base and desktop closures
+install-verify, and the `PKGBUILD`/`makepkg` pipeline has been removed.

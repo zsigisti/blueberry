@@ -2,9 +2,8 @@
 
 `bpm` is Blueberry's native package manager, written in Rust. It installs
 packages from an HTTP(S) repository, verifying every one. The native format is
-**`.bpm`** (a `zstd(tar)` stream with a TOML `.BPM` manifest); the legacy
-`.pkg.tar.zst` format is still readable for rollback. Both share the same signed
-index, so `bpm` handles them transparently.
+**`.bpm`** (a `zstd(tar)` stream with a TOML `.BPM` manifest), resolved against a
+single ed25519-signed index.
 
 ## Everyday commands
 
@@ -86,6 +85,5 @@ ENGINE=podman tools/build-bpm-pkg.sh <out-dir> firefox kate kwin   # native .bpm
 ```
 
 This runs the build inside an ephemeral container, fetching build dependencies,
-compiling from source, and emitting `.bpm` files. (The legacy
-`tools/build-pkgs.sh` produces `.pkg.tar.zst` from `PKGBUILD`.) Full details:
-[Creating Packages](Creating-Packages).
+compiling from source, and emitting `.bpm` files from each `bpm.toml`. Full
+details: [Creating Packages](Creating-Packages).

@@ -7,7 +7,7 @@ recipes in this repository.
 
 ## What that means in practice
 
-- **Every package is a recipe.** [`packages/<name>/PKGBUILD`](../packages)
+- **Every package is a recipe.** [`packages/<name>/bpm.toml`](../packages)
   describes how to fetch upstream source and build it. The toolchain, Mesa,
   LLVM, all of Qt 6, all of KDE Plasma 6, the GTK stack — each was compiled from
   source into the repo.
@@ -19,7 +19,7 @@ recipes in this repository.
 
 ## The build-time exception (and why it's fine)
 
-Packages are *built* in an ephemeral Arch container, and `makepkg -s` pulls
+Packages are *built* in an ephemeral Arch container, and `bpmbuild` pulls
 *build* dependencies from Arch during that build. This is a **bootstrap detail**,
 not a runtime dependency:
 

@@ -166,16 +166,16 @@ bpm search plasma
 bpm upgrade                # roll userspace forward (kernel too, on Server)
 ```
 
-- **Recipes:** [`packages/`](packages/) — declarative `bpm.toml` (native `.bpm`;
-  legacy `PKGBUILD` still supported), one dir per package.
+- **Recipes:** [`packages/`](packages/) — declarative `bpm.toml` built into native
+  `.bpm`, one dir per package.
 - **Mirror:** `https://repo.mmzsigmond.me/` — ~280 packages, ed25519-signed index.
-- **Host your own:** `tools/mkrepo.sh`, `tools/blueberry-repo-sync.sh`, or the
-  one-command `tools/blueberry-build-server.sh` (see [doc/BPM.md](doc/BPM.md)).
+- **Host your own:** `make repo-build` builds every recipe, then `tools/mkrepo.sh`
+  indexes + ed25519-signs the repo dir (see [doc/BPM.md](doc/BPM.md)).
 
 Build any package from source into the mirror:
 
 ```sh
-ENGINE=podman tools/build-pkgs.sh <out-dir> firefox kate kwin
+ENGINE=podman tools/build-bpm-pkg.sh <out-dir> firefox kate kwin
 ```
 
 ---

@@ -1,6 +1,6 @@
 # Hosting a Mirror
 
-A Blueberry mirror is just a directory of `.pkg.tar.zst` files plus a signed
+A Blueberry mirror is just a directory of `.bpm` files plus a signed
 index, served over HTTPS. You can run your own — for a fork, an internal
 network, or a downstream distribution.
 
@@ -8,7 +8,7 @@ network, or a downstream distribution.
 
 ```
 /srv/blueberry-repo/
-├── *.pkg.tar.zst        the packages
+├── *.bpm        the packages
 ├── bpm.index            text index: name|version|file|sha256|deps|size|desc
 └── bpm.index.sig        ed25519 signature of bpm.index
 ```
@@ -34,19 +34,18 @@ Build, copy, re-index, serve:
 
 ```sh
 # 1. build
-ENGINE=podman tools/build-pkgs.sh ./out firefox kate
+ENGINE=podman tools/build-bpm-pkg.sh ./out firefox kate
 
 # 2. copy to the mirror host
-scp ./out/*.pkg.tar.zst root@mirror:/srv/blueberry-repo/
+scp ./out/*.bpm root@mirror:/srv/blueberry-repo/
 
 # 3. re-index + sign on the mirror
 ssh root@mirror 'sh /root/mkrepo.sh /srv/blueberry-repo'
 ```
 
-Or use the helpers:
-
-- `tools/blueberry-repo-sync.sh` — build a set and push it.
-- `tools/blueberry-build-server.sh` — a one-command build-and-publish server.
+To rebuild the **whole** package set at once, `make repo-build` builds every
+`packages/<name>/bpm.toml` into `obj/bpm-out`; then `scp` those `.bpm` files to
+the mirror and re-index as above.
 
 ## Serving it
 
@@ -73,4 +72,4 @@ public key, and install packages with SHA-256 verification. See
 ## Accepting community recipes
 
 Collect community recipes via pull requests to `packages/`. See [Contributing](Contributing).
-More: [doc/BPM.md](../doc/BPM.md), [doc/BUILDSERVER.md](../doc/BUILDSERVER.md).
+More: [doc/BPM.md](../doc/BPM.md).
