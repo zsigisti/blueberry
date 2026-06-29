@@ -76,7 +76,7 @@ for n in ("startplasma-wayland", "startplasma-x11", "kwin_wayland", "kwin_x11",
         entries[n] = p
 
 plugin_roots = ("usr/lib/qt6/plugins", "usr/lib/qt6/qml", "usr/lib/plasma",
-                "usr/lib/qt/plugins")
+                "usr/lib/qt/plugins", "usr/lib/calamares/modules")
 plugins = 0
 for pr in plugin_roots:
     base = os.path.join(ROOTFS, pr)

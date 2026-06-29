@@ -500,3 +500,10 @@ help:
 	@echo "  ARCH=$(ARCH)  JOBS=$(JOBS)  DESTDIR=$(DESTDIR)"
 	@echo "  LINUX_VERSION=$(LINUX_VERSION)  BUSYBOX_VERSION=$(BUSYBOX_VERSION)"
 	@echo "  CROSS_COMPILE=$(CROSS_COMPILE)"
+
+# Automated end-to-end Desktop install smoke-test: drive Calamares headless,
+# then boot the installed disk and assert graphical.target.
+.PHONY: test-install
+test-install:
+	@[ -f $(DESKTOP_ISO) ] || $(MAKE) desktop-iso
+	@bash $(TOPDIR)/tools/test-install.sh $(DESKTOP_ISO)
