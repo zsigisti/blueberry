@@ -1,0 +1,27 @@
+[package]
+name     = "openjpeg2"
+version  = "2.5.2"
+release  = 1
+summary  = "Open-source JPEG 2000 codec (libopenjp2)"
+homepage = "https://www.openjpeg.org/"
+license  = ["BSD-2-Clause"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "zlib", "libpng", "libtiff", "lcms2"]
+makedepends = ["cmake", "ninja", "zlib", "libpng", "libtiff", "lcms2"]
+provides    = ["libopenjp2.so"]
+
+[[source]]
+url    = "https://github.com/uclouvain/openjpeg/archive/v2.5.2/openjpeg-2.5.2.tar.gz"
+sha256 = "90e3896fed910c376aaf79cdd98bdfdaf98c6472efd8e1debf0a854938cbda6a"
+
+[steps]
+build = '''
+cmake -B build -S "openjpeg-$version" -G Ninja \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_STATIC_LIBS=OFF
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''
