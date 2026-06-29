@@ -1,0 +1,27 @@
+[package]
+name     = "cln"
+version  = "1.3.7"
+release  = 1
+summary  = "Class Library for Numbers (libcln)"
+homepage = "https://www.ginac.de/CLN/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "gcc-libs", "gmp"]
+makedepends = ["gmp", "pkgconf"]
+provides    = ["libcln.so"]
+
+[[source]]
+url    = "https://www.ginac.de/CLN/cln-1.3.7.tar.bz2"
+sha256 = "7c7ed8474958337e4df5bb57ea5176ad0365004cbb98b621765bc4606a10d86b"
+
+[steps]
+build = '''
+cd "$name-$version"
+./configure --prefix=/usr --disable-static
+make
+'''
+package = '''
+cd "$name-$version"
+make DESTDIR="$pkgdir" install
+'''
