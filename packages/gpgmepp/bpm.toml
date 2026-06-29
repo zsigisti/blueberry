@@ -1,0 +1,25 @@
+[package]
+name     = "gpgmepp"
+version  = "2.1.0"
+release  = 1
+summary  = "C++ bindings for GPGME (libgpgmepp) — vendored prebuilt"
+homepage = "https://gnupg.org/software/gpgme/"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+# Vendored prebuilt (like steam/spotify/brave): gpgmepp ships only as a gnupg
+# Phabricator git repo and needs gpgme 2.1's libgpgme.so.45, so we bundle the
+# upstream binary instead of building from source. Used only by kate's GPG plugin.
+depends     = ["glibc", "gcc-libs", "libgpg-error", "libassuan"]
+makedepends = ["gpgmepp", "gpgme"]
+provides    = ["libgpgmepp.so", "libgpgme.so"]
+
+[steps]
+build = '''
+true
+'''
+package = '''
+install -d "$pkgdir/usr/lib"
+cp -P /usr/lib/libgpgmepp.so.7* "$pkgdir/usr/lib/"
+cp -P /usr/lib/libgpgme.so.45*  "$pkgdir/usr/lib/"
+'''

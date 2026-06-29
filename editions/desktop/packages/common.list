@@ -145,7 +145,7 @@ polkit-qt6                  # libpolkit-qt6-core-1.so.1 — Calamares/kpmcore di
 taglib                      # libtag.so.2 — kfilemetadata audio tag extractor/writer
 tslib                       # libts.so.0 — Qt eglfs touchscreen integration
 openjpeg2                   # libopenjp2.so.7 — kimageformats JPEG 2000 thumbnails
-gpgme                       # libgpgmepp.so.7 — kate GPG plugin
+gpgme                       # libgpgme.so.11 (gpg C lib)
 jansson                     # libjansson.so.4 — libddcutil (brightness) JSON
 libsecret                   # libsecret-1.so.0 — qtkeychain secret store backend
 ffmpeg                      # libav*/libsw* — qt6-multimedia + kpipewire record
@@ -175,3 +175,5 @@ libdeflate                  # libdeflate.so.0 — libtiff (poppler/imageformats)
 jbigkit                     # libjbig.so.2.1 — libtiff JBIG
 libwebp                     # libwebp.so.7 — kimageformats / qt image
 assimp                      # libassimp.so.6 — qt6-quick3d model import
+gpgmepp                     # libgpgmepp.so.7 — kate GPG plugin (vendored prebuilt)
+kaccounts-integration       # libkaccounts6/libaccounts-qt6 — attica_kde online accounts (vendored prebuilt)
