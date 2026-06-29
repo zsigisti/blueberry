@@ -53,6 +53,6 @@ Common problems and fixes, grouped by area. See also the [FAQ](FAQ).
 ## Still stuck?
 
 - Reproduce the build error in a one-off container to see the full log.
-- Check the relevant `doc/` page (e.g. [doc/BUILD.md](../doc/BUILD.md),
-  [doc/INIT.md](../doc/INIT.md)).
+- Check the relevant `doc/` page (e.g. [doc/BUILD.md](../../doc/BUILD.md),
+  [doc/INIT.md](../../doc/INIT.md)).
 - Open an issue with the exact command and the full error output.

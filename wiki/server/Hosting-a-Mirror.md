@@ -72,4 +72,4 @@ public key, and install packages with SHA-256 verification. See
 ## Accepting community recipes
 
 Collect community recipes via pull requests to `packages/`. See [Contributing](Contributing).
-More: [doc/BPM.md](../doc/BPM.md).
+More: [doc/BPM.md](../../doc/BPM.md).

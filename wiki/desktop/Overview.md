@@ -30,7 +30,7 @@ mirror. That is the entire supply chain, and you own all of it.
 | Installer | `blueberry-install` (CLI) | Calamares (live ISO) |
 
 They are not two repos or two forks — they are one tree with an edition overlay
-in [`editions/desktop/`](../editions/desktop). See [Desktop Edition](Desktop-Edition).
+in [`editions/desktop/`](../../editions/desktop). See [Desktop Edition](Desktop-Edition).
 
 ## The package manager: bpm
 

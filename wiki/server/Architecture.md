@@ -14,7 +14,7 @@ firmware ─► GRUB ─► vmlinuz ─► initramfs /init (PID 1)
                                  └─ otherwise           ─► interactive login shell
 ```
 
-`/init` (in [`src/initramfs/`](../src/initramfs)) is a small script that:
+`/init` (in [`src/initramfs/`](../../src/initramfs)) is a small script that:
 
 1. mounts `/proc`, `/sys`, `/dev` and populates `/dev`,
 2. inspects the kernel cmdline to choose a path,
@@ -43,9 +43,9 @@ USB_STORAGE, so no modules are needed to boot the live image.
 | **systemd** | Default on both editions — journald, logind, networkd/resolved, OpenSSH |
 | **runit** | Opt-in (`INIT=runit`) — a 35 KB supervision tree for RAM-first / minimal builds |
 
-The runit stage scripts live in [`src/init/`](../src/init); the systemd
-integration (units, networkd, sshd) in [`src/systemd/`](../src/systemd). See
-[doc/INIT.md](../doc/INIT.md).
+The runit stage scripts live in [`src/init/`](../../src/init); the systemd
+integration (units, networkd, sshd) in [`src/systemd/`](../../src/systemd). See
+[doc/INIT.md](../../doc/INIT.md).
 
 ## Package layers (Desktop)
 
@@ -75,4 +75,4 @@ packages/<name>/bpm.toml
                                                         bpm install (SHA-256 + ed25519 verified)
 ```
 
-See [Self-Hosting Philosophy](Self-Hosting-Philosophy) and [doc/ARCHITECTURE.md](../doc/ARCHITECTURE.md).
+See [Self-Hosting Philosophy](Self-Hosting-Philosophy) and [doc/ARCHITECTURE.md](../../doc/ARCHITECTURE.md).

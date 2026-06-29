@@ -1,6 +1,6 @@
 # Creating Packages
 
-A package is a recipe in [`packages/<name>/`](../packages). Every recipe is a
+A package is a recipe in [`packages/<name>/`](../../packages). Every recipe is a
 declarative **`bpm.toml`**, built into a native `.bpm` by `tools/build-bpm-pkg.sh`
 (which drives `bpmbuild` in an ephemeral Arch container). The old `PKGBUILD` /
 `makepkg` path has been fully retired.

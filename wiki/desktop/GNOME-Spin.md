@@ -14,9 +14,9 @@ make desktop-iso  DE=gnome        # GNOME live Calamares ISO
 ```
 
 The package set comes from
-[`editions/desktop/packages/gnome.list`](../editions/desktop/packages/gnome.list),
+[`editions/desktop/packages/gnome.list`](../../editions/desktop/packages/gnome.list),
 layered on the shared
-[`common.list`](../editions/desktop/packages/common.list) graphical base.
+[`common.list`](../../editions/desktop/packages/common.list) graphical base.
 
 ## What changes vs KDE
 

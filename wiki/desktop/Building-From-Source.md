@@ -112,4 +112,4 @@ See [Hosting a Mirror](Hosting-a-Mirror).
   and newer than their `bpm.toml`.
 - **Reproducibility:** a fixed `SOURCE_DATE_EPOCH` makes rebuilds deterministic.
 
-More: [doc/BUILD.md](../doc/BUILD.md), [doc/BPM.md](../doc/BPM.md).
+More: [doc/BUILD.md](../../doc/BUILD.md), [doc/BPM.md](../../doc/BPM.md).

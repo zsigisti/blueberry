@@ -78,7 +78,7 @@ Useful when testing a recipe you just built (see [Creating Packages](Creating-Pa
 
 ## Building packages
 
-Any recipe in [`packages/`](../packages) can be built into a package:
+Any recipe in [`packages/`](../../packages) can be built into a package:
 
 ```sh
 ENGINE=podman tools/build-bpm-pkg.sh <out-dir> firefox kate kwin   # native .bpm

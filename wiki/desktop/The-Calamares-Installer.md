@@ -26,9 +26,9 @@ editions/desktop/calamares/
     └── fstab.conf           # fstab generation
 ```
 
-The package itself is built from [`packages/calamares/`](../packages/calamares)
+The package itself is built from [`packages/calamares/`](../../packages/calamares)
 (Calamares 3.3.14, Qt 6), with `kpmcore` as the partitioning backend
-([`packages/kpmcore/`](../packages/kpmcore)).
+([`packages/kpmcore/`](../../packages/kpmcore)).
 
 ## The module sequence
 
@@ -57,7 +57,7 @@ To customize the look, edit `show.qml` (the slideshow) and the colors in
 `tools/mkdesktopiso.sh`:
 
 1. Clones the staged desktop rootfs and overlays the **live session**
-   ([`editions/desktop/live/`](../editions/desktop/live)): an SDDM autologin
+   ([`editions/desktop/live/`](../../editions/desktop/live)): an SDDM autologin
    drop-in, a polkit rule letting the live user run the installer without a
    password, and an XDG autostart entry for the **Install Blueberry Desktop**
    launcher.

@@ -45,4 +45,4 @@ and built into the mirror.
 Contributions are under the repo's MIT license (bundled upstreams keep their own
 licenses). Be respectful; review is about the code, not the coder.
 
-See [doc/CONTRIBUTING.md](../doc/CONTRIBUTING.md) for the full version.
+See [doc/CONTRIBUTING.md](../../doc/CONTRIBUTING.md) for the full version.

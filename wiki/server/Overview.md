@@ -30,7 +30,7 @@ mirror. That is the entire supply chain, and you own all of it.
 | Installer | `blueberry-install` (CLI) | Calamares (live ISO) |
 
 They are not two repos or two forks — they are one tree with an edition overlay
-in [`editions/desktop/`](../editions/desktop). See [Desktop Edition](Desktop-Edition).
+in [`editions/desktop/`](../../editions/desktop). See [Desktop Edition](../desktop/Desktop-Edition).
 
 ## The package manager: bpm
 
@@ -64,5 +64,5 @@ Closed-source apps (Steam, Spotify, Brave) are packaged by wrapping the
 ## Where to go next
 
 - New here? → [Getting Started](Getting-Started)
-- Want the desktop? → [Installing Blueberry Desktop](Installing-Blueberry-Desktop)
+- Want the desktop? → [Installing Blueberry Desktop](../desktop/Installing-Blueberry-Desktop)
 - Curious how it works? → [Architecture](Architecture)

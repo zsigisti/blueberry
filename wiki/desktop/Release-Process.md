@@ -13,8 +13,8 @@ Server is rolling and has no releases — it's always "latest.")
 | Codename | Alliterative *adjective + berry* (e.g. *Bright Bilberry*, *Crisp Cranberry*) |
 | Kernel | **Pinned** into the release; updated only by upgrading to the next release |
 
-All of this is computed in [`editions/desktop/release.mk`](../editions/desktop/release.mk),
-with codenames rolled from [`editions/desktop/codenames`](../editions/desktop/codenames).
+All of this is computed in [`editions/desktop/release.mk`](../../editions/desktop/release.mk),
+with codenames rolled from [`editions/desktop/codenames`](../../editions/desktop/codenames).
 
 ```sh
 $ make desktop-version
@@ -50,7 +50,7 @@ release defines the *floor* and the *kernel*, not a frozen world.
 4. Publish packages to the mirror (`tools/bpmrepo.sh`) and the ISO to the
    downloads area.
 5. Tag the commit; the website release automation
-   ([doc/WEBSITE.md](../doc/WEBSITE.md)) picks it up.
+   ([doc/WEBSITE.md](../../doc/WEBSITE.md)) picks it up.
 
 ## Support windows
 
