@@ -1,0 +1,24 @@
+[package]
+name="assimp"
+version="5.4.3"
+release=1
+summary="Open Asset Import Library — 3D model import (libassimp)"
+homepage="https://www.assimp.org/"
+license=["BSD-3-Clause"]
+arch=["x86_64"]
+depends=["glibc","gcc-libs","zlib","minizip"]
+makedepends=["cmake","ninja","zlib","minizip"]
+provides=["libassimp.so"]
+[[source]]
+url="https://github.com/assimp/assimp/archive/v5.4.3/assimp-5.4.3.tar.gz"
+sha256="66dfbaee288f2bc43172440a55d0235dfc7bf885dda6435c038e8000e79582cb"
+[steps]
+build='''
+cmake -B build -S "$name-$version" -G Ninja -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_SHARED_LIBS=ON -DASSIMP_BUILD_TESTS=OFF -DASSIMP_BUILD_ASSIMP_TOOLS=OFF \
+  -DASSIMP_INSTALL_PDB=OFF -DASSIMP_BUILD_ZLIB=OFF -DASSIMP_WARNINGS_AS_ERRORS=OFF
+cmake --build build
+'''
+package='''
+DESTDIR="$pkgdir" cmake --install build
+'''

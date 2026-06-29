@@ -1,0 +1,30 @@
+[package]
+name="jbigkit"
+version="2.1"
+release=1
+summary="JBIG1 image compression library (libjbig)"
+homepage="https://www.cl.cam.ac.uk/~mgk25/jbigkit/"
+license=["GPL-2.0-or-later"]
+arch=["x86_64"]
+depends=["glibc"]
+makedepends=["make","gcc"]
+provides=["libjbig.so","libjbig85.so"]
+[[source]]
+url="https://www.cl.cam.ac.uk/~mgk25/jbigkit/download/jbigkit-2.1.tar.gz"
+sha256="de7106b6bfaf495d6865c7dd7ac6ca1381bd12e0d81405ea81e7f2167263d932"
+[steps]
+build='''
+cd "$name-$version/libjbig"
+make CC=cc "CFLAGS=-O2 -Wall -fPIC"
+cc -shared -Wl,-soname,libjbig.so.2.1 -o libjbig.so.2.1 jbig.o jbig_ar.o
+cc -shared -Wl,-soname,libjbig85.so.2.1 -o libjbig85.so.2.1 jbig85.o jbig_ar.o
+'''
+package='''
+cd "$name-$version/libjbig"
+install -d "$pkgdir/usr/lib" "$pkgdir/usr/include"
+install -m755 libjbig.so.2.1 libjbig85.so.2.1 "$pkgdir/usr/lib/"
+ln -sf libjbig.so.2.1 "$pkgdir/usr/lib/libjbig.so.2"
+ln -sf libjbig.so.2.1 "$pkgdir/usr/lib/libjbig.so"
+ln -sf libjbig85.so.2.1 "$pkgdir/usr/lib/libjbig85.so.2"
+install -m644 jbig.h jbig85.h jbig_ar.h "$pkgdir/usr/include/"
+'''

@@ -1,0 +1,22 @@
+[package]
+name="libdeflate"
+version="1.23"
+release=1
+summary="Fast DEFLATE/zlib/gzip compression and decompression (libdeflate)"
+homepage="https://github.com/ebiggers/libdeflate"
+license=["MIT"]
+arch=["x86_64"]
+depends=["glibc"]
+makedepends=["cmake","ninja"]
+provides=["libdeflate.so"]
+[[source]]
+url="https://github.com/ebiggers/libdeflate/archive/v1.23/libdeflate-1.23.tar.gz"
+sha256="1ab18349b9fb0ce8a0ca4116bded725be7dcbfa709e19f6f983d99df1fb8b25f"
+[steps]
+build='''
+cmake -B build -S "$name-$version" -G Ninja -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DLIBDEFLATE_BUILD_STATIC_LIB=OFF
+cmake --build build
+'''
+package='''
+DESTDIR="$pkgdir" cmake --install build
+'''

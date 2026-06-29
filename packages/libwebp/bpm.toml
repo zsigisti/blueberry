@@ -1,0 +1,25 @@
+[package]
+name="libwebp"
+version="1.5.0"
+release=1
+summary="WebP image library (libwebp + demux/mux/sharpyuv)"
+homepage="https://developers.google.com/speed/webp/"
+license=["BSD-3-Clause"]
+arch=["x86_64"]
+depends=["glibc","libpng","libjpeg-turbo","libtiff","giflib"]
+makedepends=["cmake","ninja","libpng","libjpeg-turbo","libtiff","giflib"]
+provides=["libwebp.so","libwebpdemux.so","libwebpmux.so","libsharpyuv.so"]
+[[source]]
+url="https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.5.0.tar.gz"
+sha256="7d6fab70cf844bf6769077bd5d7a74893f8ffd4dfb42861745750c63c2a5c92c"
+[steps]
+build='''
+cmake -B build -S "$name-$version" -G Ninja -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_SHARED_LIBS=ON -DWEBP_BUILD_CWEBP=OFF -DWEBP_BUILD_DWEBP=OFF -DWEBP_BUILD_GIF2WEBP=OFF \
+  -DWEBP_BUILD_IMG2WEBP=OFF -DWEBP_BUILD_VWEBP=OFF -DWEBP_BUILD_WEBPINFO=OFF -DWEBP_BUILD_WEBPMUX=ON \
+  -DWEBP_BUILD_ANIM_UTILS=OFF -DWEBP_BUILD_EXTRAS=OFF
+cmake --build build
+'''
+package='''
+DESTDIR="$pkgdir" cmake --install build
+'''

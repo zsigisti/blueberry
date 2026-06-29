@@ -170,3 +170,8 @@ libjxl                      # libjxl.so.0.11 — kimageformats JPEG XL
 zxing-cpp                   # libZXing.so.4 — KF6Prison (clipboard QR / barcode)
 qt6-tools                   # libQt6UiTools.so.6 — kwin effect KCMs
 qt6-quick3d                 # libQt6Quick3D*.so.6 — QtQuick3D SpatialAudio
+highway                     # libhwy.so.1 — libjxl SIMD
+libdeflate                  # libdeflate.so.0 — libtiff (poppler/imageformats)
+jbigkit                     # libjbig.so.2.1 — libtiff JBIG
+libwebp                     # libwebp.so.7 — kimageformats / qt image
+assimp                      # libassimp.so.6 — qt6-quick3d model import
