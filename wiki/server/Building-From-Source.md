@@ -87,7 +87,7 @@ from `editions/desktop/packages/*.list`.
 
 ```sh
 make repo-build                            # build every bpm.toml → obj/bpm-out
-tools/mkrepo.sh <repo-dir>                 # index + ed25519-sign a repo dir
+tools/bpmrepo.sh <repo-dir>                 # index + ed25519-sign a repo dir
 ```
 
 `scp` the resulting `.bpm` files to the mirror, then re-index there.

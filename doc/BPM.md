@@ -28,7 +28,7 @@ assembly and tests).
 - **Database:** `/var/lib/bpm/db/<name>/{desc,files}` — `desc` is the package's
   `.PKGINFO`; `files` is the owned-file list (used by `remove` and `owns`).
 - **Index:** `/var/lib/bpm/index`, fetched by `bpm update`. Each line is
-  `name|version|filename|sha256|deps|repo`.
+  `name|version|filename|sha256|deps|size|desc`.
 - **Cache:** `/var/lib/bpm/cache/`.
 - **Integrity:** every download is checked against the sha256 from the index.
 - **Dependencies:** `install <name>` resolves `depend` entries recursively;
@@ -61,14 +61,16 @@ core https://repo.mmzsigmond.me http://mirror1.lan http://mirror2.lan
 ```
 
 `bpm update` and downloads try each URL in turn and fail over when one is
-unreachable. Integrity is the per-package SHA-256 recorded in `bpm.index`
-(verified on every download), with the index fetched over TLS — there is no
-index signing.
+unreachable. Integrity is two-layered: the `bpm.index` is **ed25519-signed**
+(`bpm.index.sig`) and `bpm` verifies that signature against the public key baked
+into the binary (`src/bpm-rs/src/repokey.rs`) before trusting the index; then
+every package download is checked against the per-package SHA-256 from that
+signed index. The index is also fetched over TLS.
 
-Build a repo from a directory of `.bpm` files with `tools/mkrepo.sh`:
+Build a repo from a directory of `.bpm` files with `tools/bpmrepo.sh`:
 
 ```sh
-tools/mkrepo.sh /path/to/repo      # writes /path/to/repo/bpm.index
+tools/bpmrepo.sh /path/to/repo      # writes /path/to/repo/bpm.index
 ```
 
 ### Building + publishing a repo
@@ -86,11 +88,11 @@ make repo-build
 ENGINE=podman tools/build-bpm-pkg.sh obj/bpm-out nano vim
 
 # index + ed25519-sign a repo directory
-tools/mkrepo.sh /srv/blueberry-repo
+tools/bpmrepo.sh /srv/blueberry-repo
 ```
 
 To publish, `scp` the `.bpm` files to the mirror host and re-index there
-(`mkrepo.sh` regenerates `bpm.index` + its signature). The webroot is a pure
+(`bpmrepo.sh` regenerates `bpm.index` + its signature). The webroot is a pure
 publish target — nothing served decides what to rebuild, so a wiped or
 hand-edited webroot can't trigger a rebuild and a half-built artifact is never
 served. Builds run parallel across all cores (`-j$(nproc)`).

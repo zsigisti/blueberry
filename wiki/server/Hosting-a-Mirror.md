@@ -15,10 +15,10 @@ network, or a downstream distribution.
 
 ## Building the index
 
-`tools/mkrepo.sh` scans a directory, writes `bpm.index`, and signs it:
+`tools/bpmrepo.sh` scans a directory, writes `bpm.index`, and signs it:
 
 ```sh
-sh tools/mkrepo.sh /srv/blueberry-repo
+sh tools/bpmrepo.sh /srv/blueberry-repo
 # → wrote bpm.index (N packages)
 # → signed bpm.index.sig with the ed25519 key
 ```
@@ -40,7 +40,7 @@ ENGINE=podman tools/build-bpm-pkg.sh ./out firefox kate
 scp ./out/*.bpm root@mirror:/srv/blueberry-repo/
 
 # 3. re-index + sign on the mirror
-ssh root@mirror 'sh /root/mkrepo.sh /srv/blueberry-repo'
+ssh root@mirror 'sh /root/bpmrepo.sh /srv/blueberry-repo'
 ```
 
 To rebuild the **whole** package set at once, `make repo-build` builds every

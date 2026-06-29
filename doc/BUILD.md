@@ -185,12 +185,12 @@ xorriso. Output: `blueberry-YYYYMMDD-x86_64.iso`.
 ## Init system (`INIT=runit` | `INIT=systemd`)
 
 The **installed disk system** can run either init; the live initramfs is always
-busybox-based. Select at build time and carry the same flag through `install`
-and `iso`:
+busybox-based. `INIT=systemd` is the **default**; select at build time and carry
+the same flag through `install` and `iso`:
 
 ```sh
-make iso              # INIT=runit   (default) busybox + runit + dropbear
-make iso INIT=systemd # full systemd PID 1 + OpenSSH on the installed rootfs
+make iso               # INIT=systemd (default) full systemd PID 1 + OpenSSH
+make iso INIT=runit    # minimal busybox + runit + dropbear (RAM-first)
 ```
 
 `INIT=systemd` bakes the systemd runtime closure (systemd 256.7, util-linux,
@@ -216,7 +216,7 @@ make test TIMEOUT=180
 | `ARCH` | `x86_64` | Target architecture (x86_64 only) |
 | `JOBS` | `nproc` | Parallel build jobs |
 | `DESTDIR` | `../blueberry-build/rootfs` | Install root |
-| `INIT` | `runit` | Installed-system init: `runit` or `systemd` |
+| `INIT` | `systemd` | Installed-system init: `systemd` or `runit` |
 | `OBJDIR` | `../blueberry-build` | All build artefacts |
 | `LINUX_VERSION` | `7.0` | Linux kernel version |
 | `BUSYBOX_VERSION` | `1.36.1` | busybox version |

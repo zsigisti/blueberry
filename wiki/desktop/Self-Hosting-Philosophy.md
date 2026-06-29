@@ -12,7 +12,7 @@ recipes in this repository.
   LLVM, all of Qt 6, all of KDE Plasma 6, the GTK stack — each was compiled from
   source into the repo.
 - **One signed mirror.** Artifacts are published to
-  `https://repo.mmzsigmond.me/`, indexed by `tools/mkrepo.sh`, and the index is
+  `https://repo.mmzsigmond.me/`, indexed by `tools/bpmrepo.sh`, and the index is
   **ed25519-signed**. `bpm` trusts that key and nothing else.
 - **Build, don't borrow.** When a new library is needed, the answer is "write a
   recipe and build it," not "pull a binary from someone else's repo."

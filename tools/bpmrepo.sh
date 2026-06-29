@@ -1,10 +1,11 @@
 #!/bin/sh
 # bpmrepo.sh — build a bpm repository index from a directory of native .bpm files.
 #
-# EXPERIMENTAL (feature/bpm-pkg-format). The .bpm sibling of tools/mkrepo.sh:
-# it reads each .bpm's TOML `.BPM` manifest instead of a `.PKGINFO`, and emits
-# the SAME index line format, so bpm's existing index parser + ed25519 signing
-# work unchanged.
+# This is the repository indexer: it reads each .bpm's TOML `.BPM` manifest and
+# emits the index line format bpm's parser expects, then ed25519-signs the index.
+# It is the ONLY indexer — the repo is .bpm-only (the old .pkg.tar.zst mkrepo.sh
+# is retired). Pointing a .pkg.tar.zst indexer at the .bpm repo writes an empty
+# index and clobbers it, so always use this script.
 #
 # Usage: tools/bpmrepo.sh <repo-dir>
 #   Index line:  name|version|filename|sha256|deps|size|desc

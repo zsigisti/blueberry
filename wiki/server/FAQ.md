@@ -71,5 +71,5 @@ Open an issue or PR with your recipe. See [Contributing](Contributing).
 ### What does "Blueberry" run on — how big is it?
 
 The Server live system boots from RAM in seconds and is tiny (busybox + bash +
-runit). The Desktop is a full KDE Plasma 6 stack (~280 packages on the mirror).
+runit). The Desktop is a full KDE Plasma 6 stack (~390 packages on the mirror).
 Recommended for Desktop: a 64-bit UEFI machine, 4 GB RAM, a few GB of disk.

@@ -133,7 +133,7 @@ ssh root@<box-ip>          # password: blueberry
    "terminal" block with copy buttons. Include the default-password note with a
    "change in production" warning.
 5. **How It Boots** — a small diagram of the three `/init` branches: `bbtest`
-   (self-test), `root=` (disk boot → runit), default (live CLI: DHCP + SSH +
+   (self-test), `root=` (disk boot → systemd or runit), default (live CLI: DHCP + SSH +
    ntpd + shell on every console).
 6. **Tested Hardware** — the table from §2, plus "driver support" pills (SATA/
    NVMe/USB storage, e1000/igb/ixgbe/mlx/virtio NICs, UEFI+GPT, EFI framebuffer

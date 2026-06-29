@@ -47,7 +47,7 @@ release defines the *floor* and the *kernel*, not a frozen world.
 2. Build the package closure: `make desktop-pkgs` (and `DE=gnome`).
 3. Build the ISO: `make desktop-iso` — branding tokens (`@@VERSION@@`,
    `@@DEFAULT_DM@@`) are filled from the resolved release.
-4. Publish packages to the mirror (`tools/mkrepo.sh`) and the ISO to the
+4. Publish packages to the mirror (`tools/bpmrepo.sh`) and the ISO to the
    downloads area.
 5. Tag the commit; the website release automation
    ([doc/WEBSITE.md](../doc/WEBSITE.md)) picks it up.

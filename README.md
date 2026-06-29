@@ -62,7 +62,7 @@ Arch mirror, no Debian pool, no Flathub requirement.
   `SOURCE_DATE_EPOCH`, so the same recipe yields the same bytes.
 
 The toolchain (gcc, binutils), the graphics stack (Mesa, LLVM, Wayland), all of
-Qt 6 and KDE Plasma 6, the GTK stack — **~280 packages and counting** — were
+Qt 6 and KDE Plasma 6, the GTK stack — **~390 packages and counting** — were
 each compiled from source into this repo. The only exceptions are
 closed-source desktop apps (Steam, Spotify, Brave), which are packaged by
 wrapping the **vendor's own official binary** and hosting it on our mirror — the
@@ -168,8 +168,8 @@ bpm upgrade                # roll userspace forward (kernel too, on Server)
 
 - **Recipes:** [`packages/`](packages/) — declarative `bpm.toml` built into native
   `.bpm`, one dir per package.
-- **Mirror:** `https://repo.mmzsigmond.me/` — ~280 packages, ed25519-signed index.
-- **Host your own:** `make repo-build` builds every recipe, then `tools/mkrepo.sh`
+- **Mirror:** `https://repo.mmzsigmond.me/` — ~390 packages, ed25519-signed index.
+- **Host your own:** `make repo-build` builds every recipe, then `tools/bpmrepo.sh`
   indexes + ed25519-signs the repo dir (see [doc/BPM.md](doc/BPM.md)).
 
 Build any package from source into the mirror:
@@ -199,7 +199,7 @@ src/
 packages/            ~280 bpm recipes: toolchain, Qt6, KDE Plasma 6, GTK, apps
 editions/desktop/    Blueberry Desktop: release model, Calamares, live overlay
 etc/                 /etc skeleton (hostname, fstab, accounts, bpm config)
-tools/               Host scripts: qemu.sh, mkiso.sh, mkdesktopiso.sh, mkrepo.sh
+tools/               Host scripts: qemu.sh, mkiso.sh, mkdesktopiso.sh, bpmrepo.sh
 doc/                 Documentation
 ```
 

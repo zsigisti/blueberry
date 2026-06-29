@@ -16,7 +16,7 @@ blueberry/                 ← one git repo
 ```
 
 `make world` builds a bootable system. `tools/build-bpm-pkg.sh` builds any package
-from `packages/` into a `.bpm`. `tools/mkrepo.sh` indexes and signs a
+from `packages/` into a `.bpm`. `tools/bpmrepo.sh` indexes and signs a
 mirror. That is the entire supply chain, and you own all of it.
 
 ## Two editions
@@ -24,7 +24,7 @@ mirror. That is the entire supply chain, and you own all of it.
 | | Server | Desktop |
 |---|---|---|
 | Interface | Live CLI (busybox + bash) | KDE Plasma 6 (default) / GNOME |
-| Init | runit or systemd | systemd |
+| Init | systemd (default) · runit | systemd |
 | Releases | Rolling | Stable: `YY.04`/`YY.10`, LTS every even April |
 | Kernel | Rolling `bpm` package | **Pinned per release** |
 | Installer | `blueberry-install` (CLI) | Calamares (live ISO) |

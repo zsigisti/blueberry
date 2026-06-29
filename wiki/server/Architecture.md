@@ -40,8 +40,8 @@ USB_STORAGE, so no modules are needed to boot the live image.
 
 | | Used by |
 |---|---|
-| **runit** | Server default — a 35 KB supervision tree |
-| **systemd** | Desktop default, and Server with `INIT=systemd` |
+| **systemd** | Default on both editions — journald, logind, networkd/resolved, OpenSSH |
+| **runit** | Opt-in (`INIT=runit`) — a 35 KB supervision tree for RAM-first / minimal builds |
 
 The runit stage scripts live in [`src/init/`](../src/init); the systemd
 integration (units, networkd, sshd) in [`src/systemd/`](../src/systemd). See
@@ -69,7 +69,7 @@ The desktop stack is built bottom-up; each layer depends only on those below:
 packages/<name>/bpm.toml
         │  tools/build-bpm-pkg.sh  (ephemeral container, bpmbuild)
         ▼
-   .bpm  ──scp──►  mirror  ──tools/mkrepo.sh──►  bpm.index (+ .sig)
+   .bpm  ──scp──►  mirror  ──tools/bpmrepo.sh──►  bpm.index (+ .sig)
                                                               │  HTTPS
                                                               ▼
                                                         bpm install (SHA-256 + ed25519 verified)

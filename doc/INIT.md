@@ -213,10 +213,11 @@ runit-init 1      # halt
 
 ## 8. Alternative Init Systems
 
-runit is used only on the optional disk-boot path; the live CLI runs straight
-from the initramfs and needs no init system at all. If you want a different
-init on a disk install, build it from source into the rootfs (add it under
-`src/`, link it from `make world`) and repoint `/sbin/init` at it:
+The installed disk system defaults to **systemd** (`INIT=systemd`); `INIT=runit`
+builds the minimal supervision scheme described above. The live CLI runs straight
+from the initramfs and needs no init at all. If you want yet another init on a
+disk install, build it from source into the rootfs (add it under `src/`, link it
+from `make world`) and repoint `/sbin/init` at it:
 
 - **s6 + s6-rc** — `ln -sf /usr/bin/s6-linux-init-bin /sbin/init`; convert the
   runit service dirs with `s6-rc-compile`.
@@ -225,7 +226,7 @@ init on a disk install, build it from source into the rootfs (add it under
 - **dinit** — `ln -sf /sbin/dinit /sbin/init`; services in `/etc/dinit.d/`.
 
 Boot the chosen init by passing `init=/sbin/init` (or any path) on the kernel
-command line alongside `root=`. systemd is not supported.
+command line alongside `root=`.
 
 ---
 

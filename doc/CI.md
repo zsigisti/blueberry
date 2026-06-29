@@ -1,6 +1,6 @@
 # CI/CD
 
-Blueberry has two GitHub workflows:
+Blueberry has three GitHub workflows:
 
 - **`.github/workflows/checks.yml`** — fast static checks (seconds), gating
   every push. It deliberately does **not** build the package set (no `bpmbuild`,
@@ -12,7 +12,13 @@ Blueberry has two GitHub workflows:
     `.bpm` set stays self-contained.
   - **bpm** — compiles the package manager with `-Werror` and smoke-tests it.
   - **installer** — compiles `blueberry-install` with `-Werror`.
-- **`.github/workflows/ci.yml`** — the full build + QEMU boot test (below).
+- **`.github/workflows/ci.yml`** — the full base build + QEMU boot test (below).
+- **`.github/workflows/build-world.yml`** — the "build the world" closure gate
+  (weekly + on demand). Too slow for per-push, so it runs on a self-hosted
+  builder: `make repo-build` builds **every** package from source, then
+  `make desktop-stage check-runtime-closure` asserts the staged desktop rootfs is
+  dynamically self-contained (see [ARCHITECTURE.md](ARCHITECTURE.md) §7). This is
+  what stops a package shipping with a missing dependency.
 
 ## What ci.yml does
 

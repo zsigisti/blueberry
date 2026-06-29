@@ -2,9 +2,13 @@
 
 ## 1. Image Integrity
 
-Blueberry has no package manager and no post-install package downloads, which
-removes an entire class of supply-chain risk: the running system is exactly
-what `make world` produced from the source tree.
+The base image is exactly what `make world` produced from the source tree — no
+opaque vendor blobs in the boot path. Beyond the base, software is installed by
+`bpm` from Blueberry's **own** signed mirror (no third-party binary mirror at
+runtime): the `bpm.index` is ed25519-signed and verified against a key baked into
+the `bpm` binary, and every package is checked against a per-package SHA-256 from
+that signed index before it touches disk. So the supply chain is end-to-end
+controlled — from pinned source, through a reproducible build, to a signed mirror.
 
 - **Pinned sources.** Upstream versions are pinned in `Make.config`
   (`LINUX_VERSION`, `BUSYBOX_VERSION`, `RUNIT_VERSION`, `DROPBEAR_VERSION`).
