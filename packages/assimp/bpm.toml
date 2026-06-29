@@ -1,17 +1,17 @@
 [package]
 name="assimp"
-version="5.4.3"
+version="6.0.5"
 release=1
 summary="Open Asset Import Library — 3D model import (libassimp)"
 homepage="https://www.assimp.org/"
 license=["BSD-3-Clause"]
 arch=["x86_64"]
-depends=["glibc","gcc-libs","zlib","minizip"]
-makedepends=["cmake","ninja","zlib","minizip"]
+depends=["glibc","gcc-libs","zlib"]
+makedepends=["cmake","ninja","zlib"]
 provides=["libassimp.so"]
 [[source]]
-url="https://github.com/assimp/assimp/archive/v5.4.3/assimp-5.4.3.tar.gz"
-sha256="66dfbaee288f2bc43172440a55d0235dfc7bf885dda6435c038e8000e79582cb"
+url="https://github.com/assimp/assimp/archive/v6.0.5/assimp-6.0.5.tar.gz"
+sha256="edf3749559c2b7d1f758ffb66fc5bec62186221e623b7f2e8969f17ee46ecb6f"
 [steps]
 build='''
 cmake -B build -S "$name-$version" -G Ninja -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release \
