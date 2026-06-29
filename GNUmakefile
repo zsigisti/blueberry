@@ -308,12 +308,12 @@ _do_install:
 	@# (busybox ash stays as /bin/sh for scripts); ncurses backs it + provides
 	@# the terminfo database. Built once, then extracted into the rootfs.
 	@echo "[install] bundling base packages ($(BASE_PKGS))"
-	@sh $(TOPDIR)/tools/build-pkgs.sh $(OBJDIR)/basepkgs $(BASE_PKGS)
+	@# Native .bpm path (PKGBUILD/.pkg.tar.zst fully retired). Each .bpm is a zstd
+	@# tarball of ./usr… plus a .BPM manifest; build then extract into the rootfs.
+	@sh $(TOPDIR)/tools/build-bpm-pkg.sh $(OBJDIR)/bpm-out $(BASE_PKGS)
 	@for p in $(BASE_PKGS); do \
-	    f=$$(ls -t $(OBJDIR)/basepkgs/$$p-[0-9]*.pkg.tar.zst | head -1); \
-	    zstd -dcq "$$f" \
-	        | tar -x -C $(STAGEDIR) --exclude .PKGINFO --exclude .MTREE \
-	          --exclude .BUILDINFO --exclude .INSTALL 2>/dev/null; \
+	    f=$$(ls -t $(OBJDIR)/bpm-out/$$p-[0-9]*.bpm | head -1); \
+	    zstd -dcq "$$f" | tar -x -C $(STAGEDIR) --exclude .BPM 2>/dev/null; \
 	done
 	@# trim dev cruft (headers, static libs, man/info, pkgconfig)
 	@rm -rf $(STAGEDIR)/usr/include $(STAGEDIR)/usr/share/man \

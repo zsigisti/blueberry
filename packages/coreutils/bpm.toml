@@ -1,0 +1,36 @@
+[package]
+name     = "coreutils"
+version  = "9.7"
+release  = 1
+summary  = "GNU core utilities — cat/ls/cp/tail/env/sleep… (systemd base, no busybox)"
+homepage = "https://www.gnu.org/software/coreutils/"
+license  = ["GPL-3.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libcap", "openssl", "gmp"]
+makedepends = ["gcc", "make", "pkgconf", "libcap", "openssl", "gmp"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://ftp.gnu.org/gnu/coreutils/coreutils-9.7.tar.xz"
+sha256 = "e8bb26ad0293f9b5a1fc43fb42ba970e312c66ce92c1b0b16713d7500db251bf"
+
+[steps]
+build = '''
+cd "coreutils-$version"
+export FORCE_UNSAFE_CONFIGURE=1
+export CFLAGS="-O2 -std=gnu17"
+./configure --prefix=/usr --libexecdir=/usr/lib \
+  --enable-no-install-program=kill,uptime --with-openssl
+make
+'''
+package = '''
+cd "coreutils-$version"
+make DESTDIR="$pkgdir" install
+# Historical /bin paths a few scripts still hard-code.
+install -d "$pkgdir/bin"
+for b in cat ls cp mv rm ln mkdir rmdir echo pwd sleep env tty head tail \
+         chmod chown chgrp date stat readlink basename dirname mktemp; do
+    [ -e "$pkgdir/usr/bin/$b" ] && ln -sf "../usr/bin/$b" "$pkgdir/bin/$b"
+done
+'''
