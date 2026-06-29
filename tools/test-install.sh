@@ -30,6 +30,7 @@ DISK="$WORK/target.qcow2"
 MON="$WORK/monitor.sock"
 SHOTS="$WORK/shots"
 SERIAL="$WORK/disk-serial.log"
+LIVESERIAL="$WORK/live-serial.log"   # blueberry-install tees calamares -d here
 
 [ -f "$ISO" ] || { echo "test-install: no ISO at $ISO (run 'make desktop-iso')" >&2; exit 2; }
 for t in qemu-system-x86_64 socat qemu-img; do
@@ -47,9 +48,11 @@ typestr() { s=$1; i=0; while [ $i -lt ${#s} ]; do c=$(printf '%s' "$s" | cut -c$
 key() { mon "sendkey $1"; sleep 0.4; }
 
 echo "[install-test] booting live ISO with blank disk (headless)…"
+: > "$LIVESERIAL"
 qemu-system-x86_64 $ACCEL -m 4096 -smp 4 \
     -cdrom "$ISO" -drive file="$DISK",if=virtio,format=qcow2 \
     -vga virtio -display none -vnc :21 \
+    -serial "file:$LIVESERIAL" -nic user,model=virtio-net-pci \
     -monitor "unix:$MON,server,nowait" -boot d &
 QPID=$!
 trap 'kill $QPID 2>/dev/null || true' EXIT
@@ -89,6 +92,12 @@ while [ $i -lt "$INSTALL_WAIT" ]; do
 done
 sleep 20; shot "11-finished"
 
+# Surface what Calamares actually did (it tees `calamares -d` to the serial).
+echo "[install-test] Calamares view-step / error highlights:"
+sed 's/\x1b\[[0-9;:]*m//g' "$LIVESERIAL" 2>/dev/null \
+    | grep -iE "ViewModule .* loading|Running step|requirement|fatal|crash|terminate|installation (failed|complete)|Unpack|bootloader" \
+    | tail -25 | sed 's/^/    /' || true
+
 echo "[install-test] powering off the VM…"
 mon "system_powerdown"; sleep 8; kill $QPID 2>/dev/null || true; wait $QPID 2>/dev/null || true
 trap - EXIT
@@ -98,7 +107,7 @@ echo "[install-test] booting the INSTALLED disk (no CD)…"
 qemu-system-x86_64 $ACCEL -m 4096 -smp 4 \
     -drive file="$DISK",if=virtio,format=qcow2 \
     -vga virtio -display none -vnc :22 \
-    -serial "file:$SERIAL" -boot c &
+    -serial "file:$SERIAL" -nic user,model=virtio-net-pci -boot c &
 DPID=$!
 trap 'kill $DPID 2>/dev/null || true' EXIT
 deansi() { sed 's/\x1b\[[0-9;:]*m//g' "$SERIAL" 2>/dev/null; }
