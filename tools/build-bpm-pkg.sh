@@ -1,7 +1,7 @@
 #!/bin/sh
 # build-bpm-pkg.sh — build native .bpm packages from packages/<name>/bpm.toml in an
-# ephemeral Arch container (same self-hosted toolchain as build-pkgs.sh, but
-# driving tools/bpmbuild instead of makepkg).
+# ephemeral Arch container (the self-hosted build toolchain), driving
+# tools/bpmbuild. This is the sole package builder: PKGBUILD/makepkg is retired.
 #
 # EXPERIMENTAL (feature/bpm-pkg-format). The .bpm format is not used in
 # production until both CLI and GUI boot; this is the build-side counterpart so
