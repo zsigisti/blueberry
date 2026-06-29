@@ -157,3 +157,5 @@ libxslt                     # libxslt/libexslt — kio help (kio_help/kio_ghelp)
 editorconfig-core-c         # libeditorconfig.so.0 — ktexteditor
 qtkeychain-qt6              # libqt6keychain.so.1 — plasma-nm/Wi-Fi secrets
 libei                       # libei/libeis — kwin emulated input
+gtk3                        # libgtk-3/libgdk-3/libcairo/libpango/libgdk_pixbuf — qgtk3 platform theme + GTK apps
+libcups                     # libcups.so.2 — printing (qt6 cups printsupport + gtk3)

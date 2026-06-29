@@ -1,0 +1,31 @@
+[package]
+name     = "libcups"
+version  = "2.4.11"
+release  = 1
+summary  = "CUPS client library (libcups + libcupsimage)"
+homepage = "https://openprinting.github.io/cups/"
+license  = ["Apache-2.0"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "zlib", "openssl", "krb5", "pam", "dbus"]
+makedepends = ["pkgconf", "openssl", "krb5", "pam", "dbus"]
+provides    = ["libcups.so", "libcupsimage.so"]
+
+[[source]]
+url    = "https://github.com/OpenPrinting/cups/releases/download/v2.4.11/cups-2.4.11-source.tar.gz"
+sha256 = "9a88fe1da3a29a917c3fc67ce6eb3178399d68e1a548c6d86c70d9b13651fd71"
+
+[steps]
+build = '''
+cd "cups-$version"
+# We only need the client libraries for the desktop print stack; skip the daemon
+# bells (avahi/systemd) to keep the runtime closure small.
+./configure --prefix=/usr --sysconfdir=/etc --disable-static \
+  --disable-avahi --disable-systemd --with-tls=openssl \
+  --with-dbusdir=/etc/dbus-1
+make libs
+'''
+package = '''
+cd "cups-$version"
+make BUILDROOT="$pkgdir" install-libs install-headers
+'''
