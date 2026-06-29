@@ -1,0 +1,26 @@
+[package]
+name     = "libsecret"
+version  = "0.21.4"
+release  = 1
+summary  = "Library for storing and retrieving passwords and secrets"
+homepage = "https://wiki.gnome.org/Projects/Libsecret"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "glib2", "libgcrypt"]
+makedepends = ["meson", "ninja", "pkgconf", "glib2", "glib2-devel", "libgcrypt", "python", "docbook-xsl", "libxslt"]
+provides    = ["libsecret-1.so"]
+
+[[source]]
+url    = "https://download.gnome.org/sources/libsecret/0.21/libsecret-0.21.4.tar.xz"
+sha256 = "163d08d783be6d4ab9a979ceb5a4fecbc1d9660d3c34168c581301cd53912b20"
+
+[steps]
+build = '''
+arch-meson "$name-$version" build \
+  -D manpage=false -D gtk_doc=false -D introspection=false -D vapi=false
+meson compile -C build
+'''
+package = '''
+meson install -C build --destdir "$pkgdir"
+'''

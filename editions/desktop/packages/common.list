@@ -147,6 +147,7 @@ tslib                       # libts.so.0 — Qt eglfs touchscreen integration
 openjpeg2                   # libopenjp2.so.7 — kimageformats JPEG 2000 thumbnails
 gpgme                       # libgpgmepp.so.7 — kate GPG plugin
 jansson                     # libjansson.so.4 — libddcutil (brightness) JSON
+libsecret                   # libsecret-1.so.0 — qtkeychain secret store backend
 ffmpeg                      # libav*/libsw* — qt6-multimedia + kpipewire record
 libva                       # libva.so.2 — VA-API video acceleration
 lm_sensors                  # libsensors.so.5 — ksystemstats / system monitor
