@@ -12,16 +12,24 @@
 # to the 'wheel' group with Result.YES, so no password prompt is needed.
 set -e
 RT="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
-# QT_QUICK_BACKEND=software: Calamares' QML views (slideshow, some module pages)
-# default to the OpenGL Qt Quick backend, which crashes/exits on Mesa llvmpipe
-# (software GL — what every VM and the live ISO use). Forcing the software
-# rasterizer keeps the installer alive past the Welcome page. Logs go to the
-# serial console too, so an automated install smoke-test can capture failures.
+# pkexec sanitises the environment, so the root Calamares does NOT inherit the
+# session's software-GL setup (LIBGL_ALWAYS_SOFTWARE / GALLIUM_DRIVER, set for
+# KWin via /etc/xdg/plasma-workspace/env). Without them a root Qt app on a
+# GPU-less VM tries a *hardware* GL/EGL context and aborts a few seconds in —
+# which is why the installer died right after the Welcome page. Pass the whole
+# software-rendering set through so Calamares renders via llvmpipe like the rest
+# of the live session. QT_QUICK_BACKEND=software also keeps Qt Quick off GL.
+# calamares -d is teed to the serial console for the install smoke-test.
 exec pkexec env \
     XDG_RUNTIME_DIR="$RT" \
     WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-0}" \
     QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-wayland}" \
     QT_QUICK_BACKEND=software \
+    LIBGL_ALWAYS_SOFTWARE=1 \
+    GALLIUM_DRIVER=llvmpipe \
+    MESA_LOADER_DRIVER_OVERRIDE=llvmpipe \
+    __GLX_VENDOR_LIBRARY_NAME=mesa \
+    QTWEBENGINE_CHROMIUM_FLAGS="--disable-gpu" \
     DISPLAY="${DISPLAY:-}" \
     XAUTHORITY="${XAUTHORITY:-}" \
     QT_SCALE_FACTOR="${QT_SCALE_FACTOR:-1}" \
