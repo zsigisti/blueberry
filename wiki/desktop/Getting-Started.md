@@ -44,7 +44,7 @@ The Desktop ISO boots into the **KDE Plasma (Wayland) greeter** — log in as
 
 To install the Desktop with Calamares, see
 [Installing Blueberry Desktop](Installing-Blueberry-Desktop); to install the
-Server to disk, see [Installing Blueberry Server](Installing-Blueberry-Server).
+Server to disk, see [Installing Blueberry Server](../server/Installing-Blueberry-Server).
 
 ## After installing
 

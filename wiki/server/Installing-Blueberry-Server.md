@@ -69,9 +69,9 @@ On Server, `bpm upgrade` rolls the kernel forward like everything else — see
 The systemd Server runs **OpenSSH** (`sshd.service`, host keys generated on
 first boot). The RAM-first `INIT=runit` build uses Dropbear instead. Change any
 default credentials before exposing a host; hardening notes are in
-[doc/SECURITY.md](../doc/SECURITY.md).
+[doc/SECURITY.md](../../doc/SECURITY.md).
 
 ## Deploying to real hardware
 
-See [doc/DEPLOY.md](../doc/DEPLOY.md) for ISO, raw disk image, and `dd`
+See [doc/DEPLOY.md](../../doc/DEPLOY.md) for ISO, raw disk image, and `dd`
 workflows.

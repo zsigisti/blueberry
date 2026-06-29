@@ -29,7 +29,7 @@ updating from the rolling repo in the meantime.
 ### KDE or GNOME?
 
 KDE Plasma 6 is the default and the fully-built spin. GNOME is a documented
-alternative (`DE=gnome`). See [GNOME Spin](GNOME-Spin).
+alternative (`DE=gnome`). See [GNOME Spin](../desktop/GNOME-Spin).
 
 ### Can I run Steam / Spotify / Brave? They're not open source.
 

@@ -78,7 +78,7 @@ make desktop-version BBD_VERSION=26.04   # show resolved version/codename
 ```
 
 `DE=kde` (default) or `DE=gnome` selects the spin. `BBD_VERSION` pins the
-release; otherwise it's derived from the date (see [Release Process](Release-Process)).
+release; otherwise it's derived from the date (see [Release Process](../desktop/Release-Process)).
 
 The desktop targets force `INIT=systemd` and pull the graphical package closure
 from `editions/desktop/packages/*.list`.
@@ -112,4 +112,4 @@ See [Hosting a Mirror](Hosting-a-Mirror).
   and newer than their `bpm.toml`.
 - **Reproducibility:** a fixed `SOURCE_DATE_EPOCH` makes rebuilds deterministic.
 
-More: [doc/BUILD.md](../doc/BUILD.md), [doc/BPM.md](../doc/BPM.md).
+More: [doc/BUILD.md](../../doc/BUILD.md), [doc/BPM.md](../../doc/BPM.md).

@@ -75,5 +75,5 @@ desktop-critical options that **must** stay enabled:
 
 - [Building From Source](Building-From-Source) — the prebuilt-kernel fetch and
   the `kernel-publish` workflow.
-- [Release Process](Release-Process) — how desktop releases pin a kernel.
-- [doc/KERNEL.md](../doc/KERNEL.md) — kernel config and patch workflow.
+- [Release Process](../desktop/Release-Process) — how desktop releases pin a kernel.
+- [doc/KERNEL.md](../../doc/KERNEL.md) — kernel config and patch workflow.
