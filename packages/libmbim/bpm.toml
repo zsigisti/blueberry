@@ -1,0 +1,26 @@
+[package]
+name     = "libmbim"
+version  = "1.30.0"
+release  = 1
+summary  = "MBIM modem protocol helper library (libmbim-glib)"
+homepage = "https://www.freedesktop.org/wiki/Software/libmbim/"
+license  = ["LGPL-2.1-or-later", "GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "glib2", "libgudev"]
+makedepends = ["meson", "ninja", "pkgconf", "glib2", "glib2-devel", "libgudev", "python", "bash-completion", "help2man"]
+provides    = ["libmbim-glib.so"]
+
+[[source]]
+url    = "https://gitlab.freedesktop.org/mobile-broadband/libmbim/-/archive/1.30.0/libmbim-1.30.0.tar.gz"
+sha256 = "cfc729d23b9bf699b23a7ef2f5d732d6eff96234e31fed36b778771a6e3d3ee5"
+
+[steps]
+build = '''
+arch-meson "$name-$version" build \
+  -D introspection=false -D man=false -D bash_completion=false -D gtk_doc=false
+meson compile -C build
+'''
+package = '''
+meson install -C build --destdir "$pkgdir"
+'''

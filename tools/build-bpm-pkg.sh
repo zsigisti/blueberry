@@ -70,6 +70,10 @@ for p in '"$need"'; do
 done
 [ -z "$fail" ] || { echo "build-bpm: FAILED:$fail" >&2; exit 1; }
 '
+# Persistent pacman package cache: makedeps download once, not every build.
+# Pair with a pre-warmed IMAGE (tools/mk-builder-image.sh) to also skip install.
+PACMAN_CACHE=${PACMAN_CACHE:-blueberry-pacman}
 "$ENGINE" run --rm --ipc=host --security-opt seccomp=unconfined \
+    -v "$PACMAN_CACHE:/var/cache/pacman/pkg" \
     -v "$TOPDIR:/repo:ro,z" -v "$OUT:/out:z" "$IMAGE" bash -euc "$SCRIPT"
 echo "build-bpm: done ->$need"

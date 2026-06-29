@@ -1,0 +1,29 @@
+[package]
+name     = "modemmanager"
+version  = "1.22.0"
+release  = 1
+summary  = "Mobile broadband modem management service (libmm-glib)"
+homepage = "https://www.freedesktop.org/wiki/Software/ModemManager/"
+license  = ["GPL-2.0-or-later", "LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "glib2", "libgudev", "libmbim", "libqmi", "polkit"]
+makedepends = ["meson", "ninja", "pkgconf", "glib2", "glib2-devel", "libgudev", "libmbim", "libqmi", "polkit", "python", "bash-completion", "help2man", "libxslt"]
+provides    = ["libmm-glib.so"]
+
+[[source]]
+url    = "https://gitlab.freedesktop.org/mobile-broadband/ModemManager/-/archive/1.22.0/ModemManager-1.22.0.tar.gz"
+sha256 = "6c8f8720737a3788e394c700f36236278c9de09d76069a079e6f1daaf08b2768"
+
+[steps]
+build = '''
+arch-meson "ModemManager-$version" build \
+  -D introspection=false -D vapi=false -D man=false -D bash_completion=false \
+  -D gtk_doc=false -D tests=false \
+  -D mbim=true -D qmi=true -D qrtr=false \
+  -D polkit=permissive -D systemd_suspend_resume=true -D systemd_journal=true
+meson compile -C build
+'''
+package = '''
+meson install -C build --destdir "$pkgdir"
+'''
