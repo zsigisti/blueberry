@@ -7,8 +7,8 @@ homepage = "https://pipewire.org/"
 license  = ["MIT"]
 arch     = ["x86_64"]
 
-depends     = ["glibc", "alsa-lib", "dbus", "libsndfile", "ncurses", "readline", "libmysofa", "libpulse"]
-makedepends = ["meson", "ninja", "pkgconf", "alsa-lib", "dbus", "libsndfile", "ncurses", "readline", "sdl2", "libmysofa", "libpulse"]
+depends     = ["glibc", "alsa-lib", "dbus", "libsndfile", "ncurses", "readline", "libmysofa", "libpulse", "libcanberra", "libx11"]
+makedepends = ["meson", "ninja", "pkgconf", "alsa-lib", "dbus", "libsndfile", "ncurses", "readline", "sdl2", "libmysofa", "libpulse", "libcanberra", "libx11"]
 provides    = ["libpipewire-0.3.so", "libspa-0.2"]
 
 [[source]]
@@ -20,8 +20,13 @@ build = '''
 arch-meson "$name-$version" build \
   -D session-managers=[] \
   -D tests=disabled -D examples=disabled -D man=disabled -D docs=disabled \
-  -D gstreamer=disabled -D bluez5=disabled -D jack=disabled -D pipewire-jack=disabled \
+  -D gstreamer=disabled -D gstreamer-device-provider=disabled \
+  -D bluez5=disabled -D jack=disabled -D pipewire-jack=disabled \
   -D libcamera=disabled -D roc=disabled -D echo-cancel-webrtc=disabled \
+  -D avahi=disabled -D raop=disabled -D flatpak=disabled -D lv2=disabled \
+  -D avb=disabled -D libffado=disabled -D snap=disabled \
+  -D gsettings=disabled -D gsettings-pulse-schema=disabled \
+  -D vulkan=disabled \
   -D selinux=disabled -D v4l2=enabled -D pipewire-alsa=enabled
 meson compile -C build
 '''
