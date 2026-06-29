@@ -138,3 +138,22 @@ libasyncns                  # libasyncns.so.0 — libpulse dep (volume applet)
 libnsl                      # libnsl.so.3 — libpulse/volume (pulls libtirpc)
 libtirpc                    # libtirpc.so.3 — libnsl dep
 polkit-qt6                  # libpolkit-qt6-core-1.so.1 — Calamares/kpmcore disk-scan helper
+
+# ── Runtime-closure libs consumed only by dlopen'd KDE plugins ────────────────
+# Their owning package doesn't declare the dep, so the stage BFS won't reach them
+# transitively — list them explicitly. (Enforced by tools/check-runtime-closure.py.)
+taglib                      # libtag.so.2 — kfilemetadata audio tag extractor/writer
+tslib                       # libts.so.0 — Qt eglfs touchscreen integration
+openjpeg2                   # libopenjp2.so.7 — kimageformats JPEG 2000 thumbnails
+gpgme                       # libgpgmepp.so.7 — kate GPG plugin
+jansson                     # libjansson.so.4 — libddcutil (brightness) JSON
+ffmpeg                      # libav*/libsw* — qt6-multimedia + kpipewire record
+libva                       # libva.so.2 — VA-API video acceleration
+lm_sensors                  # libsensors.so.5 — ksystemstats / system monitor
+ddcutil                     # libddcutil.so.5 — powerdevil brightness (DDC/CI)
+libnl                       # libnl-3.so.200 — ksystemstats network plugin
+hunspell                    # libhunspell-1.7.so.0 — sonnet spellcheck
+libxslt                     # libxslt/libexslt — kio help (kio_help/kio_ghelp)
+editorconfig-core-c         # libeditorconfig.so.0 — ktexteditor
+qtkeychain-qt6              # libqt6keychain.so.1 — plasma-nm/Wi-Fi secrets
+libei                       # libei/libeis — kwin emulated input
