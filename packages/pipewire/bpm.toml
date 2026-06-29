@@ -1,0 +1,30 @@
+[package]
+name     = "pipewire"
+version  = "1.2.7"
+release  = 1
+summary  = "Multimedia server for audio and video (libpipewire)"
+homepage = "https://pipewire.org/"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "alsa-lib", "dbus", "libsndfile", "ncurses", "readline", "libmysofa", "libpulse"]
+makedepends = ["meson", "ninja", "pkgconf", "alsa-lib", "dbus", "libsndfile", "ncurses", "readline", "sdl2", "libmysofa", "libpulse"]
+provides    = ["libpipewire-0.3.so", "libspa-0.2"]
+
+[[source]]
+url    = "https://gitlab.freedesktop.org/pipewire/pipewire/-/archive/1.2.7/pipewire-1.2.7.tar.gz"
+sha256 = "e75568ed18bcbe75e9779af57cb9cc256fd7ebfaadc12bb347a0717055d1d3a9"
+
+[steps]
+build = '''
+arch-meson "$name-$version" build \
+  -D session-managers=[] \
+  -D tests=disabled -D examples=disabled -D man=disabled -D docs=disabled \
+  -D gstreamer=disabled -D bluez5=disabled -D jack=disabled -D pipewire-jack=disabled \
+  -D libcamera=disabled -D roc=disabled -D echo-cancel-webrtc=disabled \
+  -D selinux=disabled -D v4l2=enabled -D pipewire-alsa=enabled
+meson compile -C build
+'''
+package = '''
+meson install -C build --destdir "$pkgdir"
+'''

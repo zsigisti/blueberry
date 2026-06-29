@@ -1,0 +1,26 @@
+[package]
+name="zxing-cpp"
+version="3.0.2"
+release=1
+summary="Barcode scanning/generation library — libZXing.so.4 (Plasma clipboard/klipper)"
+homepage="https://github.com/zxing-cpp/zxing-cpp"
+license=["Apache-2.0"]
+arch=["x86_64"]
+depends=["glibc","gcc-libs","zint"]
+makedepends=["gcc","cmake","ninja","pkgconf","git","zint"]
+provides=["libZXing.so"]
+options=["!lto"]
+[[source]]
+url="https://github.com/zxing-cpp/zxing-cpp/archive/refs/tags/v3.0.2.tar.gz"
+sha256="b063dacf384c7bb93ab2c3eea247cc06b4525330f0efa631907aa3029f7e2144"
+[steps]
+build='''
+cmake -S "zxing-cpp-$version" -B build -G Ninja \
+  -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr \
+  -D BUILD_SHARED_LIBS=ON -D ZXING_EXAMPLES=OFF \
+  -D ZXING_READERS=ON -D ZXING_WRITERS=ON -D ZXING_USE_BUNDLED_ZINT=OFF
+cmake --build build
+'''
+package='''
+DESTDIR="$pkgdir" cmake --install build
+'''

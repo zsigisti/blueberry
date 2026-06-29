@@ -1,0 +1,27 @@
+[package]
+name     = "libmysofa"
+version  = "1.3.2"
+release  = 1
+summary  = "Reader for HRTF files in the AES SOFA format (libmysofa)"
+homepage = "https://github.com/hoene/libmysofa"
+license  = ["BSD-3-Clause"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "zlib"]
+makedepends = ["cmake", "ninja", "zlib"]
+provides    = ["libmysofa.so"]
+
+[[source]]
+url    = "https://github.com/hoene/libmysofa/archive/refs/tags/v1.3.2.tar.gz"
+sha256 = "6c5224562895977e87698a64cb7031361803d136057bba35ed4979b69ab4ba76"
+
+[steps]
+build = '''
+cmake -B build -S "$name-$version" -G Ninja \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_TESTS=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''
