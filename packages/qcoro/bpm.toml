@@ -9,7 +9,7 @@ arch     = ["x86_64"]
 
 depends     = ["qt6-base"]
 makedepends = ["cmake", "ninja", "qt6-base", "qt6-declarative", "qt6-websockets"]
-provides    = ["qcoro6"]
+provides    = ["qcoro6", "libQCoro6Core.so", "libQCoro6Coro.so", "libQCoro6Network.so", "libQCoro6DBus.so", "libQCoro6Qml.so"]
 options     = ["!lto"]
 
 [[source]]
@@ -18,7 +18,9 @@ sha256 = "4bff7513c5c8e301b66308df05795043b1792ed16381a484e5c990171b8ff19e"
 
 [steps]
 build = '''
-cmake -S "qcoro-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D QCORO_BUILD_EXAMPLES=OFF -D QCORO_WITH_QTWEBSOCKETS=OFF -D BUILD_TESTING=OFF;
+# QCoro defaults to STATIC libs; KDE (plasma-nm, powerdevil) links the shared
+# libQCoro6*.so.0, so force a shared build.
+cmake -S "qcoro-$version" -B build -G Ninja -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/usr -D BUILD_SHARED_LIBS=ON -D QCORO_BUILD_EXAMPLES=OFF -D QCORO_WITH_QTWEBSOCKETS=OFF -D BUILD_TESTING=OFF;
 cmake --build build
 '''
 package = '''
