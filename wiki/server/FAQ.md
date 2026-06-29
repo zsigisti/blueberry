@@ -3,9 +3,9 @@
 ### Is Blueberry based on Arch / Debian / Ubuntu?
 
 No. Blueberry is built **from source** out of one repository, with its own
-package manager (`bpm`) and its own signed mirror. It borrows the `PKGBUILD`
-*format* and uses an Arch container to *build* packages, but a running Blueberry
-system depends on no other distro's mirror. See
+package manager (`bpm`) and its own signed mirror. Recipes are declarative
+`bpm.toml`, and an Arch container is used only to *build* packages, but a running
+Blueberry system depends on no other distro's mirror. See
 [Self-Hosting Philosophy](Self-Hosting-Philosophy).
 
 ### What's the difference between Server and Desktop?
@@ -44,7 +44,7 @@ it on the Blueberry mirror — the same thing every distro does. Steam also want
 
 ### How do I add a package that isn't in the repo?
 
-Write a `packages/<name>/PKGBUILD` and build it with `tools/build-pkgs.sh`, then
+Write a `packages/<name>/bpm.toml` and build it with `tools/build-bpm-pkg.sh`, then
 install the resulting file or publish it to a mirror. See
 [Creating Packages](Creating-Packages).
 

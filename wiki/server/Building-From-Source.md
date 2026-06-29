@@ -57,11 +57,10 @@ The native package format is **`.bpm`** (declarative `bpm.toml` recipes — see
 New packages should be authored as `bpm.toml`.
 
 ```sh
-ENGINE=podman tools/build-bpm-pkg.sh  <out-dir> <pkg>...   # build .bpm   (recipes: bpm.toml)
-ENGINE=podman tools/build-pkgs.sh <out-dir> <pkg>...   # build .pkg.tar.zst (legacy PKGBUILD)
+ENGINE=podman tools/build-bpm-pkg.sh <out-dir> <pkg>...   # build .bpm from bpm.toml
 ```
 
-Both run in an ephemeral Arch container (the self-hosted toolchain). Long builds
+This runs in an ephemeral Arch container (the self-hosted toolchain). Long builds
 survive the shell with:
 
 ```sh
@@ -87,10 +86,11 @@ from `editions/desktop/packages/*.list`.
 ## Publishing to a mirror
 
 ```sh
-tools/mkrepo.sh <repo-dir>                 # index + ed25519-sign
-tools/blueberry-repo-sync.sh               # build + push a set of packages
-tools/blueberry-build-server.sh            # one-command build server
+make repo-build                            # build every bpm.toml → obj/bpm-out
+tools/mkrepo.sh <repo-dir>                 # index + ed25519-sign a repo dir
 ```
+
+`scp` the resulting `.bpm` files to the mirror, then re-index there.
 
 See [Hosting a Mirror](Hosting-a-Mirror).
 
@@ -98,7 +98,7 @@ See [Hosting a Mirror](Hosting-a-Mirror).
 
 ```
 ../blueberry-build/
-├── basepkgs/         built package artifacts (.bpm / .pkg.tar.zst)
+├── bpm-out/          built package artifacts (.bpm)
 ├── desktop-rootfs/   staged Desktop rootfs (squashed into the live ISO)
 ├── boot/             kernel + initramfs images
 └── *.log             build logs
@@ -108,8 +108,8 @@ See [Hosting a Mirror](Hosting-a-Mirror).
 
 - **Parallelism:** the container build uses `-j$(nproc)`; set host jobs in
   `Make.config`.
-- **Idempotent package builds:** `build-pkgs.sh` skips packages already built
-  and newer than their `PKGBUILD`.
+- **Idempotent package builds:** `build-bpm-pkg.sh` skips packages already built
+  and newer than their `bpm.toml`.
 - **Reproducibility:** a fixed `SOURCE_DATE_EPOCH` makes rebuilds deterministic.
 
-More: [doc/BUILD.md](../doc/BUILD.md), [doc/BUILDSERVER.md](../doc/BUILDSERVER.md).
+More: [doc/BUILD.md](../doc/BUILD.md), [doc/BPM.md](../doc/BPM.md).

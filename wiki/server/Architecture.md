@@ -66,10 +66,10 @@ The desktop stack is built bottom-up; each layer depends only on those below:
 ## The supply chain
 
 ```
-packages/<name>/PKGBUILD
-        │  tools/build-pkgs.sh  (ephemeral container, makepkg -s)
+packages/<name>/bpm.toml
+        │  tools/build-bpm-pkg.sh  (ephemeral container, bpmbuild)
         ▼
-   .pkg.tar.zst  ──scp──►  mirror  ──tools/mkrepo.sh──►  bpm.index (+ .sig)
+   .bpm  ──scp──►  mirror  ──tools/mkrepo.sh──►  bpm.index (+ .sig)
                                                               │  HTTPS
                                                               ▼
                                                         bpm install (SHA-256 + ed25519 verified)

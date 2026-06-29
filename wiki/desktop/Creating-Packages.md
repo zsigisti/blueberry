@@ -1,10 +1,9 @@
 # Creating Packages
 
-A package is a recipe in [`packages/<name>/`](../packages). The forward format is
-the declarative **`bpm.toml`**, built into a native `.bpm` via
-`tools/build-bpm-pkg.sh`. The legacy `PKGBUILD` → `.pkg.tar.zst` flow
-(`tools/build-pkgs.sh`) still works for the existing tree, but **new recipes
-should be `bpm.toml`**. `tools/pkgbuild2bpm` converts an existing PKGBUILD.
+A package is a recipe in [`packages/<name>/`](../packages). Every recipe is a
+declarative **`bpm.toml`**, built into a native `.bpm` by `tools/build-bpm-pkg.sh`
+(which drives `bpmbuild` in an ephemeral Arch container). The old `PKGBUILD` /
+`makepkg` path has been fully retired.
 
 ## Anatomy of a `bpm.toml` recipe
 
@@ -45,67 +44,22 @@ ENGINE=podman tools/build-bpm-pkg.sh ../out hello
 bpm install ../out/hello-2.12.1-1-x86_64.bpm
 ```
 
-<details><summary>Legacy: <code>PKGBUILD</code> anatomy (still supported)</summary>
-
-## Anatomy of a recipe
-
-```sh
-# packages/hello/PKGBUILD
-pkgname=hello
-pkgver=2.12.1
-pkgrel=1
-pkgdesc='GNU Hello — example package'
-arch=('x86_64')
-url='https://www.gnu.org/software/hello/'
-license=('GPL-3.0-or-later')
-depends=('glibc')                       # Blueberry package names (runtime)
-makedepends=('cmake' 'ninja')           # pulled from Arch during the build only
-source=("https://ftp.gnu.org/gnu/hello/hello-$pkgver.tar.gz")
-sha256sums=('...')                       # pin the source
-
-build() {
-  cd "hello-$pkgver"
-  ./configure --prefix=/usr
-  make
-}
-
-package() {
-  cd "hello-$pkgver"
-  make DESTDIR="$pkgdir" install
-}
-```
-
 Key rules:
 
 - **`depends` are runtime deps** and must be Blueberry package names (resolved
   from our mirror at install). **`makedepends` are build-only** and are pulled
   from Arch inside the throwaway build container.
-- **Pin `sha256sums`** for reproducibility. For vendor binaries that should
-  always fetch "latest," `SKIP` is acceptable.
+- **Pin `sha256` per `[[source]]`** for reproducibility. For vendor binaries that
+  should always fetch "latest," `SKIP` is acceptable.
 - Install into `$pkgdir` with a `/usr` prefix.
 
-## Building it
+`build-bpm-pkg.sh`:
 
-```sh
-ENGINE=podman tools/build-pkgs.sh ../out hello
-# → ../out/hello-2.12.1-1-x86_64.pkg.tar.zst
-```
-
-`build-pkgs.sh`:
-
-- spins up `archlinux:latest`, installs `base-devel`,
-- runs `makepkg -s` as a non-root builder with a fixed `SOURCE_DATE_EPOCH`,
-- writes the `.pkg.tar.zst` to your out-dir,
-- is **idempotent** — a package already built and newer than its `PKGBUILD` is
+- spins up `archlinux:latest`, installs `base-devel` + the recipe's `makedepends`,
+- runs `bpmbuild` as a non-root builder with a fixed `SOURCE_DATE_EPOCH`,
+- writes the `.bpm` to your out-dir,
+- is **idempotent** — a package whose `.bpm` is newer than its `bpm.toml` is
   skipped.
-
-Test the result locally:
-
-```sh
-bpm install ../out/hello-2.12.1-1-x86_64.pkg.tar.zst
-```
-
-</details>
 
 ## Patterns that come up a lot
 

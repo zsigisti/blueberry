@@ -1,8 +1,8 @@
 # The native Blueberry package format (`.bpm`) — DESIGN (experimental)
 
-> **Status: EXPERIMENTAL — `feature/bpm-pkg-format` branch only.**
-> Not used by the production build/repo until it is proven 100%. Production
-> still uses `PKGBUILD` + `.pkg.tar.zst`.
+> **Status: SHIPPING — the native format is the only package format.**
+> The production build/repo uses `bpm.toml` → `.bpm` exclusively; the
+> `PKGBUILD`/`makepkg` path has been removed.
 >
 > **Prototype verified end-to-end** (zlib + hello): recipe → `bpmbuild` → `.bpm`
 > → `bpmrepo.sh` index → `bpm update` → `bpm install <name>` (sha256-verified,
@@ -155,11 +155,13 @@ Nothing in the **production** path changes until `.bpm` round-trips
 
 ---
 
-## 5. Migration plan (when proven)
+## 5. Migration (complete)
 
-1. Generate `bpm.toml` for each `packages/<name>` from its `PKGBUILD` (one-time,
-   scripted; the field mapping is mechanical).
-2. Build the whole set to `.bpm`, index + sign, install-verify a desktop closure.
-3. Flip the build/repo tooling to `.bpm`; keep `.pkg.tar.zst` readable for one
-   release for rollback.
-4. Remove `makepkg`/`PKGBUILD` from the pipeline.
+The migration off `PKGBUILD`/`makepkg` is done:
+
+1. ✅ Generated a `bpm.toml` for every `packages/<name>` (one-time, scripted).
+2. ✅ Built the whole set to `.bpm`, indexed + signed, install-verified the base
+   and the desktop closure.
+3. ✅ Flipped the build/repo tooling to `.bpm` (`make repo-build`,
+   `build-bpm-pkg.sh`, `stage-desktop.sh`, the install target).
+4. ✅ Removed `makepkg`/`PKGBUILD` and the legacy build scripts from the pipeline.

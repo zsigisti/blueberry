@@ -28,7 +28,7 @@ Common problems and fixes, grouped by area. See also the [FAQ](FAQ).
 |---|---|
 | `bpm update` fails to verify the index | Your `bpm` was built with a different public key than the mirror's signing key — see [Hosting a Mirror](Hosting-a-Mirror) |
 | Stale index through a CDN | `curl -H 'Cache-Control: no-cache' …` / wait for cache TTL |
-| `install` says a dependency is missing | The dep isn't on the mirror yet; build it (`tools/build-pkgs.sh`) or check the recipe's `depends` |
+| `install` says a dependency is missing | The dep isn't on the mirror yet; build it (`tools/build-bpm-pkg.sh`) or check the recipe's `depends` |
 | SHA-256 mismatch | The package was re-built; `bpm update` then retry |
 
 ## Building from source

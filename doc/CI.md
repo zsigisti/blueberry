@@ -3,13 +3,13 @@
 Blueberry has two GitHub workflows:
 
 - **`.github/workflows/checks.yml`** — fast static checks (seconds), gating
-  every push. It deliberately does **not** build the package set (no `makepkg`,
+  every push. It deliberately does **not** build the package set (no `bpmbuild`,
   no Arch container — that's the repo server's job). Jobs:
   - **shellcheck** — lints every shell script (`tools/*.sh`, the initramfs
     `init`/`selftest`).
-  - **pkgbuilds** — `tools/check-pkgbuilds.sh` statically validates every
-    `packages/*/PKGBUILD` (required fields, `source`↔`sha256sums` length,
-    real 64-hex checksums — no `SKIP`).
+  - **closure** — `tools/check-closure.py` asserts every `packages/*/bpm.toml`
+    recipe's `depends` resolve to another recipe or a host-provided name, so the
+    `.bpm` set stays self-contained.
   - **bpm** — compiles the package manager with `-Werror` and smoke-tests it.
   - **installer** — compiles `blueberry-install` with `-Werror`.
 - **`.github/workflows/ci.yml`** — the full build + QEMU boot test (below).
