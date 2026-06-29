@@ -3,7 +3,7 @@
 # Arch mirrors). Lines starting with '#' and blank lines are ignored.
 #
 # This is the dependency closure the build server fills in incrementally; a
-# package listed here must have a packages/<name>/PKGBUILD before `desktop-iso`
+# package listed here must have a packages/<name>/bpm.toml before `desktop-iso`
 # can bundle it. Order is roughly bottom-up (libs before consumers).
 
 # ── Foundation libraries (layer 0/1 — built & verified from source) ───────────
