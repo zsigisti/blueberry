@@ -163,3 +163,10 @@ libcups                     # libcups.so.2 — printing (qt6 cups printsupport +
 qcoro                       # libQCoro6Core/DBus.so.0 — plasma-nm, powerdevil (network/brightness)
 baloo-widgets               # libKF6BalooWidgets.so.6 — dolphin file metadata panel
 kdoctools                   # libKF6DocTools.so.6 — kio_help / khelpcenter
+poppler                     # libpoppler.so.161/libpoppler-qt6.so.3 — kfilemetadata PDF extractor
+qalculate                   # libqalculate.so.23 — krunner calculator runner
+ebook-tools                 # libepub.so.0 — kfilemetadata epub extractor
+libjxl                      # libjxl.so.0.11 — kimageformats JPEG XL
+zxing-cpp                   # libZXing.so.4 — KF6Prison (clipboard QR / barcode)
+qt6-tools                   # libQt6UiTools.so.6 — kwin effect KCMs
+qt6-quick3d                 # libQt6Quick3D*.so.6 — QtQuick3D SpatialAudio
