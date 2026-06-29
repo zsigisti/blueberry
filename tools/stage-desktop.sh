@@ -11,7 +11,7 @@
 #         tools/stage-desktop.sh <pkg>...
 #
 #   STAGEDIR  the staged rootfs to extend         (required)
-#   PKGDIR    dir of built .pkg.tar.zst files      (default ../blueberry-build/basepkgs)
+#   PKGDIR    dir of built .bpm files              (default ../blueberry-build/bpm-out)
 #   INDEX     repo index for dependency resolution (default $PKGDIR/bpm.index, else fetch)
 #   REPO_URL  fall back to this mirror for missing packages
 #             (default https://repo.mmzsigmond.me)
@@ -19,7 +19,7 @@ set -euo pipefail
 
 TOPDIR=$(cd "$(dirname "$0")/.." && pwd)
 STAGEDIR=${STAGEDIR:?set STAGEDIR to the staged rootfs}
-PKGDIR=${PKGDIR:-$TOPDIR/../blueberry-build/basepkgs}
+PKGDIR=${PKGDIR:-$TOPDIR/../blueberry-build/bpm-out}
 REPO_URL=${REPO_URL:-https://repo.mmzsigmond.me}
 INDEX=${INDEX:-$PKGDIR/bpm.index}
 PROVIDED=${PROVIDED:-$TOPDIR/etc/bpm/provided}
@@ -80,8 +80,8 @@ for pkg in "${closure[@]}"; do
     fi
     # bsdtar handles tar+zstd; drop package metadata, keep the filesystem payload.
     bsdtar -xpf "$src" -C "$STAGEDIR" \
-        --exclude '.PKGINFO' --exclude '.BUILDINFO' --exclude '.MTREE' \
-        --exclude '.INSTALL' --exclude '.CHANGELOG' 2>/dev/null \
+        --exclude '.BPM' --exclude '.PKGINFO' --exclude '.BUILDINFO' \
+        --exclude '.MTREE' --exclude '.INSTALL' --exclude '.CHANGELOG' 2>/dev/null \
         || { warn "extract failed: $pkg"; continue; }
     staged=$((staged+1))
 done
@@ -96,7 +96,7 @@ log "staged $staged/${#closure[@]} packages into $STAGEDIR"
 # image systemd's udev MUST win, or systemd-udevd.service dies (status=2) and the
 # desktop never reaches a graphical session. Re-extract systemd over the closure.
 sysd_pkg=""
-for cand in "$PKGDIR"/systemd-[0-9]*.pkg.tar.zst; do [ -f "$cand" ] && sysd_pkg="$cand"; done
+for cand in "$PKGDIR"/systemd-[0-9]*.bpm; do [ -f "$cand" ] && sysd_pkg="$cand"; done
 if [ -z "$sysd_pkg" ]; then
     sysd_file=$(file_field systemd)
     [ -n "$sysd_file" ] && [ -f "$WORK/$sysd_file" ] && sysd_pkg="$WORK/$sysd_file"
@@ -104,8 +104,8 @@ fi
 if [ -n "$sysd_pkg" ] && [ -f "$sysd_pkg" ]; then
     log "re-asserting systemd's udev/libudev over the closure ($(basename "$sysd_pkg"))"
     bsdtar -xpf "$sysd_pkg" -C "$STAGEDIR" \
-        --exclude '.PKGINFO' --exclude '.BUILDINFO' --exclude '.MTREE' \
-        --exclude '.INSTALL' --exclude '.CHANGELOG' 2>/dev/null || warn "systemd re-extract failed"
+        --exclude '.BPM' --exclude '.PKGINFO' --exclude '.BUILDINFO' \
+        --exclude '.MTREE' --exclude '.INSTALL' --exclude '.CHANGELOG' 2>/dev/null || warn "systemd re-extract failed"
 fi
 
 # ── Resolve stale base-bundle libs shadowing the staged ones ──────────────────

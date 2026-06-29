@@ -5,7 +5,7 @@
 # BLUEBERRY_TEST=PASS. GitHub runners have no /dev/kvm, so qemu.sh runs under
 # TCG automatically — slower, but correct.
 #
-# Fast static checks (shellcheck, PKGBUILD validation, bpm/installer compile)
+# Fast static checks (shellcheck, .bpm closure, bpm/installer compile)
 # live in checks.yml and gate every push without needing the full build.
 
 name: CI

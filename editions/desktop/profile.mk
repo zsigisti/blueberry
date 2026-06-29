@@ -42,10 +42,12 @@ desktop-info: desktop-version
 	@echo "  edition : $(DE)   init: $(INIT)"
 	@echo "  packages: $(words $(DESKTOP_PKGS)) ($(words $(DESKTOP_COMMON_PKGS)) common + $(words $(DESKTOP_DE_PKGS)) $(DE))"
 
-# Build (or skip-if-fresh) every desktop package into $(OBJDIR)/basepkgs.
+# Build (or skip-if-fresh) every desktop package as .bpm into $(OBJDIR)/bpm-out.
+# This populates the local cache stage-desktop reads before falling back to the
+# repo; the .pkg.tar.zst/makepkg path is fully retired.
 desktop-pkgs:
 	@echo "[desktop] building $(words $(DESKTOP_PKGS)) packages for the $(DE) spin"
-	@sh $(TOPDIR)/tools/build-pkgs.sh $(OBJDIR)/basepkgs $(DESKTOP_PKGS)
+	@sh $(TOPDIR)/tools/build-bpm-pkg.sh $(OBJDIR)/bpm-out $(DESKTOP_PKGS)
 
 # The desktop gets its OWN rootfs, cloned from the clean base, so layering the
 # graphical (systemd, no-busybox) closure never clobbers the CLI/initramfs rootfs
@@ -59,7 +61,7 @@ desktop-stage: install
 	@rm -rf $(DESKTOP_STAGEDIR)
 	@cp -al $(STAGEDIR) $(DESKTOP_STAGEDIR) 2>/dev/null || cp -a $(STAGEDIR) $(DESKTOP_STAGEDIR)
 	@echo "[desktop] staging $(words $(DESKTOP_PKGS)) packages (+deps) into $(DESKTOP_STAGEDIR)"
-	@STAGEDIR="$(DESKTOP_STAGEDIR)" PKGDIR="$(OBJDIR)/basepkgs" \
+	@STAGEDIR="$(DESKTOP_STAGEDIR)" PKGDIR="$(OBJDIR)/bpm-out" \
 	 bash $(TOPDIR)/tools/stage-desktop.sh $(DESKTOP_PKGS)
 
 # Full live ISO: base install (systemd) + DE closure + SDDM autostart → Calamares.

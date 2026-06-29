@@ -1,7 +1,7 @@
 # .github/workflows/checks.yml — fast static checks on every push/PR.
 #
-# Deliberately does NOT build the package set (no makepkg / Arch container):
-# that's the repo-server's job (blueberry-repo-sync) and is far too slow for CI.
+# Deliberately does NOT build the package set (no bpmbuild / Arch container):
+# that's the repo-server's job (make repo-build) and is far too slow for CI.
 # Instead it validates everything cheaply — shell scripts, package recipes, and
 # the C programs (bpm + the installer) — so breakage is caught in seconds.
 
@@ -37,14 +37,6 @@ jobs:
           echo "Linting:"; echo "$files" | sed 's/^/  /'
           # -S warning: report warnings+errors, don't fail on style/info noise.
           echo "$files" | xargs -r shellcheck -S warning -e SC1090,SC1091
-
-  pkgbuilds:
-    name: Validate PKGBUILDs
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Static recipe validation
-        run: bash tools/check-pkgbuilds.sh
 
   closure:
     name: .bpm dependency closure
