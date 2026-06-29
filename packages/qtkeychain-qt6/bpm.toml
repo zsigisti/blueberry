@@ -1,0 +1,27 @@
+[package]
+name     = "qtkeychain-qt6"
+version  = "0.14.3"
+release  = 1
+summary  = "Qt 6 API to store passwords in the platform secret store"
+homepage = "https://github.com/frankosterfeld/qtkeychain"
+license  = ["BSD-3-Clause"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "gcc-libs", "qt6-base"]
+makedepends = ["cmake", "ninja", "qt6-base", "qt6-tools", "qt6-declarative", "extra-cmake-modules"]
+provides    = ["libqt6keychain.so"]
+
+[[source]]
+url    = "https://github.com/frankosterfeld/qtkeychain/archive/0.14.3/qtkeychain-0.14.3.tar.gz"
+sha256 = "a22c708f351431d8736a0ac5c562414f2b7bb919a6292cbca1ff7ac0849cb0a7"
+
+[steps]
+build = '''
+cmake -B build -S "qtkeychain-$version" -G Ninja \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_WITH_QT6=ON -DBUILD_TEST_APPLICATION=OFF -DQTKEYCHAIN_STATIC=OFF
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build
+'''
