@@ -46,6 +46,13 @@ shot() { mon "screendump $SHOTS/$1.ppm"; }
 # type an ASCII string as individual sendkey events (lowercase/digits only)
 typestr() { s=$1; i=0; while [ $i -lt ${#s} ]; do c=$(printf '%s' "$s" | cut -c$((i+1))); mon "sendkey $c"; i=$((i+1)); sleep 0.05; done; }
 key() { mon "sendkey $1"; sleep 0.4; }
+# Absolute mouse click at screen pixel (x y) — usb-tablet maps to 0..32767.
+SW=1280; SH=800
+click() {
+    ax=$(( $1 * 32767 / SW )); ay=$(( $2 * 32767 / SH ))
+    mon "mouse_move $ax $ay 0"; sleep 0.3
+    mon "mouse_button 1"; sleep 0.2; mon "mouse_button 0"; sleep 0.4
+}
 
 echo "[install-test] booting live ISO with blank disk (headless)…"
 : > "$LIVESERIAL"
@@ -53,6 +60,7 @@ qemu-system-x86_64 $ACCEL -m 4096 -smp 4 \
     -cdrom "$ISO" -drive file="$DISK",if=virtio,format=qcow2 \
     -vga virtio -display none -vnc :21 \
     -serial "file:$LIVESERIAL" -nic user,model=virtio-net-pci \
+    -device usb-ehci -device usb-tablet \
     -monitor "unix:$MON,server,nowait" -boot d &
 QPID=$!
 trap 'kill $QPID 2>/dev/null || true' EXIT
@@ -63,20 +71,24 @@ i=0; while [ $i -lt "$BOOT_WAIT" ]; do sleep 10; i=$((i+10)); [ -S "$MON" ] && s
 shot "01-welcome"
 
 echo "[install-test] driving Calamares (erase-disk default install)…"
-# Calamares "Next" = Alt+N, "Install" = Alt+I. Each page auto-detects sane
-# defaults (locale/keyboard from the VM, partition = erase per partition.conf).
-key "alt-n"; sleep 4; shot "02-locale"
-key "alt-n"; sleep 4; shot "03-keyboard"
-key "alt-n"; sleep 4; shot "04-partition"
-key "alt-n"; sleep 6; shot "05-users"
-# Users page: focus starts on the name field; typing it auto-fills login/hostname.
-typestr "$USER_NAME"; sleep 0.5
-key "tab"; key "tab"; key "tab"          # name → login → hostname → password
+# Drive by CLICKING the Next button (same screen position on every page) with
+# generous waits — blind accelerator keys get dropped while the partition page
+# scans the disk. Next/Install/Done button centre ≈ (1007,657) at 1280x800.
+NEXT_X=1007; NEXT_Y=657
+click 640 400                  # focus the Calamares window first
+click $NEXT_X $NEXT_Y; sleep 8;  shot "02-locale"
+click $NEXT_X $NEXT_Y; sleep 8;  shot "03-keyboard"
+click $NEXT_X $NEXT_Y; sleep 12; shot "04-partition"   # partition: scans disk, slow
+click $NEXT_X $NEXT_Y; sleep 10; shot "05-users"
+# Users page: click the name field, type (auto-fills login/hostname), then Tab to
+# the password fields. Field Y positions are approximate for this branding.
+click 700 250; sleep 0.5; typestr "$USER_NAME"; sleep 0.5
+key "tab"; key "tab"; key "tab"                        # name→login→hostname→password
 typestr "$USER_PASS"; key "tab"; typestr "$USER_PASS"
 sleep 0.5; shot "06-users-filled"
-key "alt-n"; sleep 5; shot "07-summary"
-key "alt-i"; sleep 3; shot "08-confirm"  # Install
-key "ret";   sleep 3; shot "09-confirm2" # confirm dialog (Install now)
+click $NEXT_X $NEXT_Y; sleep 6;  shot "07-summary"
+click $NEXT_X $NEXT_Y; sleep 4;  shot "08-confirm"     # → Install
+key "ret"; click $NEXT_X $NEXT_Y; sleep 4; shot "09-confirm2"  # confirm "Install now"
 
 echo "[install-test] installing — polling disk growth (≤${INSTALL_WAIT}s)…"
 last=0; stable=0; i=0
