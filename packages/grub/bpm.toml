@@ -1,0 +1,43 @@
+[package]
+name     = "grub"
+version  = "2.14"
+release  = 1
+summary  = "GNU GRand Unified Bootloader (BIOS i386-pc + UEFI x86_64-efi)"
+homepage = "https://www.gnu.org/software/grub/"
+license  = ["GPL-3.0-or-later"]
+arch     = ["x86_64"]
+
+# Calamares' bootloader module runs grub-install + grub-mkconfig in the LIVE image
+# to install the boot loader onto the freshly-installed target, and copies the
+# /usr/lib/grub/<platform> modules to the target's /boot/grub. Both BIOS (i386-pc)
+# and UEFI (x86_64-efi) module sets are built so either firmware works.
+depends     = ["device-mapper", "gettext", "xz", "bash"]
+makedepends = ["make", "gcc", "bison", "flex", "python", "gettext", "device-mapper", "xz", "help2man", "texinfo"]
+provides    = ["grub-install", "grub-mkconfig"]
+
+[[source]]
+url    = "https://ftp.gnu.org/gnu/grub/grub-2.14.tar.xz"
+sha256 = "bc8d3c73535b8838d8c8e2654d73edc4e6ae8c8acdb45d5df5dc9a1547446d43"
+
+[steps]
+build = '''
+# Build once per platform in its own copy (configure bakes in the target).
+for plat in "i386 pc" "x86_64 efi"; do
+    set -- $plat; tgt=$1; pf=$2
+    rm -rf "b-$pf"; cp -a "$name-$version" "b-$pf"
+    ( cd "b-$pf"
+      ./configure --prefix=/usr --sysconfdir=/etc \
+          --target="$tgt" --with-platform="$pf" \
+          --disable-werror --disable-grub-mkfont \
+          CFLAGS="-Wno-error" CPPFLAGS=""
+      make -j"$(nproc)" )
+done
+'''
+package = '''
+# Both installs share the platform-independent userspace tools (grub-install,
+# grub-mkconfig, …); the second just overwrites the first. Each adds its own
+# /usr/lib/grub/<platform> module tree.
+for pf in pc efi; do
+    make -C "b-$pf" DESTDIR="$pkgdir" install
+done
+'''
