@@ -1,0 +1,36 @@
+[package]
+name     = "tzdata"
+version  = "2026b"
+release  = 1
+summary  = "Sources for time zone and daylight saving time data (IANA tzdb)"
+homepage = "https://www.iana.org/time-zones"
+license  = ["public-domain"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["lzip", "make", "gcc"]
+
+[[source]]
+url    = "https://data.iana.org/time-zones/releases/tzdb-2026b.tar.lz"
+sha256 = "ffad46a04c8d1624197056630af475a35f3556d0887f028ac1bd33b7d47dc653"
+
+[steps]
+build = '''
+# bpmbuild's auto-extract can't handle .tar.lz, so extract it ourselves.
+[ -d "tzdb-$version" ] || { lzip -dc "tzdb-$version.tar.lz" | tar -xf - ; }
+cd "tzdb-$version"
+make CC=gcc CFLAGS="-std=gnu11 -O2 -DHAVE_GETTEXT=0" zic zdump
+'''
+package = '''
+cd "tzdb-$version"
+zi="$pkgdir/usr/share/zoneinfo"
+install -dm755 "$zi" "$zi/posix" "$zi/right" "$pkgdir/usr/bin"
+# Primary tzdata source files; one zic invocation per dir so Links (backward)
+# resolve. -b fat keeps 32- and 64-bit transition data for old readers.
+zones="etcetera southamerica northamerica europe africa antarctica asia australasia backward factory"
+./zic -b fat -d "$zi"        -L /dev/null    $zones
+./zic -b fat -d "$zi/posix"  -L /dev/null    $zones
+./zic -b fat -d "$zi/right"  -L leapseconds  $zones
+install -m644 zone.tab zone1970.tab iso3166.tab leapseconds tzdata.zi "$zi/"
+install -m755 zic zdump "$pkgdir/usr/bin/"
+'''
