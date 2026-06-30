@@ -14,6 +14,7 @@ libjpeg-turbo
 pixman
 libxml2
 libpciaccess
+tzdata                      # IANA timezone DB — REQUIRED by the Calamares locale page
 coreutils                   # cat/ls/cp/tail/tty/env/sleep — base CLI tools (no busybox)
 grep                        # GNU grep (desktop has no busybox)
 sed                         # GNU sed
