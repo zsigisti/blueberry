@@ -15,6 +15,7 @@ pixman
 libxml2
 libpciaccess
 tzdata                      # IANA timezone DB — REQUIRED by the Calamares locale page
+squashfs-tools              # unsquashfs — REQUIRED by Calamares unpackfs (extracts the live image)
 coreutils                   # cat/ls/cp/tail/tty/env/sleep — base CLI tools (no busybox)
 grep                        # GNU grep (desktop has no busybox)
 sed                         # GNU sed
