@@ -46,12 +46,14 @@ shot() { mon "screendump $SHOTS/$1.ppm"; }
 # type an ASCII string as individual sendkey events (lowercase/digits only)
 typestr() { s=$1; i=0; while [ $i -lt ${#s} ]; do c=$(printf '%s' "$s" | cut -c$((i+1))); mon "sendkey $c"; i=$((i+1)); sleep 0.05; done; }
 key() { mon "sendkey $1"; sleep 0.4; }
-# Absolute mouse click at screen pixel (x y) — usb-tablet maps to 0..32767.
-SW=1280; SH=800
-click() {
-    ax=$(( $1 * 32767 / SW )); ay=$(( $2 * 32767 / SH ))
-    mon "mouse_move $ax $ay 0"; sleep 0.3
-    mon "mouse_button 1"; sleep 0.2; mon "mouse_button 0"; sleep 0.4
+# Relative-mouse click roughly in the Calamares window to give it keyboard focus.
+# QEMU HMP mouse_move is RELATIVE, so slam the cursor to the top-left corner
+# (large negative delta clamps at 0,0) then nudge into the window and click. This
+# only needs to land *somewhere* on the window, not on a precise control.
+focusclick() {
+    mon "mouse_move -5000 -5000"; sleep 0.3   # → (0,0)
+    mon "mouse_move 450 350";     sleep 0.3   # → over the window (centre-ish)
+    mon "mouse_button 1"; sleep 0.2; mon "mouse_button 0"; sleep 0.5
 }
 
 echo "[install-test] booting live ISO with blank disk (headless)…"
@@ -60,7 +62,6 @@ qemu-system-x86_64 $ACCEL -m 4096 -smp 4 \
     -cdrom "$ISO" -drive file="$DISK",if=virtio,format=qcow2 \
     -vga virtio -display none -vnc :21 \
     -serial "file:$LIVESERIAL" -nic user,model=virtio-net-pci \
-    -device usb-ehci -device usb-tablet \
     -monitor "unix:$MON,server,nowait" -boot d &
 QPID=$!
 trap 'kill $QPID 2>/dev/null || true' EXIT
@@ -71,24 +72,27 @@ i=0; while [ $i -lt "$BOOT_WAIT" ]; do sleep 10; i=$((i+10)); [ -S "$MON" ] && s
 shot "01-welcome"
 
 echo "[install-test] driving Calamares (erase-disk default install)…"
-# Drive by CLICKING the Next button (same screen position on every page) with
-# generous waits — blind accelerator keys get dropped while the partition page
-# scans the disk. Next/Install/Done button centre ≈ (1007,657) at 1280x800.
-NEXT_X=1007; NEXT_Y=657
-click 640 400                  # focus the Calamares window first
-click $NEXT_X $NEXT_Y; sleep 8;  shot "02-locale"
-click $NEXT_X $NEXT_Y; sleep 8;  shot "03-keyboard"
-click $NEXT_X $NEXT_Y; sleep 12; shot "04-partition"   # partition: scans disk, slow
-click $NEXT_X $NEXT_Y; sleep 10; shot "05-users"
-# Users page: click the name field, type (auto-fills login/hostname), then Tab to
-# the password fields. Field Y positions are approximate for this branding.
-click 700 250; sleep 0.5; typestr "$USER_NAME"; sleep 0.5
+# Keyboard-only: QEMU HMP mouse_move is RELATIVE (it flings the cursor to the
+# screen corner and triggers KWin "peek at desktop"), so we never use the mouse.
+# Enter activates Calamares' default button (Next/Install/Done). Generous waits
+# because pages load slowly under llvmpipe (the partition page scans the disk).
+adv() { key "alt-n"; sleep "$1"; shot "$2"; }  # Alt+N = Next (Enter doesn't activate it)
+focusclick                     # give the Calamares window keyboard focus first
+adv 9  "02-locale"
+adv 9  "03-keyboard"
+adv 14 "04-partition"          # partition: scans disk + builds the erase plan
+adv 10 "05-users"
+# Users page: the name field has initial focus. Type the name (auto-fills login &
+# hostname), Tab to the two password fields, type each, then Enter advances.
+typestr "$USER_NAME"; sleep 1
 key "tab"; key "tab"; key "tab"                        # name→login→hostname→password
 typestr "$USER_PASS"; key "tab"; typestr "$USER_PASS"
-sleep 0.5; shot "06-users-filled"
-click $NEXT_X $NEXT_Y; sleep 6;  shot "07-summary"
-click $NEXT_X $NEXT_Y; sleep 4;  shot "08-confirm"     # → Install
-key "ret"; click $NEXT_X $NEXT_Y; sleep 4; shot "09-confirm2"  # confirm "Install now"
+sleep 1; shot "06-users-filled"
+adv 8 "07-summary"
+# On the summary page the Next button becomes "&Install" (Alt+I), then a
+# confirmation dialog ("Install now") appears — accept it.
+key "alt-i"; sleep 4; shot "08-install"
+key "alt-i"; key "ret"; sleep 4; shot "09-confirm"
 
 echo "[install-test] installing — polling disk growth (≤${INSTALL_WAIT}s)…"
 last=0; stable=0; i=0
