@@ -99,16 +99,16 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	@# unlock at boot and luksFormat at install. Bundled so it works offline.
 	@# bash + ncurses (libtinfo) so the live shell is bash, not busybox sh —
 	@# matching the installed system's default login shell.
-	@echo "[initramfs] bundling installer + disk + crypto tools + bash"
-	@sh $(THISDIR)/../../tools/build-pkgs.sh $(OBJDIR)/instpkgs \
+	@# Native .bpm toolchain (build-pkgs.sh / .pkg.tar.zst was retired). grub gives
+	@# the Rust installer grub-install + both module trees (i386-pc/x86_64-efi).
+	@echo "[initramfs] bundling installer + disk + crypto + grub + bash"
+	@sh $(THISDIR)/../../tools/build-bpm-pkg.sh $(OBJDIR)/instpkgs \
 	    popt e2fsprogs dosfstools gptfdisk json-c device-mapper openssl zlib cryptsetup \
-	    ncurses bash
+	    grub ncurses bash
 	@for p in popt e2fsprogs dosfstools gptfdisk json-c device-mapper openssl zlib cryptsetup \
-	          ncurses bash; do \
-	    f=$$(ls -t $(OBJDIR)/instpkgs/$$p-[0-9]*.pkg.tar.zst | head -1); \
-	    zstd -dcq "$$f" \
-	        | tar -x -C $(INITRAMDIR) --exclude .PKGINFO --exclude .MTREE \
-	          --exclude .BUILDINFO --exclude .INSTALL 2>/dev/null; \
+	          grub ncurses bash; do \
+	    f=$$(ls -t $(OBJDIR)/instpkgs/$$p-[0-9]*.bpm | head -1); \
+	    zstd -dcq "$$f" | tar -x -C $(INITRAMDIR) --exclude .BPM 2>/dev/null; \
 	done
 	@# bash lands in /usr/bin; make /bin/bash resolve too (login shell path).
 	@ln -sf /usr/bin/bash $(INITRAMDIR)/bin/bash
@@ -119,7 +119,15 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	@chmod 755 $(INITRAMDIR)/usr/bin/bblogin
 	@# trim dev cruft from the bundled tools (keep binaries + shared libs)
 	@rm -rf $(INITRAMDIR)/usr/include $(INITRAMDIR)/usr/share/man \
-	        $(INITRAMDIR)/usr/share/info $(INITRAMDIR)/usr/lib/pkgconfig
+	        $(INITRAMDIR)/usr/share/info $(INITRAMDIR)/usr/share/doc \
+	        $(INITRAMDIR)/usr/share/locale $(INITRAMDIR)/usr/lib/pkgconfig
+	@# grub: drop themes/fonts + image-authoring tools the installer never calls
+	@# (keep grub-install/-bios-setup/-probe/-mkimage/-editenv + both module trees).
+	@rm -rf $(INITRAMDIR)/usr/share/grub
+	@for g in mkfont mkrescue mkstandalone shell script-check syslinux2cfg \
+	          mknetdir menulst2cfg fstest mount sparc64-setup ofpathname; do \
+	    rm -f $(INITRAMDIR)/usr/bin/grub-$$g $(INITRAMDIR)/usr/sbin/grub-$$g; \
+	done
 	@find $(INITRAMDIR)/usr/lib -name '*.a' -delete 2>/dev/null || true
 	@# blueberry-install is now the Rust guided CLI installer (src/installer/,
 	@# built like bpm via cargo). It links glibc+libgcc_s, picked up by bundle-glibc.
@@ -173,7 +181,11 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	    $(INITRAMDIR)/usr/sbin/dropbearmulti \
 	    $(INITRAMDIR)/usr/bin/zstd \
 	    $(INITRAMDIR)/usr/bin/bpm \
-	    $(INITRAMDIR)/usr/bin/blueberry-install
+	    $(INITRAMDIR)/usr/bin/blueberry-install \
+	    $(INITRAMDIR)/usr/sbin/grub-install \
+	    $(INITRAMDIR)/usr/sbin/grub-bios-setup \
+	    $(INITRAMDIR)/usr/bin/grub-probe \
+	    $(INITRAMDIR)/usr/bin/grub-mkimage
 
 	@# Pack as CPIO
 	@echo "[initramfs] packing"
