@@ -1,0 +1,21 @@
+[package]
+name = "blueberry-install"
+version = "0.1.0"
+edition = "2021"
+description = "Guided CLI installer for Blueberry Linux (server/base edition)"
+license = "MIT"
+
+[[bin]]
+name = "blueberry-install"
+path = "src/main.rs"
+
+[dependencies]
+dialoguer = { version = "0.11", default-features = false, features = ["password"] }
+libc = "0.2"
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true
+panic = "abort"
+codegen-units = 1

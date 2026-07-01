@@ -19,8 +19,8 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
                                $(THISDIR)/shadow $(THISDIR)/Makefile \
                                $(THISDIR)/../bpm-rs/Cargo.toml \
                                $(wildcard $(THISDIR)/../bpm-rs/src/*.rs) \
-                               $(THISDIR)/../installer/blueberry-install.c \
-                               $(THISDIR)/../installer/Makefile
+                               $(THISDIR)/../installer/Cargo.toml \
+                               $(wildcard $(THISDIR)/../installer/src/*.rs)
 	@echo "[initramfs] assembling"
 	@rm -rf $(INITRAMDIR)
 	@mkdir -p $(INITRAMDIR)/bin $(INITRAMDIR)/sbin $(INITRAMDIR)/lib \
@@ -121,10 +121,9 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	@rm -rf $(INITRAMDIR)/usr/include $(INITRAMDIR)/usr/share/man \
 	        $(INITRAMDIR)/usr/share/info $(INITRAMDIR)/usr/lib/pkgconfig
 	@find $(INITRAMDIR)/usr/lib -name '*.a' -delete 2>/dev/null || true
-	@$(MAKE) --no-print-directory -C $(THISDIR)/../installer \
-	    CC="$(CC)" CFLAGS="$(CFLAGS)" \
-	    OBJDIR=$(OBJDIR)/installer OUT=$(OBJDIR)/installer/blueberry-install
-	@cp $(OBJDIR)/installer/blueberry-install $(INITRAMDIR)/usr/bin/blueberry-install
+	@# blueberry-install is now the Rust guided CLI installer (src/installer/,
+	@# built like bpm via cargo). It links glibc+libgcc_s, picked up by bundle-glibc.
+	@sh $(THISDIR)/../../tools/build-installer.sh $(INITRAMDIR)/usr/bin/blueberry-install
 	@chmod 755 $(INITRAMDIR)/usr/bin/blueberry-install
 	@# short aliases — people reach for `bb-install` / `bb-installer` at the shell
 	@ln -sf blueberry-install $(INITRAMDIR)/usr/bin/bb-install
@@ -173,7 +172,8 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	    $(INITRAMDIR)/bin/busybox \
 	    $(INITRAMDIR)/usr/sbin/dropbearmulti \
 	    $(INITRAMDIR)/usr/bin/zstd \
-	    $(INITRAMDIR)/usr/bin/bpm
+	    $(INITRAMDIR)/usr/bin/bpm \
+	    $(INITRAMDIR)/usr/bin/blueberry-install
 
 	@# Pack as CPIO
 	@echo "[initramfs] packing"
