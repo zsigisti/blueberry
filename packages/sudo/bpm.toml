@@ -1,7 +1,7 @@
 [package]
 name     = "sudo"
 version  = "1.9.16p2"
-release  = 2
+release  = 3
 summary  = "Give certain users the ability to run some commands as root"
 homepage = "https://www.sudo.ws/sudo/"
 license  = ["custom"]
@@ -23,6 +23,9 @@ package = '''
 cd "$name-$version";
 make DESTDIR="$pkgdir" install;
 install -dm755 "$pkgdir/etc";
-printf '%%wheel ALL=(ALL:ALL) ALL\nroot ALL=(ALL:ALL) ALL\n' > "$pkgdir/etc/sudoers";
+# /etc/sudoers.d must exist AND be @includedir'd, or Calamares' users module
+# fails with "cannot create sudoers file for writing" when it drops 10-installer.
+install -dm750 "$pkgdir/etc/sudoers.d";
+printf '%%wheel ALL=(ALL:ALL) ALL\nroot ALL=(ALL:ALL) ALL\n@includedir /etc/sudoers.d\n' > "$pkgdir/etc/sudoers";
 chmod 440 "$pkgdir/etc/sudoers"
 '''
