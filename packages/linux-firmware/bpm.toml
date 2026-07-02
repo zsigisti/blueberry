@@ -1,0 +1,24 @@
+[package]
+name     = "linux-firmware"
+version  = "20260622"
+release  = 1
+summary  = "Firmware blobs for in-kernel drivers (wifi, GPU, NICs, …) — full set"
+homepage = "https://gitlab.com/kernel-firmware/linux-firmware"
+license  = ["custom:linux-firmware"]
+arch     = ["x86_64"]
+
+depends = []
+
+[[source]]
+url    = "https://gitlab.com/kernel-firmware/linux-firmware/-/archive/20260622/linux-firmware-20260622.tar.gz"
+sha256 = "bb619f9a1e84eca686cfbe0ce1aab8946e42b3d674b3cd856843c1b6ca2d0032"
+
+[steps]
+build = 'true'
+package = '''
+cd "$name-$version"
+# copy-firmware.sh resolves the WHENCE symlink/link directives; install RAW
+# (uncompressed) so the kernel needs no FW_LOADER_COMPRESS support.
+./copy-firmware.sh "$pkgdir/usr/lib/firmware"
+install -Dm644 WHENCE "$pkgdir/usr/share/licenses/linux-firmware/WHENCE"
+'''

@@ -57,6 +57,8 @@ wireplumber
 
 # ── Networking (desktop) ──────────────────────────────────────────────────────
 networkmanager
+wpa_supplicant              # WPA/WPA2/WPA3 auth — NetworkManager wifi needs it
+linux-firmware              # full firmware set (wifi/GPU/NIC blobs)
 
 # ── Bluetooth / printing ──────────────────────────────────────────────────────
 bluez

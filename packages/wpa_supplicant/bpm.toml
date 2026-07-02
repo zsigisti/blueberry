@@ -1,0 +1,47 @@
+[package]
+name     = "wpa_supplicant"
+version  = "2.11"
+release  = 1
+summary  = "WPA/WPA2/WPA3 wifi authentication supplicant"
+homepage = "https://w1.fi/wpa_supplicant/"
+license  = ["BSD-3-Clause"]
+arch     = ["x86_64"]
+
+# NetworkManager drives it over D-Bus; wpa_cli covers headless/server use.
+depends     = ["glibc", "openssl", "libnl", "dbus"]
+makedepends = ["make", "gcc", "pkgconf", "openssl", "libnl", "dbus"]
+provides    = ["wpa_supplicant", "wpa_cli"]
+
+[[source]]
+url    = "https://w1.fi/releases/wpa_supplicant-2.11.tar.gz"
+sha256 = "912ea06f74e30a8e36fbb68064d6cdff218d8d591db0fc5d75dee6c81ac7fc0a"
+
+[steps]
+build = '''
+cd "$name-$version/wpa_supplicant"
+cp defconfig .config
+# D-Bus control (NetworkManager) + modern crypto/SAE (WPA3)
+cat >> .config <<CFG
+CONFIG_CTRL_IFACE_DBUS_NEW=y
+CONFIG_CTRL_IFACE_DBUS_INTRO=y
+CONFIG_SAE=y
+CONFIG_IEEE80211W=y
+CONFIG_LIBNL32=y
+CFG
+# env (not make-arg) CFLAGS: the Makefile must still append its -I paths
+CFLAGS="-O2 -Wno-error -std=gnu17" make -j"$(nproc)"
+'''
+package = '''
+cd "$name-$version/wpa_supplicant"
+install -Dm755 wpa_supplicant "$pkgdir/usr/bin/wpa_supplicant"
+install -Dm755 wpa_cli        "$pkgdir/usr/bin/wpa_cli"
+install -Dm755 wpa_passphrase "$pkgdir/usr/bin/wpa_passphrase"
+install -Dm644 dbus/fi.w1.wpa_supplicant1.service \
+    "$pkgdir/usr/share/dbus-1/system-services/fi.w1.wpa_supplicant1.service"
+install -Dm644 dbus/dbus-wpa_supplicant.conf \
+    "$pkgdir/usr/share/dbus-1/system.d/wpa_supplicant.conf"
+install -Dm644 systemd/wpa_supplicant.service \
+    "$pkgdir/usr/lib/systemd/system/wpa_supplicant.service"
+install -Dm644 "systemd/wpa_supplicant@.service" \
+    "$pkgdir/usr/lib/systemd/system/wpa_supplicant@.service"
+'''
