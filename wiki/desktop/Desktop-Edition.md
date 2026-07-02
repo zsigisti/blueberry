@@ -2,7 +2,7 @@
 
 Blueberry Desktop is a GUI edition built on the Blueberry base — same kernel,
 glibc, systemd, and `bpm` — with a graphical stack, **Ubuntu-style stable
-releases**, and a live Calamares installer. It lives in-monorepo at
+releases**, and a TUI installer (offline + netinstall ISOs). It lives in-monorepo at
 [`editions/desktop/`](../../editions/desktop); there is no separate fork.
 
 - **KDE Plasma 6** is the default experience.
@@ -51,7 +51,7 @@ Built from source into the mirror:
 make desktop-info                  # KDE
 make desktop-info DE=gnome         # GNOME
 make desktop-pkgs                  # build the package closure
-make desktop-iso                   # live Calamares ISO
+make desktop-iso                   # live the Blueberry installer ISO
 ```
 
 ## Live session
@@ -60,7 +60,7 @@ make desktop-iso                   # live Calamares ISO
 onto the staged rootfs: SDDM autologin, a polkit rule for the installer, and an
 **Install Blueberry Desktop** launcher. The initramfs `blueberry.live=1` path
 mounts the squashfs as an overlay and boots into Plasma. Details:
-[The Calamares Installer](The-Calamares-Installer), [Architecture](Architecture).
+[The the Blueberry installer Installer](The-the Blueberry installer-Installer), [Architecture](Architecture).
 
 ## See also
 

@@ -10,7 +10,7 @@ manager, and the build system:
 - **Server** — a minimal, **rolling** CLI system. systemd PID 1 (runit optional),
   headless, always the latest tested userspace.
 - **Desktop** — KDE Plasma 6 with **Ubuntu-style stable releases** and a live
-  Calamares installer ([`editions/desktop/`](../editions/desktop)).
+  Blueberry TUI installer ([`editions/desktop/`](../editions/desktop)).
 
 Two things make the base: `make world` assembles the bootable base image
 (kernel + initramfs + a systemd or runit rootfs), and the **package set** in
@@ -35,7 +35,7 @@ There is **no third-party binary mirror** at runtime.
 │  src/installer/   blueberry-install (guided CLI installer)              │
 │                                                                        │
 │  packages/<name>/bpm.toml  ~390 from-source recipes → .bpm             │
-│  editions/desktop/         KDE/GNOME spin: package lists, Calamares     │
+│  editions/desktop/         KDE/GNOME spin: package lists, the Blueberry installer     │
 │  tools/                    bundle-glibc.sh, build-bpm-pkg.sh,           │
 │                            bpmrepo.sh, stage-desktop.sh, check-*.py     │
 │  etc/                      /etc skeleton overlaid onto the rootfs       │
@@ -201,7 +201,7 @@ firmware → GRUB → pinned vmlinuz → initramfs (root=UUID=…) → switch_ro
 | `src/bpm-rs/` | the `bpm` package manager (Rust) |
 | `src/installer/` | `blueberry-install` guided CLI installer |
 | `packages/<name>/` | from-source `.bpm` recipes (`bpm.toml`) |
-| `editions/desktop/` | KDE/GNOME spin: package lists, Calamares, branding |
+| `editions/desktop/` | KDE/GNOME spin: package lists, the Blueberry installer, branding |
 | `tools/` | `bundle-glibc.sh`, `build-bpm-pkg.sh`, `bpmrepo.sh`, `stage-desktop.sh`, `check-closure.py`, `check-runtime-closure.py`, `qemu.sh`, `mkiso.sh` |
 | `etc/` | /etc skeleton overlaid onto the rootfs |
 | `doc/` | All documentation |

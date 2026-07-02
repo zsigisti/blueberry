@@ -42,7 +42,7 @@ The Desktop ISO boots into the **KDE Plasma (Wayland) greeter** — log in as
 > booted with **`-cpu host`** — `make run-desktop` does this for you. A bare
 > `qemu … -cpu qemu64` shows a black screen.
 
-To install the Desktop with Calamares, see
+To install the Desktop with the Blueberry installer, see
 [Installing Blueberry Desktop](Installing-Blueberry-Desktop); to install the
 Server to disk, see [Installing Blueberry Server](../server/Installing-Blueberry-Server).
 

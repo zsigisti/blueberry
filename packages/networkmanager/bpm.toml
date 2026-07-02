@@ -1,14 +1,14 @@
 [package]
 name     = "networkmanager"
 version  = "1.50.0"
-release  = 1
+release  = 99
 summary  = "Network connection manager (NetworkManager daemon + libnm)"
 homepage = "https://networkmanager.dev/"
 license  = ["GPL-2.0-or-later", "LGPL-2.1-or-later"]
 arch     = ["x86_64"]
 
-depends     = ["glibc", "glib2", "libnl", "nss", "libndp", "jansson", "curl", "libpsl", "polkit", "util-linux", "readline", "dbus", "libmnl"]
-makedepends = ["meson", "ninja", "pkgconf", "glib2", "glib2-devel", "libnl", "nss", "libndp", "jansson", "curl", "libpsl", "polkit", "util-linux", "dbus", "libmnl", "python", "python-gobject", "libxslt", "docbook-xsl"]
+depends     = ["newt", "glibc", "glib2", "libnl", "nss", "libndp", "jansson", "curl", "libpsl", "polkit", "util-linux", "readline", "dbus", "libmnl"]
+makedepends = ["libnewt", "meson", "ninja", "pkgconf", "glib2", "glib2-devel", "libnl", "nss", "libndp", "jansson", "curl", "libpsl", "polkit", "util-linux", "dbus", "libmnl", "python", "python-gobject", "libxslt", "docbook-xsl"]
 provides    = ["libnm.so", "libnmova"]
 
 [[source]]
@@ -20,7 +20,7 @@ build = '''
 arch-meson "NetworkManager-$version" build \
   -D crypto=nss -D wifi=true -D iwd=false \
   -D modem_manager=false -D ppp=false -D ovs=false -D teamdctl=false \
-  -D bluez5_dun=false -D nmtui=false -D nmcli=true \
+  -D bluez5_dun=false -D nmtui=true -D nmcli=true \
   -D introspection=false -D vapi=false -D docs=false -D tests=no \
   -D selinux=false -D libaudit=no -D libpsl=true \
   -D session_tracking=systemd -D suspend_resume=systemd \

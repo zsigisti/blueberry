@@ -14,8 +14,10 @@ A minimal, **rolling** CLI system. systemd (or runit), headless, always latest.
 
 ## 🪟 [Blueberry Desktop →](desktop/Home)
 
-A polished GUI edition with **Ubuntu-style stable releases** and a live Calamares
-installer (KDE Plasma 6 default, GNOME optional).
+A polished GUI edition with **Ubuntu-style stable releases** (KDE Plasma 6
+default, GNOME optional). Installs via Blueberry's own full-screen **TUI
+installer** — offline (complete payload) or netinstall (fetches the desktop
+from the signed repo) ISOs, BIOS + UEFI, optional LUKS2.
 
 ---
 

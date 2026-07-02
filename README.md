@@ -28,10 +28,11 @@ its spins from one tree. You pick the edition; the base — kernel, glibc, the
 |---|---|---|
 | **Audience** | Servers, headless boxes, builders | Workstations, laptops, daily drivers |
 | **Interface** | Live CLI (busybox + bash) | KDE Plasma 6 (default) · GNOME (optional) |
+| **Networking** | nmcli/nmtui (NetworkManager) + wifi (full firmware) + ufw | Same, with the Plasma NM applet |
 | **Init** | systemd (default) · runit (`INIT=runit`) | systemd |
 | **Release model** | **Rolling** — always latest | **Stable releases** — `YY.04` / `YY.10`, Ubuntu-style |
 | **Kernel** | **Pinned prebuilt artifact** — bumped deliberately, never compiled locally | **Pinned per release** — one validated kernel for the release's life |
-| **Install** | `blueberry-install` (guided CLI) | **Live Calamares ISO** — boot, try, install |
+| **Install** | `blueberry-install` — **TUI** (or CLI/unattended) | Same **TUI installer** — offline ISO or ~160M-base netinstall |
 | **Cadence** | Continuous | Two/year · April of even years is **LTS** (24 mo) |
 
 > **The kernel is not a package and is not compiled on your machine.** It is a
@@ -107,22 +108,25 @@ Unattended installs work via the `bbinstall` kernel cmdline.
 ## 🪟 Blueberry Desktop
 
 A polished, user-oriented GUI edition with **Ubuntu-style stable releases** and
-a **live Calamares installer**. KDE Plasma 6 is the default; GNOME is a
+a **TUI installer (offline + netinstall ISOs)**. KDE Plasma 6 is the default; GNOME is a
 documented alternative. It lives in [`editions/desktop/`](editions/desktop/) —
 same base, same `bpm`, same mirror.
 
 ### The install experience
 
-1. **Boot the live ISO.** systemd reaches `graphical.target` and SDDM shows the
-   KDE Plasma (Wayland) greeter — log in as `live` (no password) — running from
-   a squashfs+overlay root, the real desktop, not a stripped installer shell.
-2. **Try it.** Browse the web, open Dolphin, poke around — nothing is written to
-   disk yet.
-3. **Install Blueberry Desktop.** A welcome icon launches **Calamares**: a
-   guided, branded flow — language → location → keyboard → partition (with a
-   manual KDE-Partition-Manager backend via `kpmcore`) → user account →
-   summary → install, with a slideshow while it copies.
-4. **Reboot into your system.** GRUB → pinned kernel → systemd → SDDM → Plasma.
+1. **Boot the installer ISO** — it lands straight in the full-screen **TUI
+   installer** (our own Rust `blueberry-install`; the Blueberry installer is gone). One form:
+   target disk, bootloader (GRUB BIOS/UEFI, firmware auto-detected), keyboard
+   layout (applied live — the passwords you type match), hostname, root + user
+   passwords, swap, optional LUKS2 full-disk encryption. A Help panel explains
+   every setting; a summary dialog gates the erase.
+2. **Pick your image.** The **offline ISO** carries the complete desktop and
+   installs with no network; the **netinstall ISO** ships the CLI base and
+   fetches the KDE set from the signed repo with `bpm` during install.
+   Unattended installs: boot with `bbinstall blueberry.target=/dev/sda …`.
+3. **Reboot into your system.** GRUB → pinned kernel → systemd → SDDM → Plasma,
+   with working wifi (NetworkManager + wpa_supplicant + full linux-firmware)
+   and `ufw` available for the firewall.
 
 ### Release model
 
@@ -137,7 +141,7 @@ same base, same `bpm`, same mirror.
 ```sh
 make desktop-info                  # resolve the KDE edition (no build)
 make desktop-pkgs                  # build the self-hosted package closure
-make desktop-iso                   # assemble the live Calamares ISO
+make desktop-iso                   # assemble the live the Blueberry installer ISO
 make desktop-iso DE=gnome          # the GNOME spin
 make desktop-version BBD_VERSION=26.04   # → "26.04 LTS (Bright Bilberry)"
 ```
@@ -197,7 +201,7 @@ src/
   installer/         blueberry-install — guided CLI disk installer (C)
 
 packages/            ~280 bpm recipes: toolchain, Qt6, KDE Plasma 6, GTK, apps
-editions/desktop/    Blueberry Desktop: release model, Calamares, live overlay
+editions/desktop/    Blueberry Desktop: release model, the Blueberry installer, live overlay
 etc/                 /etc skeleton (hostname, fstab, accounts, bpm config)
 tools/               Host scripts: qemu.sh, mkiso.sh, mkdesktopiso.sh, bpmrepo.sh
 doc/                 Documentation
@@ -223,7 +227,7 @@ firmware ─► vmlinuz ─► initramfs /init (PID 1)
 
 | Document | Contents |
 |----------|----------|
-| [editions/desktop/README.md](editions/desktop/README.md) | **Blueberry Desktop** — release cadence, Calamares, live ISO, GNOME spin |
+| [editions/desktop/README.md](editions/desktop/README.md) | **Blueberry Desktop** — release cadence, the Blueberry installer, live ISO, GNOME spin |
 | [doc/ARCHITECTURE.md](doc/ARCHITECTURE.md) | System design, boot sequence, components |
 | [doc/BUILD.md](doc/BUILD.md) | Building the OS, prerequisites, all make targets |
 | [doc/DEPLOY.md](doc/DEPLOY.md) | Real hardware: ISO, disk image, `dd` |

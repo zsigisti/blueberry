@@ -2,7 +2,7 @@
 
 A GUI, user-oriented Linux **edition** built on the Blueberry base — the same
 self-hosted kernel, glibc, systemd, and `bpm` package manager as the CLI distro,
-with a graphical stack, Ubuntu-style stable releases, and a live **Calamares**
+with a graphical stack, Ubuntu-style stable releases, and a live **the Blueberry installer**
 installer. It lives in-monorepo (no separate fork repo): one source of truth,
 the way Fedora ships Workstation and KDE spins from a single tree.
 
@@ -75,7 +75,7 @@ qemu-system-x86_64 -cdrom iso/blueberry-desktop-26.10-kde-x86_64.iso \
 ## Status & roadmap
 
 The **framework is complete and wired in**: release cadence, DE selection,
-Calamares config + branding, the live-boot initramfs path, and the ISO builder
+the Blueberry installer config + branding, the live-boot initramfs path, and the ISO builder
 all work today. What remains is **populating the self-hosted DE package tree** —
 the manifests in `packages/` are the build roadmap, and each entry needs a
 `packages/<name>/PKGBUILD` before `desktop-iso` can bundle it.
@@ -87,7 +87,7 @@ source into `packages/` like everything else. Bring-up order:
 2. **Session plumbing** — `pam`, `polkit`, `pipewire`, `wireplumber`,
    `xdg-desktop-portal`, `sddm`, `networkmanager`.
 3. **Qt 6** → **KDE Frameworks 6** → **Plasma** (the default spin first).
-4. **Calamares** (Qt/KPMcore based) — the installer binary itself.
+4. **the Blueberry installer** (Qt/KPMcore based) — the installer binary itself.
 5. **GNOME** stack (`glib2` → `gtk4`/`libadwaita` → `mutter`/`gnome-shell`).
 
 `mkdesktopiso.sh` refuses to label a DM-less image "desktop" (set `FORCE=1` to

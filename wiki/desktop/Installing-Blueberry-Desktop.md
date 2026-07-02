@@ -1,7 +1,7 @@
 # Installing Blueberry Desktop
 
 Blueberry Desktop installs from a **live ISO**: you boot into a real KDE Plasma
-session, try the system, and then run **Calamares** to install it. Nothing is
+session, try the system, and then run **the Blueberry installer** to install it. Nothing is
 written to disk until you finish the installer.
 
 ## 1. Get the ISO
@@ -35,7 +35,7 @@ qemu-system-x86_64 -enable-kvm -cpu host -m 4G -smp 4 \
 > screen stays black.
 
 > **Attach a disk, or the installer has nowhere to go.** A CD-only VM makes
-> Calamares report *"There are no partitions to install on / not enough drive
+> the Blueberry installer report *"There are no partitions to install on / not enough drive
 > space"* — there is simply no disk. `make run-desktop` creates and attaches a
 > persistent 20 GB `qcow2` for you (override with `BLUEBERRY_DISK` /
 > `BLUEBERRY_DISK_SIZE`); after installing, boot the result by swapping `-boot d`
@@ -59,16 +59,16 @@ launcher, and system tray:
 > **Try before you install.** Wi-Fi, trackpad, display scaling, sound — verify
 > them in the live session. What works live will work installed.
 
-## 3. Run Calamares
+## 3. Run the Blueberry installer
 
 The installer **launches automatically** a few seconds into the live session. If
 you closed it, reopen it from the launcher as **Install System** (or run
 `/usr/local/bin/blueberry-install`). It needs no password — the live session is
 pre-authorized.
 
-![Blueberry Desktop — Calamares welcome page](images/installer-welcome.png)
+![Blueberry Desktop — the Blueberry installer welcome page](images/installer-welcome.png)
 
-Calamares walks you through:
+the Blueberry installer walks you through:
 
 1. **Welcome** — language.
 2. **Location** — region & timezone (auto-detected where possible).
@@ -79,7 +79,7 @@ Calamares walks you through:
 5. **Users** — your name, username, hostname, password, and whether to log in
    automatically.
 6. **Summary** — review every change. **Nothing has been written yet.**
-7. **Install** — Calamares unpacks the squashfs to the target, installs GRUB,
+7. **Install** — the Blueberry installer unpacks the squashfs to the target, installs GRUB,
    writes `fstab`, creates your user, and enables services, with a slideshow
    while it runs.
 8. **Finish** — reboot into your installed system.
@@ -102,10 +102,10 @@ kernel** — that comes with the next release. See [The Kernel Model](The-Kernel
 
 - **Black screen after login (live):** try the *nomodeset* GRUB entry, or the
   X11 session from the SDDM session menu.
-- **Calamares won't start:** open Konsole and run `sudo calamares -d` to see a
+- **the Blueberry installer won't start:** open Konsole and run `sudo calamares -d` to see a
   debug log.
-- **No network in Calamares:** connect Wi-Fi from the Plasma system tray first;
+- **No network in the Blueberry installer:** connect Wi-Fi from the Plasma system tray first;
   the installer uses the live session's connection.
 
 More in [Troubleshooting](Troubleshooting). Installer internals are in
-[The Calamares Installer](The-Calamares-Installer).
+[The the Blueberry installer Installer](The-the Blueberry installer-Installer).

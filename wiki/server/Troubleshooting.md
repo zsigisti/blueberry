@@ -13,13 +13,13 @@ Common problems and fixes, grouped by area. See also the [FAQ](FAQ).
 | "Cannot find live medium" | The USB label must match `root=live:CDLABEL=...`; re-flash with `dd` (not a file copy) |
 | No Wi-Fi in the live session | Load firmware if your card needs it; connect from the Plasma system tray |
 
-## Calamares (installer)
+## the Blueberry installer (installer)
 
 | Symptom | Try |
 |---|---|
 | Installer won't launch | Open Konsole: `sudo calamares -d` for a debug log |
 | Partitioning fails | Ensure the disk isn't mounted/in use; for UEFI you need an EFI system partition |
-| No network during install | Connect Wi-Fi in Plasma **before** starting Calamares — it uses the live connection |
+| No network during install | Connect Wi-Fi in Plasma **before** starting the Blueberry installer — it uses the live connection |
 | Install finishes but won't boot | Confirm UEFI vs BIOS matches how you booted the ISO; reinstall GRUB to the right target |
 
 ## Packages (bpm)

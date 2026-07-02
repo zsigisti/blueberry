@@ -60,7 +60,7 @@ The desktop stack is built bottom-up; each layer depends only on those below:
 6    Frameworks      KDE Frameworks 6.27
 7    Desktop         Plasma 6.7 (KWin, workspace, …), SDDM, Breeze
 8    Apps            Dolphin, Konsole, Firefox, Blender, …
-9    Installer       Calamares (+ kpmcore)
+9    Installer       the Blueberry installer (+ kpmcore)
 ```
 
 ## The supply chain

@@ -36,7 +36,7 @@ A release is a snapshot. Cutting `26.04 LTS` fixes:
 - the **kernel** version (the release's stable anchor — see
   [The Kernel Model](The-Kernel-Model)),
 - the graphical base (Mesa, Plasma, Qt) versions in the ISO,
-- the branding strings templated into Calamares.
+- the branding strings templated into the Blueberry installer.
 
 Userspace and apps still update from the rolling mirror after install; the
 release defines the *floor* and the *kernel*, not a frozen world.

@@ -1,7 +1,7 @@
 # Blueberry Desktop Wiki
 
 **Blueberry Desktop** is a polished GUI edition with **Ubuntu-style stable
-releases** and a live **Calamares** installer — KDE Plasma 6 by default (GNOME
+releases** and a live **the Blueberry installer** installer — KDE Plasma 6 by default (GNOME
 optional). Built entirely from source, no upstream binary mirrors.
 
 > Looking for the headless CLI edition? See the **[Blueberry Server wiki](../server/Home)**.
@@ -14,7 +14,7 @@ optional). Built entirely from source, no upstream binary mirrors.
 | Try the desktop on your machine | [Getting Started](Getting-Started) |
 | Install the GUI desktop | [Installing Blueberry Desktop](Installing-Blueberry-Desktop) |
 | Know what's in the desktop | [Desktop Edition](Desktop-Edition) |
-| Understand the installer | [The Calamares Installer](The-Calamares-Installer) |
+| Understand the installer | [The the Blueberry installer Installer](The-the Blueberry installer-Installer) |
 | Learn the release cycle | [Release Process](Release-Process) |
 | Manage software | [Package Management (bpm)](Package-Management) |
 | Build the OS yourself | [Building From Source](Building-From-Source) |
@@ -29,7 +29,7 @@ optional). Built entirely from source, no upstream binary mirrors.
   the release's life; `bpm upgrade` updates apps, never the kernel. See
   [The Kernel Model](The-Kernel-Model).
 - **KDE Plasma 6** default · **GNOME** optional ([GNOME Spin](GNOME-Spin)).
-- **Live Calamares ISO** — boot, try, install.
+- **TUI installer ISO** — boot, try, install.
 - **Self-hosted** — every package built from source into one ed25519-signed
   mirror at `https://repo.mmzsigmond.me/`.
 
@@ -41,7 +41,7 @@ optional). Built entirely from source, no upstream binary mirrors.
   [Installing Blueberry Desktop](Installing-Blueberry-Desktop) ·
   [Desktop Edition](Desktop-Edition) · [Package Management](Package-Management)
 - **Releases & installer** — [Release Process](Release-Process) ·
-  [The Calamares Installer](The-Calamares-Installer) · [GNOME Spin](GNOME-Spin)
+  [The the Blueberry installer Installer](The-the Blueberry installer-Installer) · [GNOME Spin](GNOME-Spin)
 - **Building & contributing** — [Building From Source](Building-From-Source) ·
   [Creating Packages](Creating-Packages) · [Hosting a Mirror](Hosting-a-Mirror) ·
   [Contributing](Contributing)

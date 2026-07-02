@@ -10,7 +10,7 @@ Add `DE=gnome` to any desktop target:
 ```sh
 make desktop-info DE=gnome        # resolve the GNOME edition (no build)
 make desktop-pkgs DE=gnome        # build the GNOME package closure
-make desktop-iso  DE=gnome        # GNOME live Calamares ISO
+make desktop-iso  DE=gnome        # GNOME live the Blueberry installer ISO
 ```
 
 The package set comes from
@@ -26,9 +26,9 @@ layered on the shared
 | Toolkit | Qt 6 | GTK 4 / libadwaita (on the GTK stack) |
 | Display manager | SDDM | GDM (`@@DEFAULT_DM@@`) |
 | File manager | Dolphin | Nautilus |
-| Calamares default DM token | `sddm` | `gdm` |
+| the Blueberry installer default DM token | `sddm` | `gdm` |
 
-The shared base (Wayland, Mesa, PipeWire, the GTK stack, Calamares, kpmcore) is
+The shared base (Wayland, Mesa, PipeWire, the GTK stack, the Blueberry installer, kpmcore) is
 identical; only the desktop-shell layer differs.
 
 ## Status

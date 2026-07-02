@@ -10,7 +10,7 @@ git repository** — and shipped from a mirror that depends on no other distro.
 blueberry/                 ← one git repo
 ├── src/                   ← the OS itself (kernel, init, bpm, installer)
 ├── packages/              ← ~280 from-source package recipes
-├── editions/desktop/      ← Blueberry Desktop (release model, Calamares, live ISO)
+├── editions/desktop/      ← Blueberry Desktop (release model, the Blueberry installer, live ISO)
 ├── tools/                 ← build & publish scripts
 └── doc/ + wiki/           ← documentation
 ```
@@ -27,7 +27,7 @@ mirror. That is the entire supply chain, and you own all of it.
 | Init | systemd (default) · runit | systemd |
 | Releases | Rolling | Stable: `YY.04`/`YY.10`, LTS every even April |
 | Kernel | Rolling `bpm` package | **Pinned per release** |
-| Installer | `blueberry-install` (CLI) | Calamares (live ISO) |
+| Installer | `blueberry-install` (CLI) | the Blueberry installer (live ISO) |
 
 They are not two repos or two forks — they are one tree with an edition overlay
 in [`editions/desktop/`](../../editions/desktop). See [Desktop Edition](../desktop/Desktop-Edition).

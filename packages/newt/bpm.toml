@@ -1,0 +1,26 @@
+[package]
+name     = "newt"
+version  = "0.52.24"
+release  = 1
+summary  = "Text-mode window/dialog library (nmtui backend)"
+homepage = "https://pagure.io/newt"
+license  = ["LGPL-2.0-only"]
+arch     = ["x86_64"]
+depends     = ["glibc", "slang", "popt"]
+makedepends = ["make", "gcc", "pkgconf", "slang", "popt", "python"]
+
+[[source]]
+url    = "https://releases.pagure.org/newt/newt-0.52.24.tar.gz"
+sha256 = "5ded7e221f85f642521c49b1826c8de19845aa372baf5d630a51774b544fbdbb"
+
+[steps]
+build = '''
+cd "$name-$version"
+./configure --prefix=/usr --without-tcl --without-python
+make
+'''
+package = '''
+cd "$name-$version"
+make DESTDIR="$pkgdir" install
+rm -rf "$pkgdir"/usr/lib/*.a "$pkgdir"/usr/share/man
+'''

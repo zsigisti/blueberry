@@ -1,0 +1,24 @@
+[package]
+name     = "ufw"
+version  = "0.36.2"
+release  = 1
+summary  = "Uncomplicated Firewall (iptables front-end)"
+homepage = "https://launchpad.net/ufw"
+license  = ["GPL-3.0-only"]
+arch     = ["x86_64"]
+depends     = ["python", "iptables"]
+makedepends = ["python"]
+
+[[source]]
+url    = "https://launchpad.net/ufw/0.36/0.36.2/+download/ufw-0.36.2.tar.gz"
+sha256 = "2a57a99eecef6b44db3537ed2520b30bae3759f8465456e22e404cd643838bf5"
+
+[steps]
+build = 'true'
+package = '''
+cd "$name-$version"
+python setup.py install --root="$pkgdir" --prefix=/usr
+# setup.py drops config under /etc; systemd unit for boot-time enable
+install -Dm644 doc/systemd.example "$pkgdir/usr/lib/systemd/system/ufw.service"
+rm -rf "$pkgdir"/usr/share/man
+'''

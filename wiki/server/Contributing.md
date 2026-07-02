@@ -11,7 +11,7 @@ fix a build, improve a doc, send a PR.
   (the container ships GCC 16; expect strictness fixes).
 - **The OS** — kernel config, init, `bpm` (Rust), the installer (C).
 - **Documentation** — this wiki, `doc/`, and the READMEs.
-- **The Desktop edition** — Plasma/GNOME packaging, Calamares branding, the live
+- **The Desktop edition** — Plasma/GNOME packaging, the Blueberry installer branding, the live
   overlay.
 
 ## Workflow

@@ -73,7 +73,7 @@ setsid bash -c 'ENGINE=podman tools/build-bpm-pkg.sh OUT pkg... > LOG 2>&1' </de
 make desktop-info                  # resolve the KDE edition (no build)
 make desktop-info DE=gnome         # resolve the GNOME spin
 make desktop-pkgs                  # build the self-hosted package closure
-make desktop-iso                   # assemble the live Calamares ISO
+make desktop-iso                   # assemble the live the Blueberry installer ISO
 make desktop-version BBD_VERSION=26.04   # show resolved version/codename
 ```
 
