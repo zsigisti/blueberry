@@ -13,6 +13,8 @@ path = "src/main.rs"
 dialoguer = { version = "0.11", default-features = false, features = ["password"] }
 libc = "0.2"
 sha-crypt = "0.5"
+ratatui = { version = "0.29", default-features = false, features = ["crossterm"] }
+crossterm = "0.28"
 
 [profile.release]
 opt-level = "z"
