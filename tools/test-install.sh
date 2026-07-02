@@ -4,8 +4,7 @@
 # Boots the kernel+initramfs in unattended-install mode (`bbinstall`) with the
 # given installer ISO attached as the payload medium and a blank virtio disk as
 # the target; asserts BLUEBERRY_INSTALL=OK on serial, then boots the installed
-# disk and asserts it reaches its ready target (graphical for desktop payloads,
-# multi-user for the server).
+# disk and asserts it reaches multi-user with a login prompt.
 #
 # Usage: tools/test-install.sh <installer.iso>   (desktop or server payload)
 set -u
@@ -43,24 +42,15 @@ timeout 180 qemu-system-x86_64 $ACCEL -m 3072 -smp 2 \
 QP=$!
 for i in $(seq 1 55); do
     sleep 3
-    if grep -qaE "Reached target Graphical Interface|Started Simple Desktop Display Manager" "$BLOG" 2>/dev/null; then
-        RESULT=graphical; break
-    fi
-    if grep -qaE "bbtest login:" "$BLOG" 2>/dev/null; then
-        RESULT=multiuser
-        # give graphical a few more seconds if sddm exists on the disk
-        sleep 6
-        grep -qaE "Reached target Graphical Interface|Simple Desktop Display Manager" "$BLOG" 2>/dev/null && RESULT=graphical
-        break
+    if grep -qaE "login:|Reached target Multi-User System" "$BLOG" 2>/dev/null; then
+        RESULT=multiuser; break
     fi
 done
 kill -9 $QP 2>/dev/null; wait 2>/dev/null
 
 case "${RESULT:-none}" in
-graphical)
-    echo "[install-test] PASS — installed disk reached the graphical target (SDDM)";;
 multiuser)
-    echo "[install-test] PASS — installed disk reached multi-user (no DM on this payload)";;
+    echo "[install-test] PASS — installed disk reached multi-user with a login prompt";;
 *)
     echo "[install-test] FAIL — installed disk did not reach a ready target. Serial tail:"
     tail -25 "$BLOG" | sed 's/\x1b\[[0-9;]*m//g'

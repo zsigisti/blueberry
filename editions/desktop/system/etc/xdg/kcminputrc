@@ -1,5 +1,0 @@
-# Cursor theme for the live Plasma session. Matches the default cursor pointer
-# and the XCURSOR_THEME env so the mouse cursor is always visible.
-[Mouse]
-cursorTheme=breeze_cursors
-cursorSize=24

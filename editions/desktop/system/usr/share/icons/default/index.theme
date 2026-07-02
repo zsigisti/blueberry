@@ -1,5 +1,0 @@
-# Default cursor theme pointer. Without /usr/share/icons/default, Xcursor and
-# the Wayland/KWin cursor loader have no fallback theme to inherit and the mouse
-# cursor goes invisible. Inherit the Breeze cursors shipped by breeze-icons.
-[Icon Theme]
-Inherits=breeze_cursors

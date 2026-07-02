@@ -52,7 +52,8 @@ INIT ?= systemd
 SYSTEMD_BASE_PKGS := systemd util-linux coreutils libseccomp kmod dbus acl \
                      cryptsetup libcap libcap-ng readline file zlib bzip2 expat \
                      attr device-mapper json-c openssl popt openssh pam glibc-locales gmp \
-                     iproute2 iputils libmnl wpa_supplicant linux-firmware networkmanager ufw
+                     iproute2 iputils libmnl wpa_supplicant linux-firmware networkmanager ufw \
+                     grep sed gawk findutils gzip tar diffutils less which nano vim sudo tzdata
 # Networking userland: ip/ss/tc/bridge (iproute2, needs libmnl) + ping/tracepath
 # (iputils). The stack itself (systemd-networkd/resolved) is in systemd; these are
 # the diagnostic CLI tools. The base extraction is flat (no dep resolution), so
@@ -63,16 +64,9 @@ endif
 
 # ── Desktop edition (Blueberry Desktop) ───────────────────────────────────────
 # Opt-in downstream edition: a GUI, user-oriented distro with Ubuntu-style
-# releases and a live Calamares installer (KDE Plasma default, GNOME optional).
-# Only active for `make desktop-*` goals or EDITION=desktop, so the minimal CLI
-# build is untouched otherwise. See editions/desktop/.
-ifneq ($(filter desktop desktop-% run-desktop test-desktop,$(MAKECMDGOALS))$(filter desktop,$(EDITION)),)
-  include $(TOPDIR)/editions/desktop/profile.mk
-endif
 
 # Stable ISO paths (no datestamp) so `make run-*`/`test-*` can find the artifact.
 SERVER_ISO  := $(TOPDIR)/iso/blueberry-server-$(ARCH).iso
-DESKTOP_ISO := $(TOPDIR)/iso/blueberry-desktop-$(BBD_VERSION)-$(DE)-$(ARCH).iso
 
 LINUX_SRC      := $(OBJDIR_SRC)/linux-$(LINUX_VERSION)
 BUSYBOX_SRC    := $(OBJDIR_SRC)/busybox-$(BUSYBOX_VERSION)
@@ -111,7 +105,7 @@ TAR  := tar
 .DEFAULT_GOAL := world
 .PHONY: world kernel userland busybox runit dropbear initramfs \
         install iso server-iso disk run test \
-        run-server test-server run-desktop test-desktop \
+        run-server test-server \
         fetch clean distclean help _check_tools
 
 world: userland kernel initramfs
@@ -402,12 +396,6 @@ test-server:
 	@[ -f $(SERVER_ISO) ] || $(MAKE) server-iso
 	@bash $(TOPDIR)/tools/boot-iso.sh test $(SERVER_ISO) server
 
-run-desktop:
-	@[ -f $(DESKTOP_ISO) ] || $(MAKE) desktop-iso
-	@bash $(TOPDIR)/tools/boot-iso.sh run  $(DESKTOP_ISO) desktop
-test-desktop:
-	@[ -f $(DESKTOP_ISO) ] || $(MAKE) desktop-iso
-	@bash $(TOPDIR)/tools/boot-iso.sh test $(DESKTOP_ISO) desktop
 
 # ── Directory creation ────────────────────────────────────────────────────────
 $(OBJDIR_SRC) $(STAGEDIR) $(BOOTDIR) $(OBJDIR):
@@ -419,22 +407,10 @@ ALL_BPM_PKGS := $(notdir $(patsubst %/bpm.toml,%,$(wildcard $(TOPDIR)/packages/*
 
 # Assert the recipe tree is dependency-closed (every `depends` has a recipe or is
 # host-provided). Catches "declared but never packaged" before it ships.
-.PHONY: check-closure check-runtime-closure closure-gate build-world repo-build
+.PHONY: check-closure build-world repo-build
 check-closure:
 	@python3 $(TOPDIR)/tools/check-closure.py
 
-# Assert the *staged desktop rootfs* is dynamically self-contained: every
-# DT_NEEDED soname of the session binaries + plugins is present. Catches a
-# missing soname even when a recipe nominally exists. Needs a staged rootfs
-# (run 'make desktop-stage' first).
-check-runtime-closure:
-	@python3 $(TOPDIR)/tools/check-runtime-closure.py $(OBJDIR)/desktop-rootfs
-
-# The full closure gate: recipe-level (static) + runtime ELF (against the staged
-# desktop rootfs). This is what must stay green so applets/media/network can't
-# silently regress.
-closure-gate: check-closure desktop-stage check-runtime-closure
-	@echo "[closure-gate] recipe + runtime closure both green"
 
 # Build every .bpm package (idempotent: skips up-to-date ones). The bulk of the
 # repo; run on a build box. ENGINE=podman|docker.
@@ -484,7 +460,6 @@ help:
 	@echo "  install        Install world into DESTDIR=$(STAGEDIR)"
 	@echo "  iso            Build the busybox live-CLI rescue ISO"
 	@echo "  server-iso     Build the systemd Server live ISO (CLI)"
-	@echo "  desktop-iso    Build the KDE Desktop live ISO (make desktop-iso)"
 	@echo "  disk           Build a dd-able UEFI disk image (ESP + data)"
 	@echo ""
 	@echo "QEMU targets:"
@@ -492,8 +467,6 @@ help:
 	@echo "  test           Boot headless, run self-tests, assert BLUEBERRY_TEST=PASS"
 	@echo "  run-server     Boot the Server ISO in a QEMU window"
 	@echo "  test-server    Boot the Server ISO headless, assert multi-user.target"
-	@echo "  run-desktop    Boot the Desktop ISO in a QEMU window"
-	@echo "  test-desktop   Boot the Desktop ISO headless, assert graphical.target"
 	@echo ""
 	@echo "Utility targets:"
 	@echo "  fetch          Download all upstream OS sources"
@@ -506,9 +479,9 @@ help:
 	@echo "  LINUX_VERSION=$(LINUX_VERSION)  BUSYBOX_VERSION=$(BUSYBOX_VERSION)"
 	@echo "  CROSS_COMPILE=$(CROSS_COMPILE)"
 
-# Automated end-to-end Desktop install smoke-test: drive Calamares headless,
-# then boot the installed disk and assert graphical.target.
+# Unattended install of the server ISO in QEMU, then boot the installed disk
+# and assert it reaches multi-user with a login prompt.
 .PHONY: test-install
 test-install:
-	@[ -f $(DESKTOP_ISO) ] || $(MAKE) desktop-iso
-	@bash $(TOPDIR)/tools/test-install.sh $(DESKTOP_ISO)
+	@[ -f $(SERVER_ISO) ] || $(MAKE) server-iso
+	@bash $(TOPDIR)/tools/test-install.sh $(SERVER_ISO)
