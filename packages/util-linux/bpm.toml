@@ -1,7 +1,7 @@
 [package]
 name     = "util-linux"
 version  = "2.40.2"
-release  = 1
+release  = 99
 summary  = "Miscellaneous system utilities + libuuid/libblkid/libmount"
 homepage = "https://github.com/util-linux/util-linux"
 license  = ["GPL-2.0-or-later", "LGPL-2.1-or-later", "BSD-3-Clause"]
@@ -25,4 +25,41 @@ package = '''
 cd "$name-$version";
 make DESTDIR="$pkgdir" install;
 install -Dm644 README.licensing "$pkgdir/usr/share/licenses/$name/README.licensing" 2> /dev/null || true
+# util-linux ships login(1)/su(1) but no /etc/login.defs (normally the shadow
+# package provides it, which Blueberry doesn't ship). login(1) refuses to
+# authenticate on a tty/serial console without it — the graphical PAM/SDDM path
+# works, which is why this hid. Provide a minimal, sane one.
+install -dm755 "$pkgdir/etc"
+cat > "$pkgdir/etc/login.defs" <<'LOGINDEFS'
+# Minimal login.defs for Blueberry (util-linux login/su).
+MAIL_DIR        /var/spool/mail
+FAILLOG_ENAB    yes
+LOG_UNKFAIL_ENAB no
+LOG_OK_LOGINS   no
+SYSLOG_SU_ENAB  yes
+SYSLOG_SG_ENAB  yes
+FAIL_DELAY      3
+TTYGROUP        tty
+TTYPERM         0600
+ERASECHAR       0177
+KILLCHAR        025
+UMASK           022
+HOME_MODE       0700
+PASS_MAX_DAYS   99999
+PASS_MIN_DAYS   0
+PASS_WARN_AGE   7
+UID_MIN         1000
+UID_MAX         60000
+GID_MIN         1000
+GID_MAX         60000
+SYS_UID_MIN     500
+SYS_UID_MAX     999
+SYS_GID_MIN     500
+SYS_GID_MAX     999
+DEFAULT_HOME    yes
+USERGROUPS_ENAB yes
+ENV_PATH        PATH=/usr/local/sbin:/usr/local/bin:/usr/bin
+ENV_SUPATH      PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin
+LOGINDEFS
+chmod 644 "$pkgdir/etc/login.defs"
 '''
