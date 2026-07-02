@@ -49,10 +49,26 @@ impl Payload {
     }
 }
 
+/// Curated console keymaps: (console/loadkeys name, xkb layout, label).
+/// Applied live with loadkeys and persisted to vconsole.conf + kxkbrc.
+pub const KEYMAPS: &[(&str, &str, &str)] = &[
+    ("us", "us", "English (US)"),
+    ("hu", "hu", "Hungarian"),
+    ("de", "de", "German"),
+    ("fr", "fr", "French"),
+    ("uk", "gb", "English (UK)"),
+    ("es", "es", "Spanish"),
+    ("it", "it", "Italian"),
+    ("pl", "pl", "Polish"),
+    ("cz", "cz", "Czech"),
+    ("ro", "ro", "Romanian"),
+];
+
 /// Everything the engine needs to know; front-ends fill this in.
 pub struct Config {
     pub disk_dev: String, // /dev/vda
     pub firmware: Firmware,
+    pub keymap: String, // console keymap name from KEYMAPS
     pub hostname: String,
     pub root_pw: String,
     pub user: Option<(String, String)>, // (name, password)
@@ -205,6 +221,22 @@ pub fn run_install(cfg: &Config, payload: &Payload, emit: Emit) -> R<()> {
 
     let host = if cfg.hostname.trim().is_empty() { "blueberry" } else { cfg.hostname.trim() };
     let _ = fs::write(format!("{MNT}/etc/hostname"), format!("{host}\n"));
+
+    // Keymap: console (systemd-vconsole-setup) + Wayland/X11 (KWin/SDDM read
+    // the XDG-wide kxkbrc). loadkeys+keymaps ship in the kbd package.
+    if !cfg.keymap.is_empty() && cfg.keymap != "us" {
+        let xkb = KEYMAPS
+            .iter()
+            .find(|(c, _, _)| *c == cfg.keymap)
+            .map(|(_, x, _)| *x)
+            .unwrap_or(cfg.keymap.as_str());
+        let _ = fs::write(format!("{MNT}/etc/vconsole.conf"), format!("KEYMAP={}\n", cfg.keymap));
+        fs::create_dir_all(format!("{MNT}/etc/xdg")).ok();
+        let _ = fs::write(
+            format!("{MNT}/etc/xdg/kxkbrc"),
+            format!("[Layout]\nUse=true\nLayoutList={xkb}\n"),
+        );
+    }
 
     // A fresh machine-id (and no interactive firstboot) for the installed system.
     if fs::metadata(format!("{MNT}/etc/machine-id")).map(|m| m.len()).unwrap_or(0) == 0 {

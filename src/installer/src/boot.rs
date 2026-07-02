@@ -4,7 +4,7 @@
 //! grub.cfg locates it by UUID with `search` — so the exact same config works
 //! whether GRUB was set up for BIOS or UEFI.
 
-use crate::run::{check, step, R};
+use crate::run::{check, R};
 use std::fs;
 use std::path::Path;
 
@@ -37,7 +37,6 @@ fn grub_modules(platform: &str, payload: &str) -> Option<String> {
 /// Install GRUB for BIOS (i386-pc) onto the whole disk. /mnt is the mounted root,
 /// core.img is embedded in the BIOS-boot partition.
 pub fn install_grub_bios(disk_dev: &str, mnt: &str, payload: &str) -> R<()> {
-    step("installing GRUB (BIOS / i386-pc)");
     let modules = grub_modules("i386-pc", payload)
         .ok_or("GRUB i386-pc modules not found in the live system or payload")?;
     let boot_dir = format!("{mnt}/boot");
@@ -54,7 +53,6 @@ pub fn install_grub_bios(disk_dev: &str, mnt: &str, payload: &str) -> R<()> {
 /// Install GRUB for UEFI (x86_64-efi). `esp` is the mounted ESP. --removable
 /// writes /EFI/BOOT/BOOTX64.EFI so it boots without an NVRAM entry (efibootmgr).
 pub fn install_grub_uefi(mnt: &str, esp: &str, payload: &str) -> R<()> {
-    step("installing GRUB (UEFI / x86_64-efi)");
     let modules = grub_modules("x86_64-efi", payload)
         .ok_or("GRUB x86_64-efi modules not found in the live system or payload")?;
     let boot_dir = format!("{mnt}/boot");
@@ -92,7 +90,6 @@ pub fn write_grub_cfg(mnt: &str, root_uuid: &str, root_spec: &str, cryptarg: &st
 
 /// Copy the kernel + initramfs from the payload into the target /boot.
 pub fn install_kernel(mnt: &str, payload: &str) -> R<()> {
-    step("installing kernel + initramfs");
     fs::create_dir_all(format!("{mnt}/boot")).ok();
     check(&["cp", &format!("{payload}/vmlinuz"), &format!("{mnt}/boot/vmlinuz")])?;
     check(&[

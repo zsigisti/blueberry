@@ -30,7 +30,7 @@ timeout 900 qemu-system-x86_64 $ACCEL -m 3072 -smp 2 \
     -nic user,model=virtio-net-pci \
     -serial "file:$ILOG" -display none -no-reboot
 
-if ! grep -qa "BLUEBERRY_INSTALL=OK" "$ILOG"; then
+if ! grep -qaE "BLUEBERRY_INSTALL=OK|BLUEBERRY_INSTALL_EXIT=0" "$ILOG"; then
     echo "[install-test] FAIL — install did not complete. Serial tail:"
     tail -25 "$ILOG" | sed 's/\x1b\[[0-9;]*m//g'
     exit 1

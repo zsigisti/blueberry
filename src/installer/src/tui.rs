@@ -24,6 +24,7 @@ const ACCENT: Color = Color::Magenta; // blueberry-ish
 enum Row {
     Disk,
     Bootloader,
+    Keymap,
     Hostname,
     RootPw,
     UserName,
@@ -34,8 +35,8 @@ enum Row {
     Install,
 }
 const ROWS: &[Row] = &[
-    Row::Disk, Row::Bootloader, Row::Hostname, Row::RootPw, Row::UserName,
-    Row::UserPw, Row::Swap, Row::Luks, Row::LuksPw, Row::Install,
+    Row::Disk, Row::Bootloader, Row::Keymap, Row::Hostname, Row::RootPw,
+    Row::UserName, Row::UserPw, Row::Swap, Row::Luks, Row::LuksPw, Row::Install,
 ];
 
 struct Form {
@@ -43,6 +44,7 @@ struct Form {
     disk_idx: usize,
     fw_options: Vec<Firmware>,
     fw_idx: usize,
+    km_idx: usize,
     hostname: String,
     root_pw: String,
     user_name: String,
@@ -92,6 +94,7 @@ pub fn run(payload: Payload, disks: Vec<Disk>, detected: Firmware) -> io::Result
         disk_idx: 0,
         fw_options,
         fw_idx,
+        km_idx: 0,
         hostname: "blueberry".into(),
         root_pw: String::new(),
         user_name: String::new(),
@@ -183,7 +186,7 @@ pub fn run(payload: Payload, disks: Vec<Disk>, detected: Firmware) -> io::Result
                     KeyCode::Down => form.sel = (form.sel + 1).min(ROWS.len() - 1),
                     KeyCode::Left | KeyCode::Right => form.cycle(key.code == KeyCode::Right),
                     KeyCode::Enter => match ROWS[form.sel] {
-                        Row::Disk | Row::Bootloader => form.cycle(true),
+                        Row::Disk | Row::Bootloader | Row::Keymap => form.cycle(true),
                         Row::Luks => form.luks = !form.luks,
                         Row::Install => {
                             if let Some(e) = form.validate() {
@@ -264,6 +267,12 @@ impl Form {
                 let n = self.fw_options.len();
                 self.fw_idx = (self.fw_idx + if fwd { 1 } else { n - 1 }) % n;
             }
+            Row::Keymap => {
+                let n = engine::KEYMAPS.len();
+                self.km_idx = (self.km_idx + if fwd { 1 } else { n - 1 }) % n;
+                // apply immediately so the passwords you type match the layout
+                let _ = crate::run::out(&["loadkeys", engine::KEYMAPS[self.km_idx].0]);
+            }
             Row::Luks => self.luks = !self.luks,
             _ => {}
         }
@@ -313,6 +322,7 @@ impl Form {
         Config {
             disk_dev: self.disks[self.disk_idx].dev.clone(),
             firmware: self.fw_options[self.fw_idx],
+            keymap: engine::KEYMAPS[self.km_idx].0.to_string(),
             hostname: self.hostname.clone(),
             root_pw: self.root_pw.clone(),
             user: if self.user_name.trim().is_empty() {
@@ -374,16 +384,28 @@ fn draw(f: &mut ratatui::Frame, payload: &Payload, form: &Form, phase: &Phase) {
 
     if matches!(phase, Phase::Confirm) {
         let d = &form.disks[form.disk_idx];
+        let (kc, _, kl) = engine::KEYMAPS[form.km_idx];
         let msg = format!(
-            "Install to {} ({:.1} GiB)?\n\nEVERYTHING ON THIS DISK WILL BE ERASED.\n\n[Enter] Install    [Esc] Cancel",
-            d.dev,
-            d.gib()
+            "\n{}\n\n  Disk        {}  ({:.1} GiB)\n  Bootloader  GRUB — {}\n  Keyboard    {} ({})\n  Hostname    {}\n  User        {}\n  Swap        {} GiB\n  Encryption  {}\n\nEVERYTHING ON THE DISK WILL BE ERASED.\n\n[Enter] Install      [Esc] Go back",
+            "Ready to install:",
+            d.dev, d.gib(),
+            engine::fw_name(form.fw_options[form.fw_idx]),
+            kl, kc,
+            form.hostname,
+            if form.user_name.is_empty() { "(none)" } else { &form.user_name },
+            form.swap,
+            if form.luks { "LUKS2" } else { "no" },
         );
-        popup(f, area, " Confirm ", &msg, Color::Red);
+        popup(f, area, " Confirm installation ", &msg, Color::Red);
     }
 }
 
 fn draw_form(f: &mut ratatui::Frame, area: Rect, form: &Form) {
+    let cols = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(62), Constraint::Percentage(38)])
+        .split(area);
+    let area = cols[0];
     let items: Vec<ListItem> = ROWS
         .iter()
         .enumerate()
@@ -404,6 +426,10 @@ fn draw_form(f: &mut ratatui::Frame, area: Rect, form: &Form) {
                     "Bootloader",
                     format!("GRUB — {}", engine::fw_name(form.fw_options[form.fw_idx])),
                 ),
+                Row::Keymap => {
+                    let (c, _, l) = engine::KEYMAPS[form.km_idx];
+                    ("Keyboard layout", format!("{l} ({c})"))
+                }
                 Row::Hostname => ("Hostname", form.hostname.clone()),
                 Row::RootPw => ("Root password", mask(&form.root_pw)),
                 Row::UserName => (
@@ -426,19 +452,24 @@ fn draw_form(f: &mut ratatui::Frame, area: Rect, form: &Form) {
             } else {
                 value
             };
-            let style = if sel {
-                Style::default().fg(Color::Black).bg(ACCENT).add_modifier(Modifier::BOLD)
+            let (lstyle, vstyle) = if sel {
+                let s = Style::default().fg(Color::Black).bg(ACCENT).add_modifier(Modifier::BOLD);
+                (s, s)
             } else if *row == Row::Install {
-                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+                let s = Style::default().fg(Color::Green).add_modifier(Modifier::BOLD);
+                (s, s)
             } else {
-                Style::default()
+                (
+                    Style::default().fg(Color::Gray),
+                    Style::default().fg(Color::Cyan),
+                )
             };
             let line = if label.is_empty() {
-                Line::from(Span::styled(format!("  {value}"), style))
+                Line::from(Span::styled(format!("  {value}"), vstyle))
             } else {
                 Line::from(vec![
-                    Span::styled(format!("  {label:<18}"), style),
-                    Span::styled(value, style),
+                    Span::styled(format!("  {label:<18}"), lstyle),
+                    Span::styled(value, vstyle),
                 ])
             };
             ListItem::new(line)
@@ -457,6 +488,33 @@ fn draw_form(f: &mut ratatui::Frame, area: Rect, form: &Form) {
             )));
     }
     f.render_widget(List::new(items).block(block), area);
+
+    // Context help for the selected row.
+    let info = match ROWS[form.sel] {
+        Row::Disk => "The disk Blueberry is installed to.\n\nEverything on it is erased during the install. ←/→ cycles through the detected disks.",
+        Row::Bootloader => "How the system boots.\n\nUEFI for modern machines (an EFI system partition is created), BIOS for legacy machines and simple VMs. The detected firmware is pre-selected.",
+        Row::Keymap => "Console + desktop keyboard layout.\n\nApplies IMMEDIATELY in this installer (so the passwords you type match) and is saved to the installed system (console + desktop).",
+        Row::Hostname => "This machine's network name.",
+        Row::RootPw => "Password for the root (administrator) account. Required.",
+        Row::UserName => "Optional everyday user account.\n\nIt is added to the wheel group, so it can use sudo.",
+        Row::UserPw => "Password for the user account.",
+        Row::Swap => "Size of the swapfile created at /swapfile. 0 disables swap.",
+        Row::Luks => "Full-disk encryption (LUKS2) for the root filesystem.\n\nYou will type the passphrase at every boot.",
+        Row::LuksPw => "The LUKS passphrase. Without it the data is unrecoverable.",
+        Row::Install => "Review the summary and start the installation.",
+    };
+    f.render_widget(
+        Paragraph::new(info)
+            .wrap(Wrap { trim: true })
+            .style(Style::default().fg(Color::Gray))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(Color::DarkGray))
+                    .title(" Help "),
+            ),
+        cols[1],
+    );
 }
 
 fn draw_progress(
@@ -508,8 +566,8 @@ fn draw_progress(
 }
 
 fn popup(f: &mut ratatui::Frame, area: Rect, title: &str, msg: &str, color: Color) {
-    let w = 56.min(area.width.saturating_sub(4));
-    let h = 9.min(area.height.saturating_sub(2));
+    let w = 58.min(area.width.saturating_sub(4));
+    let h = 18.min(area.height.saturating_sub(2));
     let rect = Rect::new(
         area.x + (area.width.saturating_sub(w)) / 2,
         area.y + (area.height.saturating_sub(h)) / 2,

@@ -109,6 +109,7 @@ fn config_from_env(payload: &Payload) -> R<Config> {
     Ok(Config {
         disk_dev,
         firmware,
+        keymap: env::var("BLUEBERRY_KEYMAP").unwrap_or_else(|_| "us".into()),
         hostname: env::var("BLUEBERRY_HOSTNAME").unwrap_or_else(|_| "blueberry".into()),
         root_pw: env::var("BLUEBERRY_ROOTPW").unwrap_or_else(|_| "blueberry".into()),
         user,
@@ -149,6 +150,10 @@ fn config_from_prompts(payload: &Payload) -> R<Config> {
         return Err("aborted by user".into());
     }
 
+    let km_items: Vec<String> = engine::KEYMAPS.iter().map(|(c, _, l)| format!("{l} ({c})")).collect();
+    let ki = ui::select("Keyboard layout", &km_items, 0, "BLUEBERRY_KEYMAP");
+    let keymap = engine::KEYMAPS[ki].0.to_string();
+    let _ = crate::run::out(&["loadkeys", &keymap]); // apply live for the prompts below
     let hostname = ui::input("Hostname", "blueberry", "BLUEBERRY_HOSTNAME");
     let root_pw = ui::password("Root password", "BLUEBERRY_ROOTPW", false)
         .ok_or("a root password is required")?;
@@ -174,6 +179,7 @@ fn config_from_prompts(payload: &Payload) -> R<Config> {
     Ok(Config {
         disk_dev: disks[di].dev.clone(),
         firmware: fw_kinds[fi],
+        keymap,
         hostname,
         root_pw,
         user,

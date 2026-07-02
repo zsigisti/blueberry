@@ -1,0 +1,34 @@
+[package]
+name     = "kbd"
+version  = "2.10.0"
+release  = 1
+summary  = "Console keyboard tools (loadkeys) + the keymap database"
+homepage = "https://kbd-project.org/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+# loadkeys + /usr/share/kbd/keymaps: the installer's live keymap switcher and
+# systemd-vconsole-setup (/etc/vconsole.conf KEYMAP=) on installed systems.
+depends     = ["glibc"]
+makedepends = ["make", "gcc", "autoconf", "automake", "libtool", "gettext", "pkgconf", "flex", "bison"]
+provides    = ["loadkeys"]
+
+[[source]]
+url    = "https://github.com/legionus/kbd/archive/refs/tags/v2.10.0.tar.gz"
+sha256 = "96f8b60f9136e9e0b9261b9e63b8b4b456a2f817901e90349453387a5aa1d41c"
+
+[steps]
+build = '''
+cd "$name-$version"
+./autogen.sh
+./configure --prefix=/usr --sysconfdir=/etc --datadir=/usr/share/kbd \
+    --disable-vlock --disable-tests --disable-nls
+make -j"$(nproc)"
+'''
+package = '''
+cd "$name-$version"
+make DESTDIR="$pkgdir" install
+# non-PC keymap families are dead weight for x86_64 images
+rm -rf "$pkgdir"/usr/share/kbd/keymaps/{mac,sun,amiga,atari,ppc,pine}
+rm -rf "$pkgdir"/usr/share/man
+'''

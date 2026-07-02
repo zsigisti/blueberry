@@ -107,9 +107,9 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	@echo "[initramfs] bundling installer + disk + crypto + grub + bash"
 	@sh $(THISDIR)/../../tools/build-bpm-pkg.sh $(OBJDIR)/instpkgs \
 	    popt e2fsprogs dosfstools gptfdisk json-c device-mapper openssl zlib cryptsetup \
-	    grub ncurses bash
+	    grub kbd ncurses bash
 	@for p in popt e2fsprogs dosfstools gptfdisk json-c device-mapper openssl zlib cryptsetup \
-	          grub ncurses bash; do \
+	          grub kbd ncurses bash; do \
 	    f=$$(ls -t $(OBJDIR)/instpkgs/$$p-[0-9]*.bpm | head -1); \
 	    zstd -dcq "$$f" | tar -x -C $(INITRAMDIR) --exclude .BPM 2>/dev/null; \
 	done
@@ -189,6 +189,7 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	    $(INITRAMDIR)/usr/sbin/grub-bios-setup \
 	    $(INITRAMDIR)/usr/bin/grub-probe \
 	    $(INITRAMDIR)/usr/bin/grub-mkimage \
+	    $(INITRAMDIR)/usr/bin/loadkeys \
 	    $(INITRAMDIR)/usr/bin/sgdisk \
 	    $(INITRAMDIR)/usr/sbin/mkfs.ext4 \
 	    $(INITRAMDIR)/usr/sbin/mkfs.fat \
