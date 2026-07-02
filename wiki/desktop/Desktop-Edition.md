@@ -22,7 +22,7 @@ editions/desktop/
 │   ├── common.list     # graphical base (Wayland, Mesa, SDDM, PipeWire, …)
 │   ├── kde.list        # KDE Plasma 6 spin (default)
 │   └── gnome.list      # GNOME spin (optional)
-├── calamares/          # installer sequence, modules, Blueberry branding
+├── the installer/          # installer sequence, modules, Blueberry branding
 └── live/               # live-session overlay (autologin, installer launcher)
 ```
 

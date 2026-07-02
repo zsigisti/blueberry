@@ -1,7 +1,7 @@
 # profile.mk — Blueberry Desktop edition build fragment.
 #
 # Included by the top-level GNUmakefile. Adds the desktop package sets and the
-# `desktop-iso` target, which produces a live, Calamares-installable ISO built
+# `desktop-iso` target, which produces a live, ISO built
 # on the same base (kernel, glibc, systemd, bpm) as the CLI distro.
 #
 # The desktop edition implies INIT=systemd: GNOME and Plasma both require
