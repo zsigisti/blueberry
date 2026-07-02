@@ -15,8 +15,13 @@ set -euo pipefail
 DEST=${1:-root@192.168.0.79:/srv/blueberry-repo}
 cd "$(dirname "$0")/.."
 
-isos=(iso/*.iso)
-[ -e "${isos[0]}" ] || { echo "no ISOs in iso/ — build them first"; exit 1; }
+# Server-only: never stage stray desktop images (the desktop edition is gone).
+isos=()
+for f in iso/*.iso; do
+    case "$f" in *desktop*) continue ;; esac
+    [ -e "$f" ] && isos+=("$f")
+done
+[ "${#isos[@]}" -gt 0 ] || { echo "no server ISOs in iso/ — build them first (make iso)"; exit 1; }
 
 mkdir -p release
 : > release/isos.sha256
