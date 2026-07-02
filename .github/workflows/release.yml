@@ -1,64 +1,65 @@
-# .github/workflows/release.yml — build a bootable ISO on a version tag and
-# publish it as a GitHub release asset. Does NOT build the package set (that's
-# the repo server's job) — it builds the OS image and ships the installable ISO.
+# release.yml — the only CI: publish a GitHub Release when a commit lands on
+# master with [RELEASE] in its message.
 #
-# Trigger:  git tag v1.2.3 && git push origin v1.2.3
-# Result:   a GitHub Release for the tag with blueberry-<date>-x86_64.iso attached.
+# GitHub rejects files over 100 MB in git, so the ISOs themselves live on the
+# project mirror. `make release-stage` uploads them and commits a sha256
+# manifest (release/isos.sha256) + notes (release/NOTES.md); this workflow
+# downloads the images from the mirror, verifies them against the committed
+# manifest, and attaches them to the release.
+#
+#   git commit -m "[RELEASE] v0.1.0-beta — first public beta"
+#
+# Releases are marked pre-release (beta) unless the message says [RELEASE:stable].
 
 name: release
-
 on:
   push:
-    tags: ['v*']
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Tag/name for a manual release'
-        required: false
+    branches: [master]
 
 permissions:
-  contents: write   # needed to create the release + upload assets
-
-env:
-  OBJDIR: /tmp/blueberry-build
+  contents: write
 
 jobs:
-  iso:
-    name: Build ISO + publish release
+  release:
+    if: contains(github.event.head_commit.message, '[RELEASE]')
     runs-on: ubuntu-latest
-    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install build dependencies
+      - name: Derive tag + flags from the commit message
+        id: meta
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential bc bison flex libelf-dev libssl-dev \
-            wget xz-utils zstd cpio \
-            grub-efi-amd64-bin grub-pc-bin xorriso mtools dosfstools
+          msg='${{ github.event.head_commit.message }}'
+          subject=$(printf '%s\n' "$msg" | head -1)
+          # tag = first vX… token after [RELEASE], else beta-<date>-<shortsha>
+          tag=$(printf '%s\n' "$subject" | grep -oE 'v[0-9][A-Za-z0-9._-]*' | head -1)
+          [ -n "$tag" ] || tag="beta-$(date +%Y%m%d)-${GITHUB_SHA::7}"
+          title=$(printf '%s\n' "$subject" | sed -E 's/\[RELEASE[^]]*\][[:space:]]*//')
+          [ -n "$title" ] || title="$tag"
+          case "$msg" in *"[RELEASE:stable]"*) pre=false ;; *) pre=true ;; esac
+          echo "tag=$tag"     >> "$GITHUB_OUTPUT"
+          echo "title=$title" >> "$GITHUB_OUTPUT"
+          echo "pre=$pre"     >> "$GITHUB_OUTPUT"
 
-      - name: Build world
-        run: make world JOBS="$(nproc)"
-
-      - name: Build ISO
-        run: make iso
-
-      - name: Locate ISO
-        id: iso
-        run: echo "path=$(ls -t iso/blueberry-*.iso | head -1)" >> "$GITHUB_OUTPUT"
-
-      - name: Checksum
+      - name: Fetch images from the mirror + verify the committed checksums
         run: |
-          cd iso && sha256sum "$(basename '${{ steps.iso.outputs.path }}')" \
-            > "$(basename '${{ steps.iso.outputs.path }}').sha256"
+          test -f release/isos.sha256 || { echo "release/isos.sha256 missing — run 'make release-stage' first"; exit 1; }
+          mkdir -p dist && cd dist
+          while read -r sum name; do
+            [ -n "$name" ] || continue
+            echo "fetching $name"
+            curl -fL --retry 3 -o "$name" "https://repo.mmzsigmond.me/isos/$name"
+          done < ../release/isos.sha256
+          sha256sum -c ../release/isos.sha256
 
-      - name: Publish release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
-          name: Blueberry ${{ github.event.inputs.tag || github.ref_name }}
-          generate_release_notes: true
-          files: |
-            ${{ steps.iso.outputs.path }}
-            ${{ steps.iso.outputs.path }}.sha256
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          body=release/NOTES.md
+          [ -f "$body" ] || { printf '%s\n' "${{ github.event.head_commit.message }}" > /tmp/body.md; body=/tmp/body.md; }
+          pre_flag=""
+          [ "${{ steps.meta.outputs.pre }}" = "true" ] && pre_flag="--prerelease"
+          gh release create "${{ steps.meta.outputs.tag }}" dist/* \
+            --title "${{ steps.meta.outputs.title }}" \
+            --notes-file "$body" $pre_flag
