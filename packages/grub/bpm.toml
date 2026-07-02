@@ -1,7 +1,7 @@
 [package]
 name     = "grub"
 version  = "2.14"
-release  = 1
+release  = 2
 summary  = "GNU GRand Unified Bootloader (BIOS i386-pc + UEFI x86_64-efi)"
 homepage = "https://www.gnu.org/software/grub/"
 license  = ["GPL-3.0-or-later"]
@@ -22,6 +22,14 @@ sha256 = "bc8d3c73535b8838d8c8e2654d73edc4e6ae8c8acdb45d5df5dc9a1547446d43"
 [steps]
 build = '''
 # Build once per platform in its own copy (configure bakes in the target).
+# Revert the effect of grub commit 1a5417f3 ("configure: Check linker for
+# --image-base support", also reverted by Arch): GNU ld >= 2.44 accepts
+# --image-base, so configure prefers it over -Ttext — but on ELF it sets the
+# SEGMENT base (ELF+program headers included), landing .text at 0x9074 instead
+# of 0x9000 → "kernel.img is miscompiled: its start address is 0x9074 instead
+# of 0x9000" from grub-install on the i386-pc target. Forcing -Ttext pins
+# .text itself at the link address (verified: kernel.exec entry = 0x9000).
+sed -i 's/-Wl,--image-base/-Wl,-Ttext/g' "$name-$version/configure"
 for plat in "i386 pc" "x86_64 efi"; do
     set -- $plat; tgt=$1; pf=$2
     rm -rf "b-$pf"; cp -a "$name-$version" "b-$pf"

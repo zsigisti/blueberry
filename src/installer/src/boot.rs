@@ -4,7 +4,7 @@
 //! grub.cfg locates it by UUID with `search` — so the exact same config works
 //! whether GRUB was set up for BIOS or UEFI.
 
-use crate::run::{check, run, sh, step, R};
+use crate::run::{check, step, R};
 use std::fs;
 use std::path::Path;
 
@@ -119,25 +119,72 @@ pub fn bios_available(payload: &str) -> bool {
     grub_modules("i386-pc", payload).is_some()
 }
 
-/// Set a password for `user` in the mounted target via chpasswd (chroot).
-pub fn set_password(mnt: &str, user: &str, pw: &str) -> bool {
-    // Feed the hash-less "user:pass" line to chpasswd inside the target.
-    let cmd = format!(
-        "printf '%s:%s\\n' {user} {pw} | chroot {mnt} /usr/sbin/chpasswd 2>/dev/null \
-         || printf '%s:%s\\n' {user} {pw} | chroot {mnt} chpasswd",
-        user = shell_quote(user),
-        pw = shell_quote(pw),
-        mnt = mnt,
-    );
-    sh(&cmd)
+/// Set `user`'s password by writing a SHA-512 crypt hash straight into the
+/// target's /etc/shadow — no chpasswd/PAM needed in the target, so a scripted
+/// install works against a minimal base. Adds an entry if the user is new.
+pub fn set_password(mnt: &str, user: &str, pw: &str) -> R<()> {
+    use sha_crypt::{sha512_simple, Sha512Params};
+    let params = Sha512Params::new(5000).map_err(|_| "crypt params".to_string())?;
+    let hash = sha512_simple(pw, &params).map_err(|_| "password hashing failed".to_string())?;
+
+    let path = format!("{mnt}/etc/shadow");
+    let content = fs::read_to_string(&path).unwrap_or_default();
+    let prefix = format!("{user}:");
+    let mut out = String::new();
+    let mut found = false;
+    for line in content.lines() {
+        if let Some(rest) = line.strip_prefix(&prefix) {
+            // rest = "<oldhash>:<lastchange>:<...>"; keep everything after the hash.
+            let tail = rest.splitn(2, ':').nth(1).unwrap_or("20000:0:99999:7:::");
+            out.push_str(&format!("{user}:{hash}:{tail}\n"));
+            found = true;
+        } else {
+            out.push_str(line);
+            out.push('\n');
+        }
+    }
+    if !found {
+        out.push_str(&format!("{user}:{hash}:20000:0:99999:7:::\n"));
+    }
+    fs::write(&path, out).map_err(|e| format!("write shadow: {e}"))
 }
 
-/// Interactively set a password with the target's own passwd(1).
-pub fn passwd_interactive(mnt: &str, user: &str) -> bool {
-    run(&["chroot", mnt, "/usr/bin/passwd", user])
+/// Create a login user by appending to /etc/passwd, /etc/group and /etc/shadow
+/// (locked until set_password), then making the home directory. Returns the UID.
+pub fn create_user(mnt: &str, name: &str) -> R<u32> {
+    let uid = next_uid(mnt);
+    append(&format!("{mnt}/etc/passwd"), &format!("{name}:x:{uid}:{uid}:{name}:/home/{name}:/bin/bash\n"))?;
+    append(&format!("{mnt}/etc/group"), &format!("{name}:x:{uid}:\n"))?;
+    append(&format!("{mnt}/etc/shadow"), &format!("{name}:!:20000:0:99999:7:::\n"))?;
+    let home = format!("{mnt}/home/{name}");
+    fs::create_dir_all(&home).ok();
+    if let Ok(c) = std::ffi::CString::new(home) {
+        unsafe { libc::chown(c.as_ptr(), uid, uid); }
+    }
+    Ok(uid)
 }
 
-fn shell_quote(s: &str) -> String {
-    // These come from prompts/env; wrap in single quotes and escape any quote.
-    format!("'{}'", s.replace('\'', "'\\''"))
+/// Lowest free UID/GID at or above 1000 in the target's /etc/passwd.
+fn next_uid(mnt: &str) -> u32 {
+    let content = fs::read_to_string(format!("{mnt}/etc/passwd")).unwrap_or_default();
+    let mut uid = 1000u32;
+    let used: Vec<u32> = content
+        .lines()
+        .filter_map(|l| l.split(':').nth(2))
+        .filter_map(|n| n.parse().ok())
+        .collect();
+    while used.contains(&uid) {
+        uid += 1;
+    }
+    uid
+}
+
+fn append(path: &str, line: &str) -> R<()> {
+    use std::io::Write;
+    let mut f = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .map_err(|e| format!("open {path}: {e}"))?;
+    f.write_all(line.as_bytes()).map_err(|e| format!("write {path}: {e}"))
 }

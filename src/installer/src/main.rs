@@ -73,7 +73,9 @@ fn real_main() -> R<()> {
     }
     let disk = pick_disk(&disks)?;
     println!("\nThis will ERASE ALL DATA on {}.", disk.dev);
-    if !ui::confirm("Proceed and erase this disk?", false, "BLUEBERRY_ERASE_OK") {
+    // Unattended mode (BLUEBERRY_YES) is itself the consent; interactively we ask
+    // and default to No so a stray Enter can't wipe a disk.
+    if !ui::yes_mode() && !ui::confirm("Proceed and erase this disk?", false, "BLUEBERRY_ERASE_OK") {
         return Err("aborted by user".into());
     }
 
@@ -275,16 +277,9 @@ fn maybe_luks(part: &str) -> R<(String, Option<String>)> {
 
 fn set_root_password() -> R<()> {
     step("set the root password for the installed system");
-    if let Some(pw) = ui::password("  root password", "BLUEBERRY_ROOTPW", false) {
-        if !boot::set_password(MNT, "root", &pw) {
-            return Err("could not set root password".into());
-        }
-    } else {
-        while !boot::passwd_interactive(MNT, "root") {
-            println!("   passwords didn't match; try again");
-        }
-    }
-    Ok(())
+    let pw = ui::password("  root password", "BLUEBERRY_ROOTPW", false)
+        .ok_or("a root password is required (set BLUEBERRY_ROOTPW for unattended)")?;
+    boot::set_password(MNT, "root", &pw)
 }
 
 fn set_hostname() {
@@ -325,19 +320,13 @@ fn make_user() {
         return;
     }
     step(&format!("creating user {name}"));
-    let ok = sh(&format!(
-        "chroot {MNT} /usr/sbin/useradd -m -s /bin/bash {name} 2>/dev/null \
-         || chroot {MNT} adduser -D -s /bin/bash {name}"
-    ));
-    if !ok {
-        eprintln!("[install] WARNING: could not create user {name}");
+    if let Err(e) = boot::create_user(MNT, name) {
+        eprintln!("[install] WARNING: could not create user {name}: {e}");
         return;
     }
     if let Some(pw) = ui::password(&format!("  password for {name}"), "BLUEBERRY_USERPW", true) {
-        boot::set_password(MNT, name, &pw);
-    } else if !ui::yes_mode() {
-        while !boot::passwd_interactive(MNT, name) {
-            println!("   passwords didn't match; try again");
+        if let Err(e) = boot::set_password(MNT, name, &pw) {
+            eprintln!("[install] WARNING: could not set password for {name}: {e}");
         }
     }
 }

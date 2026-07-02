@@ -12,6 +12,7 @@ path = "src/main.rs"
 [dependencies]
 dialoguer = { version = "0.11", default-features = false, features = ["password"] }
 libc = "0.2"
+sha-crypt = "0.5"
 
 [profile.release]
 opt-level = "z"

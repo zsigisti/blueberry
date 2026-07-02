@@ -48,7 +48,10 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	            find grep sed awk echo printf head tail dmesg clear \
 	            ip udhcpc wget ping halt poweroff reboot vi more \
 	            uname ps free df hostname date cttyhack ntpd netstat \
-	            getty login setsid clear reset; do \
+	            getty login setsid clear reset \
+	            tar chroot chmod chown mknod dd sync stat \
+	            mkswap swapon swapoff fallocate partprobe \
+	            passwd chpasswd adduser addgroup; do \
 	    ln -sf /bin/busybox $(INITRAMDIR)/bin/$$app 2>/dev/null || true; \
 	done
 	@for app in cryptsetup vgchange; do \
@@ -185,7 +188,12 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	    $(INITRAMDIR)/usr/sbin/grub-install \
 	    $(INITRAMDIR)/usr/sbin/grub-bios-setup \
 	    $(INITRAMDIR)/usr/bin/grub-probe \
-	    $(INITRAMDIR)/usr/bin/grub-mkimage
+	    $(INITRAMDIR)/usr/bin/grub-mkimage \
+	    $(INITRAMDIR)/usr/bin/sgdisk \
+	    $(INITRAMDIR)/usr/sbin/mkfs.ext4 \
+	    $(INITRAMDIR)/usr/sbin/mkfs.fat \
+	    $(INITRAMDIR)/sbin/cryptsetup \
+	    $(INITRAMDIR)/sbin/blkid
 
 	@# Pack as CPIO
 	@echo "[initramfs] packing"

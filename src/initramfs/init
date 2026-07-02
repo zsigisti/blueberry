@@ -140,9 +140,11 @@ if [ -n "$BBINSTALL" ]; then
     BLUEBERRY_USERPW=$(cmdline blueberry.userpw)
     BLUEBERRY_LUKS=$(cmdline blueberry.luks)
     BLUEBERRY_LUKSPW=$(cmdline blueberry.lukspw)
+    # bios | uefi | auto (default: match the firmware we booted as)
+    BLUEBERRY_BOOTLOADER=$(cmdline blueberry.bootloader)
     export BLUEBERRY_TARGET BLUEBERRY_ROOTPW BLUEBERRY_PKGS BLUEBERRY_YES=1
     export BLUEBERRY_HOSTNAME BLUEBERRY_SWAP BLUEBERRY_USER BLUEBERRY_USERPW
-    export BLUEBERRY_LUKS BLUEBERRY_LUKSPW
+    export BLUEBERRY_LUKS BLUEBERRY_LUKSPW BLUEBERRY_BOOTLOADER
     blueberry-install; rc=$?
     echo "BLUEBERRY_INSTALL_EXIT=$rc"
     [ "$rc" = 0 ] && echo "BLUEBERRY_INSTALL=OK" || echo "BLUEBERRY_INSTALL=FAIL"
