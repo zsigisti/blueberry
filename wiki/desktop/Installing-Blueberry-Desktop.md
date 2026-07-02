@@ -102,7 +102,7 @@ kernel** — that comes with the next release. See [The Kernel Model](The-Kernel
 
 - **Black screen after login (live):** try the *nomodeset* GRUB entry, or the
   X11 session from the SDDM session menu.
-- **the Blueberry installer won't start:** open Konsole and run `sudo calamares -d` to see a
+- **the Blueberry installer won't start:** open Konsole and run `sudo the installer -d` to see a
   debug log.
 - **No network in the Blueberry installer:** connect Wi-Fi from the Plasma system tray first;
   the installer uses the live session's connection.

@@ -17,7 +17,7 @@ Common problems and fixes, grouped by area. See also the [FAQ](FAQ).
 
 | Symptom | Try |
 |---|---|
-| Installer won't launch | Open Konsole: `sudo calamares -d` for a debug log |
+| Installer won't launch | Open Konsole: `sudo the installer -d` for a debug log |
 | Partitioning fails | Ensure the disk isn't mounted/in use; for UEFI you need an EFI system partition |
 | No network during install | Connect Wi-Fi in Plasma **before** starting the Blueberry installer — it uses the live connection |
 | Install finishes but won't boot | Confirm UEFI vs BIOS matches how you booted the ISO; reinstall GRUB to the right target |
