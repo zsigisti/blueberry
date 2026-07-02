@@ -1,13 +1,15 @@
-## Blueberry Linux — beta release
+## Blueberry Linux v0.2.0-beta — server-only
 
-Blueberry Server: a minimal, rolling CLI system. Boots into the TUI installer
-(BIOS + UEFI); installs systemd, OpenSSH, NetworkManager (nmcli/nmtui) with
-wifi, ufw and a full GNU userland.
+Blueberry is now a single, focused **CLI server** distribution — the desktop
+edition has been removed. One installer image, the TUI installer, BIOS + UEFI.
+
+Installed server ships: systemd, OpenSSH, **NetworkManager (nmcli / nmtui)**
+with wifi (full linux-firmware + wpa_supplicant), **ufw** firewall, a complete
+**GNU userland** (grep/sed/gawk/findutils/tar/gzip/diff/less/vim/nano/…),
+sudo, tzdata, and console keymaps (loadkeys/kbd).
 
 | image | what it is |
 |---|---|
-| `blueberry-<date>-x86_64.iso` | Blueberry Server installer |
+| `blueberry-20260702-x86_64.iso` | Blueberry Server installer |
 
-Write to a USB stick: `dd if=<iso> of=/dev/sdX bs=4M oflag=sync` (whole device).
-
-This is a **beta**: expect rough edges, report what you find.
+Write to USB: `dd if=<iso> of=/dev/sdX bs=4M oflag=sync` (whole device). Beta.
