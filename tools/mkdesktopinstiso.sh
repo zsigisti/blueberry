@@ -90,15 +90,17 @@ EOF
     ln -sf /usr/lib/systemd/systemd "$R/sbin/init"
     ln -sf /usr/lib/systemd/systemd "$R/usr/sbin/init" 2>/dev/null || true
 
-    # /bin/sh + /usr/sbin merge (systemd units use absolute /usr/sbin paths).
+    # merged-usr: everything ships in /usr/bin, but plenty of tools hardcode
+    # /bin/* and /sbin/* (agetty execs /bin/login, scripts use /bin/sh, units
+    # use /usr/sbin/*). Mirror /usr/bin into /bin, /sbin and /usr/sbin.
     [ -e "$R/usr/bin/sh" ] || ln -sf bash "$R/usr/bin/sh"
-    [ -e "$R/bin/sh" ]     || ln -sf /usr/bin/bash "$R/bin/sh"
     local b n
     for b in "$R"/usr/bin/*; do
         [ -e "$b" ] || continue
         n=$(basename "$b")
-        [ -e "$R/usr/sbin/$n" ] || ln -sf "../bin/$n" "$R/usr/sbin/$n"
+        [ -e "$R/bin/$n" ]      || ln -sf "/usr/bin/$n" "$R/bin/$n"
         [ -e "$R/sbin/$n" ]     || ln -sf "/usr/bin/$n" "$R/sbin/$n"
+        [ -e "$R/usr/sbin/$n" ] || ln -sf "../bin/$n" "$R/usr/sbin/$n"
     done
 
     # Font + icon caches so the first SDDM greeter paint has glyphs/icons.
