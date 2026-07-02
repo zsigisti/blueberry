@@ -52,6 +52,7 @@ QUIET=$(cmdline quiet)
 DEBUG=$(cmdline debug)
 BBTEST=$(cmdline bbtest)
 BBINSTALL=$(cmdline bbinstall)
+BBTUI=$(cmdline bbtui)
 LIVE=$(cmdline blueberry.live)
 ROOT=$(cmdline root)
 
@@ -122,6 +123,24 @@ if [ -n "$BBTEST" ]; then
     echo o > /proc/sysrq-trigger 2>/dev/null
     poweroff -f 2>/dev/null
     exec sh
+fi
+
+# ── Interactive installer mode (TUI) ──────────────────────────────────────────
+# Boot with `bbtui` (the installer ISOs' default menu entry) to land straight in
+# the full-screen installer. Exit 0 = installed → reboot; otherwise drop to a
+# shell for debugging, and relaunch the installer when that shell exits.
+if [ -n "$BBTUI" ]; then
+    export TERM=linux
+    while :; do
+        setsid cttyhack /usr/bin/blueberry-install && {
+            echo "Rebooting into the installed system…"
+            sync; sleep 1
+            reboot -f 2>/dev/null
+        }
+        echo
+        echo "Installer exited — dropping to a shell (exit to relaunch the installer)."
+        setsid cttyhack /bin/sh
+    done
 fi
 
 # ── Unattended install mode ───────────────────────────────────────────────────

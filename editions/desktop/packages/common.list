@@ -14,10 +14,10 @@ libjpeg-turbo
 pixman
 libxml2
 libpciaccess
-tzdata                      # IANA timezone DB — REQUIRED by the Calamares locale page
-squashfs-tools              # unsquashfs — REQUIRED by Calamares unpackfs (extracts the live image)
-grub                        # grub-install — REQUIRED by Calamares bootloader step (BIOS+UEFI)
-sudo                        # Calamares users step writes /etc/sudoers.d; target needs sudo
+tzdata                      # IANA timezone DB (locale/timezone data for the installed system)
+squashfs-tools              # mksquashfs/unsquashfs — image tooling on the installed system
+grub                        # grub-install + BIOS/UEFI module trees (kernel updates re-run it)
+sudo                        # sudo + /etc/sudoers.d (installer adds the admin user to wheel)
 coreutils                   # cat/ls/cp/tail/tty/env/sleep — base CLI tools (no busybox)
 grep                        # GNU grep (desktop has no busybox)
 sed                         # GNU sed
@@ -68,10 +68,9 @@ freetype2
 harfbuzz
 ttf-dejavu                  # DejaVu — actually-built UI font (noto recipe pending)
 
-# ── Installer (live ISO only; not copied to the target) ───────────────────────
-calamares
 
-# ── Runtime library closure (ELF-NEEDED by SDDM/KWin/Plasma/Calamares but not
+
+# ── Runtime library closure (ELF-NEEDED by SDDM/KWin/Plasma but not
 #    always declared as package deps; staged explicitly so the graphical stack
 #    links cleanly). See doc / git log "closure libs round 2".
 icu                         # libicuuc/libicui18n.78 — Qt6Core
@@ -85,7 +84,7 @@ libqaccessibilityclient-qt6 # kwin_wayland a11y
 libpulse                    # libpulse.0 — Qt6Multimedia / plasma-pa
 libsndfile                  # libsndfile.1 — libpulse
 lmdb                        # liblmdb.so — baloo
-yaml-cpp                    # libyaml-cpp.0.9 — Calamares
+yaml-cpp                    # libyaml-cpp.0.9 — misc KDE deps
 qt6-speech                  # libQt6TextToSpeech.6 — KF6TextEditor
 libcanberra                 # libcanberra.0 — notification sounds
 libtool                     # libltdl.7 — libcanberra
@@ -133,15 +132,15 @@ libkexiv2
 plasma-activities-stats
 appstream                   # libAppStreamQt.so.3 — Plasma kicker (Application Launcher); pulls libxmlb + libfyaml
 kirigami-addons             # org.kde.kirigamiaddons.components QML — Plasma kickoff launcher
-parted                      # libparted.so.2 — Calamares 'welcome'/partition modules
-libpwquality                # libpwquality.so.1 — Calamares 'users' module
+parted                      # libparted.so.2 — partitionmanager/kpmcore
+libpwquality                # libpwquality.so.1 — password quality (kcm users)
 qrencode                    # libqrencode.so.4 — Plasma clipboard/klipper applet
 libdmtx                     # libdmtx.so.0 — Plasma clipboard/klipper (Data Matrix)
 pulseaudio-qt               # libKF6PulseAudioQt.so.5 — Plasma volume/sound applet
 libasyncns                  # libasyncns.so.0 — libpulse dep (volume applet)
 libnsl                      # libnsl.so.3 — libpulse/volume (pulls libtirpc)
 libtirpc                    # libtirpc.so.3 — libnsl dep
-polkit-qt6                  # libpolkit-qt6-core-1.so.1 — Calamares/kpmcore disk-scan helper
+polkit-qt6                  # libpolkit-qt6-core-1.so.1 — kpmcore disk-scan helper
 
 # ── Runtime-closure libs consumed only by dlopen'd KDE plugins ────────────────
 # Their owning package doesn't declare the dep, so the stage BFS won't reach them

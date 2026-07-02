@@ -33,10 +33,11 @@ DESKTOP_COMMON_PKGS := $(call _list,$(DESKTOPDIR)/packages/common.list)
 DESKTOP_DE_PKGS     := $(call _list,$(DESKTOPDIR)/packages/$(DE).list)
 DESKTOP_PKGS        := $(DESKTOP_COMMON_PKGS) $(DESKTOP_DE_PKGS)
 
-# These add to the base image's BASE_PKGS so the installed system has the DE.
-BASE_PKGS += $(DESKTOP_PKGS)
+# NOTE: the desktop set is NOT folded into BASE_PKGS — the base image stays the
+# CLI base; desktop-stage layers the DE closure onto a clone of it, and the
+# online/netinstall image fetches the set from the repo at install time.
 
-.PHONY: desktop-iso desktop-pkgs desktop-stage desktop-info
+.PHONY: desktop-iso desktop-iso-online desktop-pkgs desktop-stage desktop-info
 
 desktop-info: desktop-version
 	@echo "  edition : $(DE)   init: $(INIT)"
@@ -64,18 +65,29 @@ desktop-stage: install
 	@STAGEDIR="$(DESKTOP_STAGEDIR)" PKGDIR="$(OBJDIR)/bpm-out" \
 	 bash $(TOPDIR)/tools/stage-desktop.sh $(DESKTOP_PKGS)
 
-# Full live ISO: base install (systemd) + DE closure + SDDM autostart → Calamares.
-desktop-iso: desktop-stage
-	@echo "[desktop] assembling live ISO: $(BBD_NAME) $(BBD_FULLVERSION) ($(DE))"
-	@DE=$(DE) \
+# Desktop installer ISOs (TUI, no live session — Calamares is gone).
+#   desktop-iso        offline: full installed-desktop payload, no network needed
+#   desktop-iso-online netinstall: base payload + manifest, fetches DE via bpm
+DESKTOP_ONLINE_ISO := $(TOPDIR)/iso/blueberry-desktop-$(BBD_VERSION)-$(DE)-netinstall-$(ARCH).iso
+
+define _mkinstiso
+	@MODE=$(1) DE=$(DE) \
 	 BBD_NAME="$(BBD_NAME)" \
 	 BBD_VERSION="$(BBD_VERSION)" \
 	 BBD_FULLVERSION="$(BBD_FULLVERSION)" \
 	 BBD_CODENAME="$(BBD_CODENAME)" \
 	 BBD_CHANNEL="$(BBD_CHANNEL)" \
-	 STAGEDIR="$(DESKTOP_STAGEDIR)" \
+	 STAGEDIR="$(2)" \
 	 DESKTOPDIR="$(DESKTOPDIR)" \
 	 BOOTDIR="$(BOOTDIR)" \
 	 ARCH="$(ARCH)" \
-	 bash $(TOPDIR)/tools/mkdesktopiso.sh \
-	    $(DESKTOP_ISO)
+	 bash $(TOPDIR)/tools/mkdesktopinstiso.sh $(3)
+endef
+
+desktop-iso: desktop-stage
+	@echo "[desktop] assembling installer ISO (offline): $(BBD_NAME) $(BBD_FULLVERSION) ($(DE))"
+	$(call _mkinstiso,offline,$(DESKTOP_STAGEDIR),$(DESKTOP_ISO))
+
+desktop-iso-online: install
+	@echo "[desktop] assembling installer ISO (online/netinstall): $(BBD_NAME) $(BBD_FULLVERSION) ($(DE))"
+	$(call _mkinstiso,online,$(STAGEDIR),$(DESKTOP_ONLINE_ISO))

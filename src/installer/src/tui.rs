@@ -1,0 +1,524 @@
+//! Full-screen TUI installer (ratatui). One form screen with every setting,
+//! Enter-to-edit, a confirm dialog, then a live progress view driven by the
+//! engine running on a worker thread. Works on the Linux console (TERM=linux)
+//! and over serial.
+
+use crate::boot::Firmware;
+use crate::disk::Disk;
+use crate::engine::{self, Config, Ev, Payload};
+use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
+use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
+use ratatui::backend::CrosstermBackend;
+use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{Block, Borders, Clear, Gauge, List, ListItem, Paragraph, Wrap};
+use ratatui::Terminal;
+use std::io;
+use std::sync::mpsc;
+use std::time::Duration;
+
+const ACCENT: Color = Color::Magenta; // blueberry-ish
+
+#[derive(Clone, Copy, PartialEq)]
+enum Row {
+    Disk,
+    Bootloader,
+    Hostname,
+    RootPw,
+    UserName,
+    UserPw,
+    Swap,
+    Luks,
+    LuksPw,
+    Install,
+}
+const ROWS: &[Row] = &[
+    Row::Disk, Row::Bootloader, Row::Hostname, Row::RootPw, Row::UserName,
+    Row::UserPw, Row::Swap, Row::Luks, Row::LuksPw, Row::Install,
+];
+
+struct Form {
+    disks: Vec<Disk>,
+    disk_idx: usize,
+    fw_options: Vec<Firmware>,
+    fw_idx: usize,
+    hostname: String,
+    root_pw: String,
+    user_name: String,
+    user_pw: String,
+    swap: String,
+    luks: bool,
+    luks_pw: String,
+    sel: usize,
+    editing: Option<String>, // edit buffer when editing the selected row
+    error: Option<String>,
+}
+
+enum Phase {
+    Form,
+    Confirm,
+    Progress {
+        rx: mpsc::Receiver<Msg>,
+        steps_done: u32,
+        total: u32,
+        current: String,
+        log: Vec<String>,
+        result: Option<Result<(), String>>,
+    },
+}
+
+enum Msg {
+    Ev(Ev),
+    Done(Result<(), String>),
+}
+
+/// Run the interactive TUI. Ok(true) = install finished (caller reboots).
+pub fn run(payload: Payload, disks: Vec<Disk>, detected: Firmware) -> io::Result<bool> {
+    let mut fw_options = Vec::new();
+    if crate::boot::uefi_available(&payload.dir) {
+        fw_options.push(Firmware::Uefi);
+    }
+    if crate::boot::bios_available(&payload.dir) {
+        fw_options.push(Firmware::Bios);
+    }
+    if fw_options.is_empty() {
+        fw_options.push(detected);
+    }
+    let fw_idx = fw_options.iter().position(|f| *f == detected).unwrap_or(0);
+
+    let mut form = Form {
+        disks,
+        disk_idx: 0,
+        fw_options,
+        fw_idx,
+        hostname: "blueberry".into(),
+        root_pw: String::new(),
+        user_name: String::new(),
+        user_pw: String::new(),
+        swap: "0".into(),
+        luks: false,
+        luks_pw: String::new(),
+        sel: 0,
+        editing: None,
+        error: None,
+    };
+
+    enable_raw_mode()?;
+    let mut stdout = io::stdout();
+    crossterm::execute!(stdout, EnterAlternateScreen)?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut term = Terminal::new(backend)?;
+
+    let mut phase = Phase::Form;
+    let mut installed_ok = false;
+
+    'outer: loop {
+        // Drain engine events when installing.
+        if let Phase::Progress { rx, steps_done, current, log, result, .. } = &mut phase {
+            while let Ok(m) = rx.try_recv() {
+                match m {
+                    Msg::Ev(Ev::Step(s)) => {
+                        *steps_done += 1;
+                        *current = s.clone();
+                        log.push(format!(":: {s}"));
+                    }
+                    Msg::Ev(Ev::Log(s)) => log.push(s),
+                    Msg::Done(r) => {
+                        if r.is_ok() {
+                            installed_ok = true;
+                        }
+                        *result = Some(r);
+                    }
+                }
+                if log.len() > 400 {
+                    log.drain(..100);
+                }
+            }
+        }
+
+        term.draw(|f| draw(f, &payload, &form, &phase))?;
+
+        if !event::poll(Duration::from_millis(120))? {
+            continue;
+        }
+        let Event::Key(key) = event::read()? else { continue };
+        if key.kind != KeyEventKind::Press {
+            continue;
+        }
+        // Ctrl-C always exits (to the rescue shell).
+        if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
+            break 'outer;
+        }
+
+        match &mut phase {
+            Phase::Form => {
+                if let Some(buf) = &mut form.editing {
+                    match key.code {
+                        KeyCode::Enter => {
+                            let v = form.editing.take().unwrap();
+                            form.commit(v);
+                        }
+                        KeyCode::Esc => {
+                            form.editing = None;
+                        }
+                        KeyCode::Backspace => {
+                            buf.pop();
+                        }
+                        KeyCode::Char(c) => buf.push(c),
+                        _ => {}
+                    }
+                    continue;
+                }
+                match key.code {
+                    KeyCode::Up => form.sel = form.sel.saturating_sub(1),
+                    KeyCode::Down => form.sel = (form.sel + 1).min(ROWS.len() - 1),
+                    KeyCode::Left | KeyCode::Right => form.cycle(key.code == KeyCode::Right),
+                    KeyCode::Enter => match ROWS[form.sel] {
+                        Row::Disk | Row::Bootloader => form.cycle(true),
+                        Row::Luks => form.luks = !form.luks,
+                        Row::Install => {
+                            if let Some(e) = form.validate() {
+                                form.error = Some(e);
+                            } else {
+                                form.error = None;
+                                phase = Phase::Confirm;
+                            }
+                        }
+                        _ => form.start_edit(),
+                    },
+                    KeyCode::Char(' ') if ROWS[form.sel] == Row::Luks => form.luks = !form.luks,
+                    KeyCode::Char('q') => break 'outer,
+                    _ => {}
+                }
+            }
+            Phase::Confirm => match key.code {
+                KeyCode::Enter | KeyCode::Char('y') | KeyCode::Char('Y') => {
+                    let cfg = form.to_config();
+                    let total = engine::total_steps(&cfg, &payload);
+                    let (tx, rx) = mpsc::channel::<Msg>();
+                    let pl = Payload {
+                        dir: payload.dir.clone(),
+                        profile: payload.profile.clone(),
+                        name: payload.name.clone(),
+                        manifest: payload.manifest.clone(),
+                        overlay: payload.overlay,
+                    };
+                    std::thread::spawn(move || {
+                        let txe = tx.clone();
+                        let mut emit = move |e: Ev| {
+                            let _ = txe.send(Msg::Ev(e));
+                        };
+                        let r = engine::run_install(&cfg, &pl, &mut emit);
+                        let _ = tx.send(Msg::Done(r));
+                    });
+                    phase = Phase::Progress {
+                        rx,
+                        steps_done: 0,
+                        total,
+                        current: "Starting…".into(),
+                        log: Vec::new(),
+                        result: None,
+                    };
+                }
+                KeyCode::Esc | KeyCode::Char('n') | KeyCode::Char('N') => phase = Phase::Form,
+                _ => {}
+            },
+            Phase::Progress { result, .. } => {
+                if let Some(r) = result {
+                    match key.code {
+                        KeyCode::Enter if r.is_ok() => break 'outer, // caller reboots
+                        KeyCode::Char('q') => {
+                            installed_ok = false;
+                            break 'outer;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+    }
+
+    disable_raw_mode()?;
+    crossterm::execute!(term.backend_mut(), LeaveAlternateScreen)?;
+    term.show_cursor()?;
+    Ok(installed_ok)
+}
+
+impl Form {
+    fn cycle(&mut self, fwd: bool) {
+        match ROWS[self.sel] {
+            Row::Disk if !self.disks.is_empty() => {
+                let n = self.disks.len();
+                self.disk_idx = (self.disk_idx + if fwd { 1 } else { n - 1 }) % n;
+            }
+            Row::Bootloader => {
+                let n = self.fw_options.len();
+                self.fw_idx = (self.fw_idx + if fwd { 1 } else { n - 1 }) % n;
+            }
+            Row::Luks => self.luks = !self.luks,
+            _ => {}
+        }
+    }
+
+    fn start_edit(&mut self) {
+        let cur = match ROWS[self.sel] {
+            Row::Hostname => self.hostname.clone(),
+            Row::UserName => self.user_name.clone(),
+            Row::Swap => self.swap.clone(),
+            // passwords start empty on edit
+            Row::RootPw | Row::UserPw | Row::LuksPw => String::new(),
+            _ => return,
+        };
+        self.editing = Some(cur);
+    }
+
+    fn commit(&mut self, v: String) {
+        match ROWS[self.sel] {
+            Row::Hostname => self.hostname = v,
+            Row::RootPw => self.root_pw = v,
+            Row::UserName => self.user_name = v,
+            Row::UserPw => self.user_pw = v,
+            Row::Swap => self.swap = v,
+            Row::LuksPw => self.luks_pw = v,
+            _ => {}
+        }
+    }
+
+    fn validate(&self) -> Option<String> {
+        if self.disks.is_empty() {
+            return Some("no installable disks found".into());
+        }
+        if self.root_pw.is_empty() {
+            return Some("set a root password first".into());
+        }
+        if self.luks && self.luks_pw.is_empty() {
+            return Some("LUKS is enabled but has no passphrase".into());
+        }
+        if !self.user_name.is_empty() && self.user_pw.is_empty() {
+            return Some(format!("set a password for user '{}'", self.user_name));
+        }
+        None
+    }
+
+    fn to_config(&self) -> Config {
+        Config {
+            disk_dev: self.disks[self.disk_idx].dev.clone(),
+            firmware: self.fw_options[self.fw_idx],
+            hostname: self.hostname.clone(),
+            root_pw: self.root_pw.clone(),
+            user: if self.user_name.trim().is_empty() {
+                None
+            } else {
+                Some((self.user_name.trim().to_string(), self.user_pw.clone()))
+            },
+            swap_gib: self.swap.trim().parse().unwrap_or(0),
+            luks_pw: if self.luks { Some(self.luks_pw.clone()) } else { None },
+            extra_pkgs: String::new(),
+        }
+    }
+}
+
+fn mask(s: &str) -> String {
+    if s.is_empty() { "(not set)".into() } else { "•".repeat(s.len().min(16)) }
+}
+
+fn draw(f: &mut ratatui::Frame, payload: &Payload, form: &Form, phase: &Phase) {
+    let area = f.area();
+    let outer = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(3), Constraint::Min(8), Constraint::Length(2)])
+        .split(area);
+
+    // Header
+    let title = format!(
+        "  Blueberry Installer — {}{}",
+        payload.name,
+        if payload.manifest.is_some() { "  [online]" } else { "  [offline]" }
+    );
+    f.render_widget(
+        Paragraph::new(title)
+            .style(Style::default().fg(Color::White).bg(ACCENT).add_modifier(Modifier::BOLD))
+            .block(Block::default().borders(Borders::BOTTOM)),
+        outer[0],
+    );
+
+    match phase {
+        Phase::Form | Phase::Confirm => draw_form(f, outer[1], form),
+        Phase::Progress { steps_done, total, current, log, result, .. } => {
+            draw_progress(f, outer[1], *steps_done, *total, current, log, result)
+        }
+    }
+
+    // Footer
+    let help = match phase {
+        Phase::Form if form.editing.is_some() => "Enter apply · Esc cancel",
+        Phase::Form => "↑/↓ move · Enter edit/toggle · ←/→ cycle · q quit · Ctrl-C shell",
+        Phase::Confirm => "Enter/y install · Esc cancel",
+        Phase::Progress { result: Some(Ok(())), .. } => "Enter reboot",
+        Phase::Progress { result: Some(Err(_)), .. } => "q drop to shell",
+        Phase::Progress { .. } => "installing — please wait (Ctrl-C aborts)",
+    };
+    f.render_widget(
+        Paragraph::new(help).style(Style::default().fg(Color::DarkGray)),
+        outer[2],
+    );
+
+    if matches!(phase, Phase::Confirm) {
+        let d = &form.disks[form.disk_idx];
+        let msg = format!(
+            "Install to {} ({:.1} GiB)?\n\nEVERYTHING ON THIS DISK WILL BE ERASED.\n\n[Enter] Install    [Esc] Cancel",
+            d.dev,
+            d.gib()
+        );
+        popup(f, area, " Confirm ", &msg, Color::Red);
+    }
+}
+
+fn draw_form(f: &mut ratatui::Frame, area: Rect, form: &Form) {
+    let items: Vec<ListItem> = ROWS
+        .iter()
+        .enumerate()
+        .map(|(i, row)| {
+            let sel = i == form.sel;
+            let editing = sel && form.editing.is_some();
+            let (label, value) = match row {
+                Row::Disk => {
+                    let v = if form.disks.is_empty() {
+                        "NO DISKS FOUND".to_string()
+                    } else {
+                        let d = &form.disks[form.disk_idx];
+                        format!("{}  {:.1} GiB  {}", d.dev, d.gib(), d.model)
+                    };
+                    ("Target disk", v)
+                }
+                Row::Bootloader => (
+                    "Bootloader",
+                    format!("GRUB — {}", engine::fw_name(form.fw_options[form.fw_idx])),
+                ),
+                Row::Hostname => ("Hostname", form.hostname.clone()),
+                Row::RootPw => ("Root password", mask(&form.root_pw)),
+                Row::UserName => (
+                    "Create user",
+                    if form.user_name.is_empty() { "(none)".into() } else { form.user_name.clone() },
+                ),
+                Row::UserPw => ("User password", mask(&form.user_pw)),
+                Row::Swap => ("Swapfile (GiB)", form.swap.clone()),
+                Row::Luks => ("Encrypt (LUKS2)", if form.luks { "yes".into() } else { "no".into() }),
+                Row::LuksPw => ("LUKS passphrase", mask(&form.luks_pw)),
+                Row::Install => ("", "▶ Install".to_string()),
+            };
+            let value = if editing {
+                let buf = form.editing.as_deref().unwrap_or("");
+                let shown = match row {
+                    Row::RootPw | Row::UserPw | Row::LuksPw => "•".repeat(buf.len()),
+                    _ => buf.to_string(),
+                };
+                format!("{shown}▏")
+            } else {
+                value
+            };
+            let style = if sel {
+                Style::default().fg(Color::Black).bg(ACCENT).add_modifier(Modifier::BOLD)
+            } else if *row == Row::Install {
+                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default()
+            };
+            let line = if label.is_empty() {
+                Line::from(Span::styled(format!("  {value}"), style))
+            } else {
+                Line::from(vec![
+                    Span::styled(format!("  {label:<18}"), style),
+                    Span::styled(value, style),
+                ])
+            };
+            ListItem::new(line)
+        })
+        .collect();
+
+    let mut block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(ACCENT))
+        .title(" Setup ");
+    if let Some(e) = &form.error {
+        block = block
+            .title_bottom(Line::from(Span::styled(
+                format!(" {e} "),
+                Style::default().fg(Color::White).bg(Color::Red),
+            )));
+    }
+    f.render_widget(List::new(items).block(block), area);
+}
+
+fn draw_progress(
+    f: &mut ratatui::Frame,
+    area: Rect,
+    done: u32,
+    total: u32,
+    current: &str,
+    log: &[String],
+    result: &Option<Result<(), String>>,
+) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(3), Constraint::Min(4)])
+        .split(area);
+
+    let (label, ratio, color) = match result {
+        Some(Ok(())) => ("Installation complete — press Enter to reboot".to_string(), 1.0, Color::Green),
+        Some(Err(e)) => (format!("FAILED: {e}"), (done as f64 / total.max(1) as f64).min(1.0), Color::Red),
+        None => (
+            format!("[{done}/{total}] {current}"),
+            (done as f64 / total.max(1) as f64).min(1.0),
+            ACCENT,
+        ),
+    };
+    f.render_widget(
+        Gauge::default()
+            .block(Block::default().borders(Borders::ALL).title(" Progress "))
+            .gauge_style(Style::default().fg(color))
+            .ratio(ratio)
+            .label(label),
+        chunks[0],
+    );
+
+    let h = chunks[1].height.saturating_sub(2) as usize;
+    let tail: Vec<Line> = log
+        .iter()
+        .rev()
+        .take(h)
+        .rev()
+        .map(|l| Line::from(l.as_str()))
+        .collect();
+    f.render_widget(
+        Paragraph::new(tail)
+            .wrap(Wrap { trim: true })
+            .block(Block::default().borders(Borders::ALL).title(" Log ")),
+        chunks[1],
+    );
+}
+
+fn popup(f: &mut ratatui::Frame, area: Rect, title: &str, msg: &str, color: Color) {
+    let w = 56.min(area.width.saturating_sub(4));
+    let h = 9.min(area.height.saturating_sub(2));
+    let rect = Rect::new(
+        area.x + (area.width.saturating_sub(w)) / 2,
+        area.y + (area.height.saturating_sub(h)) / 2,
+        w,
+        h,
+    );
+    f.render_widget(Clear, rect);
+    f.render_widget(
+        Paragraph::new(msg)
+            .alignment(Alignment::Center)
+            .wrap(Wrap { trim: true })
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(color).add_modifier(Modifier::BOLD))
+                    .title(title),
+            ),
+        rect,
+    );
+}
