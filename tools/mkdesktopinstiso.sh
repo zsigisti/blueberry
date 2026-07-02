@@ -187,11 +187,11 @@ set timeout_style=menu
 if [ "\$grub_platform" = "efi" ]; then set gfxpayload=keep; else set gfxpayload=text; fi
 
 menuentry "Install $BBD_NAME $BBD_FULLVERSION ($DE)" {
-    linux /boot/vmlinuz bbtui console=tty0
+    linux /boot/vmlinuz bbtui quiet loglevel=3 console=tty0
     initrd /boot/initramfs.cpio.zst
 }
 menuentry "Install (serial console)" {
-    linux /boot/vmlinuz bbtui console=ttyS0,115200
+    linux /boot/vmlinuz bbtui quiet loglevel=3 console=ttyS0,115200
     initrd /boot/initramfs.cpio.zst
 }
 menuentry "Rescue shell" {
