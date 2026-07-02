@@ -39,7 +39,7 @@ fn real_main() -> R<()> {
         env::set_var("TERM", "linux");
     }
 
-    let payload = Payload::discover().ok_or(
+    let payload = Payload::discover_wait().ok_or(
         "could not find the install payload (rootfs.tar.zst) on any boot medium",
     )?;
 

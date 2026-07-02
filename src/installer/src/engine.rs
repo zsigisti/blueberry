@@ -26,6 +26,22 @@ pub struct Payload {
 }
 
 impl Payload {
+    /// Discover the payload, waiting for slow media: USB sticks take a few
+    /// seconds to enumerate on real hardware, and bbtui starts immediately —
+    /// retry (with a device rescan) for up to ~40s before giving up.
+    pub fn discover_wait() -> Option<Payload> {
+        for i in 0..20 {
+            if let Some(p) = Self::discover() {
+                return Some(p);
+            }
+            if i == 0 {
+                println!("Waiting for the install medium (USB can take a few seconds)…");
+            }
+            let _ = run(&["sh", "-c", "mdev -s 2>/dev/null; sleep 2"]);
+        }
+        None
+    }
+
     pub fn discover() -> Option<Payload> {
         let dir = find_payload_dir()?;
         let mut profile = "server".to_string();
@@ -230,11 +246,26 @@ pub fn run_install(cfg: &Config, payload: &Payload, emit: Emit) -> R<()> {
             .find(|(c, _, _)| *c == cfg.keymap)
             .map(|(_, x, _)| *x)
             .unwrap_or(cfg.keymap.as_str());
-        let _ = fs::write(format!("{MNT}/etc/vconsole.conf"), format!("KEYMAP={}\n", cfg.keymap));
+        // Belt and suspenders — every consumer reads a different file:
+        //   vconsole.conf KEYMAP=     console (systemd-vconsole-setup)
+        //   vconsole.conf XKBLAYOUT=  systemd-localed → KWin Wayland
+        //   xorg.conf.d/00-keyboard   Xwayland / X11 apps (localed format)
+        //   /etc/xdg/kxkbrc           Plasma kded keyboard module + SDDM greeter
+        let _ = fs::write(
+            format!("{MNT}/etc/vconsole.conf"),
+            format!("KEYMAP={}\nXKBLAYOUT={xkb}\nXKBMODEL=pc105\n", cfg.keymap),
+        );
+        fs::create_dir_all(format!("{MNT}/etc/X11/xorg.conf.d")).ok();
+        let _ = fs::write(
+            format!("{MNT}/etc/X11/xorg.conf.d/00-keyboard.conf"),
+            format!(
+                "Section \"InputClass\"\n        Identifier \"system-keyboard\"\n        MatchIsKeyboard \"on\"\n        Option \"XkbLayout\" \"{xkb}\"\n        Option \"XkbModel\" \"pc105\"\nEndSection\n"
+            ),
+        );
         fs::create_dir_all(format!("{MNT}/etc/xdg")).ok();
         let _ = fs::write(
             format!("{MNT}/etc/xdg/kxkbrc"),
-            format!("[Layout]\nUse=true\nLayoutList={xkb}\n"),
+            format!("[Layout]\nUse=true\nResetOldOptions=true\nLayoutList={xkb}\n"),
         );
     }
 
