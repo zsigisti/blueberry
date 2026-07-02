@@ -1,0 +1,30 @@
+[package]
+name     = "gnutls"
+version  = "3.8.8"
+release  = 1
+summary  = "Secure communications library implementing SSL, TLS and DTLS"
+homepage = "https://www.gnutls.org/"
+license  = ["LGPL-2.1-or-later", "GPL-3.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "nettle", "libtasn1", "p11-kit", "libunistring", "gmp", "libidn2", "zlib"]
+makedepends = ["pkgconf", "nettle", "libtasn1", "p11-kit", "libunistring", "gmp", "libidn2"]
+provides    = ["libgnutls.so", "libgnutlsxx.so", "libgnutls-dane.so"]
+
+[[source]]
+url    = "https://www.gnupg.org/ftp/gcrypt/gnutls/v3.8/gnutls-3.8.8.tar.xz"
+sha256 = "ac4f020e583880b51380ed226e59033244bc536cad2623f2e26f5afa2939d8fb"
+
+[steps]
+build = '''
+cd "$name-$version"
+./configure --prefix=/usr --disable-static \
+  --with-included-unistring=no --without-tpm --disable-guile \
+  --disable-doc --disable-tests --disable-full-test-suite \
+  --disable-hardware-acceleration
+make
+'''
+package = '''
+cd "$name-$version"
+make DESTDIR="$pkgdir" install
+'''

@@ -131,6 +131,8 @@ fi
 # shell for debugging, and relaunch the installer when that shell exits.
 if [ -n "$BBTUI" ]; then
     export TERM=linux
+    # Kernel printk over the TUI desyncs the terminal-diff renderer → ghost rows.
+    dmesg -n 1 2>/dev/null || echo 1 > /proc/sys/kernel/printk 2>/dev/null
     while :; do
         setsid cttyhack /usr/bin/blueberry-install && {
             echo "Rebooting into the installed system…"

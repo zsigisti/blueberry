@@ -109,8 +109,10 @@ pub fn run(payload: Payload, disks: Vec<Disk>, detected: Firmware) -> io::Result
     crossterm::execute!(stdout, EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stdout);
     let mut term = Terminal::new(backend)?;
+    term.clear()?;
 
     let mut phase = Phase::Form;
+    let mut frame_n: u32 = 0;
     let mut installed_ok = false;
 
     'outer: loop {
@@ -137,6 +139,12 @@ pub fn run(payload: Payload, disks: Vec<Disk>, detected: Firmware) -> io::Result
             }
         }
 
+        // Full redraw every ~5s: stray console writes (kernel printk) desync the
+        // diff renderer; a periodic clear self-heals any ghost cells.
+        frame_n += 1;
+        if frame_n % 40 == 0 {
+            term.clear()?;
+        }
         term.draw(|f| draw(f, &payload, &form, &phase))?;
 
         if !event::poll(Duration::from_millis(120))? {
@@ -338,8 +346,8 @@ fn draw(f: &mut ratatui::Frame, payload: &Payload, form: &Form, phase: &Phase) {
     );
     f.render_widget(
         Paragraph::new(title)
-            .style(Style::default().fg(Color::White).bg(ACCENT).add_modifier(Modifier::BOLD))
-            .block(Block::default().borders(Borders::BOTTOM)),
+            .style(Style::default().fg(ACCENT).add_modifier(Modifier::BOLD))
+            .block(Block::default().borders(Borders::BOTTOM).border_style(Style::default().fg(ACCENT))),
         outer[0],
     );
 
