@@ -112,18 +112,30 @@ pub fn mkfs_fat(dev: &str, label: &str) -> R<()> {
     check(&["mkfs.fat", "-F32", "-n", label, dev])
 }
 
-/// Read a device's filesystem UUID via blkid.
+/// Read a device's filesystem UUID via blkid. Handles BOTH util-linux blkid
+/// (-s/-o supported) and busybox blkid (ignores those flags and prints
+/// `/dev/x: UUID="…"` lines for every device) — always validate the result.
 pub fn uuid(dev: &str) -> String {
+    let looks_like_uuid =
+        |s: &str| !s.is_empty() && s.len() >= 8 && s.chars().all(|c| c.is_ascii_hexdigit() || c == '-');
     let u = out(&["blkid", "-s", "UUID", "-o", "value", dev]);
-    if !u.is_empty() {
-        return u;
+    if looks_like_uuid(u.trim()) {
+        return u.trim().to_string();
     }
-    // Fallback: parse full blkid line.
-    let line = out(&["blkid", dev]);
-    if let Some(i) = line.find("UUID=\"") {
-        let rest = &line[i + 6..];
-        if let Some(end) = rest.find('"') {
-            return rest[..end].to_string();
+    // busybox path: find OUR device's line and pull UUID="…" out of it.
+    let all = out(&["blkid"]);
+    for line in all.lines().chain(out(&["blkid", dev]).lines()) {
+        if !line.starts_with(&format!("{dev}:")) {
+            continue;
+        }
+        if let Some(i) = line.find("UUID=\"") {
+            let rest = &line[i + 6..];
+            if let Some(end) = rest.find('"') {
+                let v = &rest[..end];
+                if looks_like_uuid(v) {
+                    return v.to_string();
+                }
+            }
         }
     }
     String::new()
