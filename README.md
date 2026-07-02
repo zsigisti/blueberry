@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🫐 Blueberry Linux
+# Blueberry Linux
 
 **A self-hosted Linux distribution built entirely from source — one monorepo, two editions.**
 
