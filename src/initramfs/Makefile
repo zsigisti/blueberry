@@ -105,11 +105,13 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	@# Native .bpm toolchain (build-pkgs.sh / .pkg.tar.zst was retired). grub gives
 	@# the Rust installer grub-install + both module trees (i386-pc/x86_64-efi).
 	@echo "[initramfs] bundling installer + disk + crypto + grub + bash"
+	@# xfsprogs/btrfs-progs (+ their lib deps liburcu/libinih/lzo) give the
+	@# installer mkfs.xfs / mkfs.btrfs so root can be XFS or Btrfs, not just ext4.
 	@sh $(THISDIR)/../../tools/build-bpm-pkg.sh $(OBJDIR)/instpkgs \
 	    popt e2fsprogs dosfstools gptfdisk json-c device-mapper openssl zlib cryptsetup \
-	    grub kbd ncurses bash
+	    grub kbd ncurses bash xfsprogs btrfs-progs liburcu libinih lzo
 	@for p in popt e2fsprogs dosfstools gptfdisk json-c device-mapper openssl zlib cryptsetup \
-	          grub kbd ncurses bash; do \
+	          grub kbd ncurses bash xfsprogs btrfs-progs liburcu libinih lzo; do \
 	    f=$$(ls -t $(OBJDIR)/instpkgs/$$p-[0-9]*.bpm | head -1); \
 	    zstd -dcq "$$f" | tar -x -C $(INITRAMDIR) --exclude .BPM 2>/dev/null; \
 	done
@@ -193,6 +195,8 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	    $(INITRAMDIR)/usr/bin/sgdisk \
 	    $(INITRAMDIR)/usr/sbin/mkfs.ext4 \
 	    $(INITRAMDIR)/usr/sbin/mkfs.fat \
+	    $(INITRAMDIR)/usr/bin/mkfs.xfs \
+	    $(INITRAMDIR)/usr/bin/mkfs.btrfs \
 	    $(INITRAMDIR)/sbin/cryptsetup \
 	    $(INITRAMDIR)/sbin/blkid
 

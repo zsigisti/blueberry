@@ -24,6 +24,7 @@ const ACCENT: Color = Color::Magenta; // blueberry-ish
 enum Row {
     Disk,
     Bootloader,
+    Fs,
     Keymap,
     Hostname,
     RootPw,
@@ -35,7 +36,7 @@ enum Row {
     Install,
 }
 const ROWS: &[Row] = &[
-    Row::Disk, Row::Bootloader, Row::Keymap, Row::Hostname, Row::RootPw,
+    Row::Disk, Row::Bootloader, Row::Fs, Row::Keymap, Row::Hostname, Row::RootPw,
     Row::UserName, Row::UserPw, Row::Swap, Row::Luks, Row::LuksPw, Row::Install,
 ];
 
@@ -44,6 +45,7 @@ struct Form {
     disk_idx: usize,
     fw_options: Vec<Firmware>,
     fw_idx: usize,
+    fs_idx: usize,
     km_idx: usize,
     hostname: String,
     root_pw: String,
@@ -94,6 +96,7 @@ pub fn run(payload: Payload, disks: Vec<Disk>, detected: Firmware) -> io::Result
         disk_idx: 0,
         fw_options,
         fw_idx,
+        fs_idx: 0,
         km_idx: 0,
         hostname: "blueberry".into(),
         root_pw: String::new(),
@@ -186,7 +189,7 @@ pub fn run(payload: Payload, disks: Vec<Disk>, detected: Firmware) -> io::Result
                     KeyCode::Down => form.sel = (form.sel + 1).min(ROWS.len() - 1),
                     KeyCode::Left | KeyCode::Right => form.cycle(key.code == KeyCode::Right),
                     KeyCode::Enter => match ROWS[form.sel] {
-                        Row::Disk | Row::Bootloader | Row::Keymap => form.cycle(true),
+                        Row::Disk | Row::Bootloader | Row::Fs | Row::Keymap => form.cycle(true),
                         Row::Luks => form.luks = !form.luks,
                         Row::Install => {
                             if let Some(e) = form.validate() {
@@ -267,6 +270,10 @@ impl Form {
                 let n = self.fw_options.len();
                 self.fw_idx = (self.fw_idx + if fwd { 1 } else { n - 1 }) % n;
             }
+            Row::Fs => {
+                let n = engine::Filesystem::ALL.len();
+                self.fs_idx = (self.fs_idx + if fwd { 1 } else { n - 1 }) % n;
+            }
             Row::Keymap => {
                 let n = engine::KEYMAPS.len();
                 self.km_idx = (self.km_idx + if fwd { 1 } else { n - 1 }) % n;
@@ -322,6 +329,7 @@ impl Form {
         Config {
             disk_dev: self.disks[self.disk_idx].dev.clone(),
             firmware: self.fw_options[self.fw_idx],
+            fs: engine::Filesystem::ALL[self.fs_idx],
             keymap: engine::KEYMAPS[self.km_idx].0.to_string(),
             hostname: self.hostname.clone(),
             root_pw: self.root_pw.clone(),
@@ -386,10 +394,11 @@ fn draw(f: &mut ratatui::Frame, payload: &Payload, form: &Form, phase: &Phase) {
         let d = &form.disks[form.disk_idx];
         let (kc, _, kl) = engine::KEYMAPS[form.km_idx];
         let msg = format!(
-            "\n{}\n\n  Disk        {}  ({:.1} GiB)\n  Bootloader  GRUB — {}\n  Keyboard    {} ({})\n  Hostname    {}\n  User        {}\n  Swap        {} GiB\n  Encryption  {}\n\nEVERYTHING ON THE DISK WILL BE ERASED.\n\n[Enter] Install      [Esc] Go back",
+            "\n{}\n\n  Disk        {}  ({:.1} GiB)\n  Bootloader  GRUB — {}\n  Filesystem  {}\n  Keyboard    {} ({})\n  Hostname    {}\n  User        {}\n  Swap        {} GiB\n  Encryption  {}\n\nEVERYTHING ON THE DISK WILL BE ERASED.\n\n[Enter] Install      [Esc] Go back",
             "Ready to install:",
             d.dev, d.gib(),
             engine::fw_name(form.fw_options[form.fw_idx]),
+            engine::Filesystem::ALL[form.fs_idx].as_str(),
             kl, kc,
             form.hostname,
             if form.user_name.is_empty() { "(none)" } else { &form.user_name },
@@ -425,6 +434,10 @@ fn draw_form(f: &mut ratatui::Frame, area: Rect, form: &Form) {
                 Row::Bootloader => (
                     "Bootloader",
                     format!("GRUB — {}", engine::fw_name(form.fw_options[form.fw_idx])),
+                ),
+                Row::Fs => (
+                    "Root filesystem",
+                    engine::Filesystem::ALL[form.fs_idx].as_str().to_string(),
                 ),
                 Row::Keymap => {
                     let (c, _, l) = engine::KEYMAPS[form.km_idx];
@@ -493,6 +506,7 @@ fn draw_form(f: &mut ratatui::Frame, area: Rect, form: &Form) {
     let info = match ROWS[form.sel] {
         Row::Disk => "The disk Blueberry is installed to.\n\nEverything on it is erased during the install. ←/→ cycles through the detected disks.",
         Row::Bootloader => "How the system boots.\n\nUEFI for modern machines (an EFI system partition is created), BIOS for legacy machines and simple VMs. The detected firmware is pre-selected.",
+        Row::Fs => "Root filesystem.\n\next4 is the safe default. xfs suits large files / many-core I/O. btrfs adds snapshots and compression. All three boot without an initramfs fs module.",
         Row::Keymap => "Console + desktop keyboard layout.\n\nApplies IMMEDIATELY in this installer (so the passwords you type match) and is saved to the installed system (console + desktop).",
         Row::Hostname => "This machine's network name.",
         Row::RootPw => "Password for the root (administrator) account. Required.",

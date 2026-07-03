@@ -108,6 +108,26 @@ pub fn mkfs_ext4(dev: &str, label: &str) -> R<()> {
     check(&["mkfs.ext4", "-F", "-L", label, dev])
 }
 
+pub fn mkfs_xfs(dev: &str, label: &str) -> R<()> {
+    // XFS labels are limited to 12 characters (mkfs.xfs rejects longer ones).
+    let l: String = label.chars().take(12).collect();
+    check(&["mkfs.xfs", "-f", "-L", &l, dev])
+}
+
+pub fn mkfs_btrfs(dev: &str, label: &str) -> R<()> {
+    check(&["mkfs.btrfs", "-f", "-L", label, dev])
+}
+
+/// Format the root device with the chosen filesystem.
+pub fn mkfs_root(dev: &str, label: &str, fs: crate::engine::Filesystem) -> R<()> {
+    use crate::engine::Filesystem::*;
+    match fs {
+        Ext4 => mkfs_ext4(dev, label),
+        Xfs => mkfs_xfs(dev, label),
+        Btrfs => mkfs_btrfs(dev, label),
+    }
+}
+
 pub fn mkfs_fat(dev: &str, label: &str) -> R<()> {
     check(&["mkfs.fat", "-F32", "-n", label, dev])
 }
