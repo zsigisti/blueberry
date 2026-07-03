@@ -4,7 +4,7 @@ version  = "1.8.0"
 release  = 1
 summary  = "Blueberry Package Manager — streaming installs, SHA-256 verified, pre/post-install hooks (Rust)"
 homepage = "https://github.com/zsigisti/blueberry"
-license  = ["MIT"]
+license  = ["GPL-3.0-or-later"]
 arch     = ["x86_64"]
 
 depends     = ["glibc", "gcc-libs"]
