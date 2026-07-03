@@ -118,6 +118,17 @@ pub fn mkfs_btrfs(dev: &str, label: &str) -> R<()> {
     check(&["mkfs.btrfs", "-f", "-L", label, dev])
 }
 
+/// Put an LVM volume group on `pv_dev` (a raw partition or a LUKS mapper) with
+/// a single root logical volume spanning it. Returns the LV device path.
+pub fn lvm_setup(pv_dev: &str, vg: &str, lv: &str) -> R<String> {
+    check(&["pvcreate", "-ff", "-y", pv_dev])?;
+    check(&["vgcreate", "-y", vg, pv_dev])?;
+    check(&["lvcreate", "-y", "-l", "100%FREE", "-n", lv, vg])?;
+    // vgcreate/lvcreate activate by default, but be explicit so the node exists.
+    let _ = run(&["vgchange", "-ay", vg]);
+    Ok(format!("/dev/{vg}/{lv}"))
+}
+
 /// Format the root device with the chosen filesystem.
 pub fn mkfs_root(dev: &str, label: &str, fs: crate::engine::Filesystem) -> R<()> {
     use crate::engine::Filesystem::*;

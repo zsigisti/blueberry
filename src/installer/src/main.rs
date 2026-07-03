@@ -105,6 +105,10 @@ fn config_from_env(payload: &Payload) -> R<Config> {
         env::var("BLUEBERRY_LUKS").unwrap_or_default().as_str(),
         "1" | "y" | "yes" | "true"
     );
+    let lvm_on = matches!(
+        env::var("BLUEBERRY_LVM").unwrap_or_default().as_str(),
+        "1" | "y" | "yes" | "true"
+    );
     let _ = payload; // profile driven by the payload itself
     Ok(Config {
         disk_dev,
@@ -116,6 +120,7 @@ fn config_from_env(payload: &Payload) -> R<Config> {
         user,
         swap_gib: env::var("BLUEBERRY_SWAP").ok().and_then(|s| s.parse().ok()).unwrap_or(0),
         luks_pw: if luks_on { env::var("BLUEBERRY_LUKSPW").ok() } else { None },
+        lvm: lvm_on,
         extra_pkgs: env::var("BLUEBERRY_PKGS").unwrap_or_default(),
     })
 }
@@ -179,6 +184,7 @@ fn config_from_prompts(payload: &Payload) -> R<Config> {
     } else {
         None
     };
+    let lvm = ui::confirm("Put root on LVM (logical volume)?", false, "BLUEBERRY_LVM");
     let extra_pkgs = ui::input("Extra packages (space-separated, blank to skip)", "", "BLUEBERRY_PKGS");
 
     Ok(Config {
@@ -191,6 +197,7 @@ fn config_from_prompts(payload: &Payload) -> R<Config> {
         user,
         swap_gib: swap,
         luks_pw,
+        lvm,
         extra_pkgs,
     })
 }

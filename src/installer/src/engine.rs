@@ -120,6 +120,7 @@ pub struct Config {
     pub user: Option<(String, String)>, // (name, password)
     pub swap_gib: u32,
     pub luks_pw: Option<String>,
+    pub lvm: bool, // put root on an LVM logical volume (LVM-on-LUKS when both set)
     pub extra_pkgs: String,
 }
 
@@ -183,6 +184,12 @@ pub fn run_install(cfg: &Config, payload: &Payload, emit: Emit) -> R<()> {
         step(emit, "Encrypting root partition (LUKS2)");
         rootfs_dev = luks_setup(&root_part, pw)?;
         crypt_uuid = Some(disk::uuid(&root_part));
+    }
+
+    // ── LVM (optional) — PV on the raw/crypt device, one root LV ─────────────
+    if cfg.lvm {
+        step(emit, "Setting up LVM (VG blueberry, LV root)");
+        rootfs_dev = disk::lvm_setup(&rootfs_dev, "blueberry", "root")?;
     }
 
     // ── Format + mount ──────────────────────────────────────────────────────

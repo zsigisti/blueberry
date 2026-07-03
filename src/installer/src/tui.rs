@@ -33,11 +33,12 @@ enum Row {
     Swap,
     Luks,
     LuksPw,
+    Lvm,
     Install,
 }
 const ROWS: &[Row] = &[
     Row::Disk, Row::Bootloader, Row::Fs, Row::Keymap, Row::Hostname, Row::RootPw,
-    Row::UserName, Row::UserPw, Row::Swap, Row::Luks, Row::LuksPw, Row::Install,
+    Row::UserName, Row::UserPw, Row::Swap, Row::Luks, Row::LuksPw, Row::Lvm, Row::Install,
 ];
 
 struct Form {
@@ -54,6 +55,7 @@ struct Form {
     swap: String,
     luks: bool,
     luks_pw: String,
+    lvm: bool,
     sel: usize,
     editing: Option<String>, // edit buffer when editing the selected row
     error: Option<String>,
@@ -105,6 +107,7 @@ pub fn run(payload: Payload, disks: Vec<Disk>, detected: Firmware) -> io::Result
         swap: "0".into(),
         luks: false,
         luks_pw: String::new(),
+        lvm: false,
         sel: 0,
         editing: None,
         error: None,
@@ -191,6 +194,7 @@ pub fn run(payload: Payload, disks: Vec<Disk>, detected: Firmware) -> io::Result
                     KeyCode::Enter => match ROWS[form.sel] {
                         Row::Disk | Row::Bootloader | Row::Fs | Row::Keymap => form.cycle(true),
                         Row::Luks => form.luks = !form.luks,
+                        Row::Lvm => form.lvm = !form.lvm,
                         Row::Install => {
                             if let Some(e) = form.validate() {
                                 form.error = Some(e);
@@ -202,6 +206,7 @@ pub fn run(payload: Payload, disks: Vec<Disk>, detected: Firmware) -> io::Result
                         _ => form.start_edit(),
                     },
                     KeyCode::Char(' ') if ROWS[form.sel] == Row::Luks => form.luks = !form.luks,
+                    KeyCode::Char(' ') if ROWS[form.sel] == Row::Lvm => form.lvm = !form.lvm,
                     KeyCode::Char('q') => break 'outer,
                     _ => {}
                 }
@@ -281,6 +286,7 @@ impl Form {
                 let _ = crate::run::out(&["loadkeys", engine::KEYMAPS[self.km_idx].0]);
             }
             Row::Luks => self.luks = !self.luks,
+            Row::Lvm => self.lvm = !self.lvm,
             _ => {}
         }
     }
@@ -340,6 +346,7 @@ impl Form {
             },
             swap_gib: self.swap.trim().parse().unwrap_or(0),
             luks_pw: if self.luks { Some(self.luks_pw.clone()) } else { None },
+            lvm: self.lvm,
             extra_pkgs: String::new(),
         }
     }
@@ -394,7 +401,7 @@ fn draw(f: &mut ratatui::Frame, payload: &Payload, form: &Form, phase: &Phase) {
         let d = &form.disks[form.disk_idx];
         let (kc, _, kl) = engine::KEYMAPS[form.km_idx];
         let msg = format!(
-            "\n{}\n\n  Disk        {}  ({:.1} GiB)\n  Bootloader  GRUB — {}\n  Filesystem  {}\n  Keyboard    {} ({})\n  Hostname    {}\n  User        {}\n  Swap        {} GiB\n  Encryption  {}\n\nEVERYTHING ON THE DISK WILL BE ERASED.\n\n[Enter] Install      [Esc] Go back",
+            "\n{}\n\n  Disk        {}  ({:.1} GiB)\n  Bootloader  GRUB — {}\n  Filesystem  {}\n  Keyboard    {} ({})\n  Hostname    {}\n  User        {}\n  Swap        {} GiB\n  Encryption  {}\n  LVM         {}\n\nEVERYTHING ON THE DISK WILL BE ERASED.\n\n[Enter] Install      [Esc] Go back",
             "Ready to install:",
             d.dev, d.gib(),
             engine::fw_name(form.fw_options[form.fw_idx]),
@@ -404,6 +411,7 @@ fn draw(f: &mut ratatui::Frame, payload: &Payload, form: &Form, phase: &Phase) {
             if form.user_name.is_empty() { "(none)" } else { &form.user_name },
             form.swap,
             if form.luks { "LUKS2" } else { "no" },
+            if form.lvm { "yes" } else { "no" },
         );
         popup(f, area, " Confirm installation ", &msg, Color::Red);
     }
@@ -453,6 +461,7 @@ fn draw_form(f: &mut ratatui::Frame, area: Rect, form: &Form) {
                 Row::Swap => ("Swapfile (GiB)", form.swap.clone()),
                 Row::Luks => ("Encrypt (LUKS2)", if form.luks { "yes".into() } else { "no".into() }),
                 Row::LuksPw => ("LUKS passphrase", mask(&form.luks_pw)),
+                Row::Lvm => ("LVM", if form.lvm { "yes".into() } else { "no".into() }),
                 Row::Install => ("", "▶ Install".to_string()),
             };
             let value = if editing {
@@ -515,6 +524,7 @@ fn draw_form(f: &mut ratatui::Frame, area: Rect, form: &Form) {
         Row::Swap => "Size of the swapfile created at /swapfile. 0 disables swap.",
         Row::Luks => "Full-disk encryption (LUKS2) for the root filesystem.\n\nYou will type the passphrase at every boot.",
         Row::LuksPw => "The LUKS passphrase. Without it the data is unrecoverable.",
+        Row::Lvm => "Put the root filesystem on an LVM logical volume (VG 'blueberry', LV 'root').\n\nAdds flexible volume management; combines with LUKS as LVM-on-LUKS.",
         Row::Install => "Review the summary and start the installation.",
     };
     f.render_widget(

@@ -107,11 +107,13 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	@echo "[initramfs] bundling installer + disk + crypto + grub + bash"
 	@# xfsprogs/btrfs-progs (+ their lib deps liburcu/libinih/lzo) give the
 	@# installer mkfs.xfs / mkfs.btrfs so root can be XFS or Btrfs, not just ext4.
+	@# lvm2 (+ libaio/readline) gives the installer pvcreate/vgcreate/lvcreate and
+	@# the boot-time `vgchange -ay` for LVM (and LVM-on-LUKS) roots.
 	@sh $(THISDIR)/../../tools/build-bpm-pkg.sh $(OBJDIR)/instpkgs \
 	    popt e2fsprogs dosfstools gptfdisk json-c device-mapper openssl zlib cryptsetup \
-	    grub kbd ncurses bash xfsprogs btrfs-progs liburcu libinih lzo
+	    grub kbd ncurses bash xfsprogs btrfs-progs liburcu libinih lzo lvm2 libaio readline
 	@for p in popt e2fsprogs dosfstools gptfdisk json-c device-mapper openssl zlib cryptsetup \
-	          grub kbd ncurses bash xfsprogs btrfs-progs liburcu libinih lzo; do \
+	          grub kbd ncurses bash xfsprogs btrfs-progs liburcu libinih lzo lvm2 libaio readline; do \
 	    f=$$(ls -t $(OBJDIR)/instpkgs/$$p-[0-9]*.bpm | head -1); \
 	    zstd -dcq "$$f" | tar -x -C $(INITRAMDIR) --exclude .BPM 2>/dev/null; \
 	done
@@ -197,6 +199,7 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	    $(INITRAMDIR)/usr/sbin/mkfs.fat \
 	    $(INITRAMDIR)/usr/bin/mkfs.xfs \
 	    $(INITRAMDIR)/usr/bin/mkfs.btrfs \
+	    $(INITRAMDIR)/usr/bin/lvm \
 	    $(INITRAMDIR)/sbin/cryptsetup \
 	    $(INITRAMDIR)/sbin/blkid
 

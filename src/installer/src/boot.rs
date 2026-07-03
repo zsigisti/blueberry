@@ -76,6 +76,7 @@ pub fn write_grub_cfg(mnt: &str, root_uuid: &str, root_spec: &str, cryptarg: &st
     let cfg = format!(
         "set timeout=3\n\
          insmod all_video\n\
+         insmod lvm\n\
          menuentry 'Blueberry Linux' {{\n\
          \x20   search --no-floppy --fs-uuid --set=root {uuid}\n\
          \x20   linux /boot/vmlinuz {crypt}root={root} rw console=tty0 console=ttyS0,115200\n\
