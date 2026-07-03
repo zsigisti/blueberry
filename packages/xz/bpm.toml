@@ -1,0 +1,29 @@
+[package]
+name     = "xz"
+version  = "5.6.3"
+release  = 1
+summary  = "XZ / LZMA compression CLI utilities (xz, unxz, xzcat, lzma)"
+homepage = "https://tukaani.org/xz/"
+license  = ["GPL-2.0-or-later", "LGPL-2.1-or-later", "0BSD"]
+arch     = ["x86_64"]
+
+# liblzma.so.5 is already provided by the base image; this ships the CLI tools
+# (and a matching liblzma of the same soname).
+depends     = ["glibc"]
+makedepends = ["make", "gcc"]
+provides    = ["xz", "liblzma.so"]
+
+[[source]]
+url    = "https://github.com/tukaani-project/xz/releases/download/v5.6.3/xz-5.6.3.tar.xz"
+sha256 = "db0590629b6f0fa36e74aea5f9731dc6f8df068ce7b7bafa45301832a5eebc3a"
+
+[steps]
+build = '''
+cd "$name-$version"
+./configure --prefix=/usr --disable-static --disable-rpath
+make -j"$(nproc)"
+'''
+package = '''
+cd "$name-$version"
+make DESTDIR="$pkgdir" install
+'''

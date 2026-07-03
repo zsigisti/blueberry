@@ -1,0 +1,38 @@
+[package]
+name     = "unzip"
+version  = "6.0"
+release  = 1
+summary  = "Extract and view ZIP archives (unzip, funzip, zipinfo)"
+homepage = "https://infozip.sourceforge.net/"
+license  = ["custom:info-zip"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["make", "gcc"]
+provides    = ["unzip", "zipinfo"]
+
+[[source]]
+# archive extracts to unzip60
+url    = "https://downloads.sourceforge.net/infozip/unzip60.tar.gz"
+sha256 = "036d96991646d0449ed0aa952e4fbe21b476ce994abc276e49d30e686708bd37"
+
+[steps]
+build = '''
+cd unzip60
+# Info-ZIP 6.0 predates modern C: a K&R gmtime()/localtime() redeclaration
+# clashes with <time.h>; drop it and build the Linux target under -std=gnu89.
+sed -i '/struct tm \*gmtime(), \*localtime();/d' unix/unxcfg.h
+make -f unix/Makefile linux_noasm \
+    CC="gcc -std=gnu89 -fcommon -Wno-implicit-int -Wno-implicit-function-declaration"
+'''
+package = '''
+cd unzip60
+install -Dm755 unzip     "$pkgdir/usr/bin/unzip"
+install -m755  funzip    "$pkgdir/usr/bin/funzip"
+install -m755  unzipsfx  "$pkgdir/usr/bin/unzipsfx"
+ln -sf unzip "$pkgdir/usr/bin/zipinfo"
+for m in unzip funzip unzipsfx zipinfo; do
+  install -Dm644 "man/$m.1" "$pkgdir/usr/share/man/man1/$m.1" 2>/dev/null || true
+done
+install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$name/LICENSE"
+'''

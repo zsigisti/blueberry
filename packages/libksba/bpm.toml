@@ -1,0 +1,28 @@
+[package]
+name     = "libksba"
+version  = "1.6.7"
+release  = 1
+summary  = "X.509 and CMS (PKCS#7) library used by GnuPG"
+homepage = "https://gnupg.org/software/libksba/"
+license  = ["LGPL-3.0-or-later", "GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libgpg-error"]
+makedepends = ["make", "gcc", "libgpg-error"]
+provides    = ["libksba.so"]
+
+[[source]]
+url    = "https://www.gnupg.org/ftp/gcrypt/libksba/libksba-1.6.7.tar.bz2"
+sha256 = "cf72510b8ebb4eb6693eef765749d83677a03c79291a311040a5bfd79baab763"
+
+[steps]
+build = '''
+cd "$name-$version"
+./configure --prefix=/usr --disable-static
+make -j"$(nproc)"
+'''
+package = '''
+cd "$name-$version"
+make DESTDIR="$pkgdir" install
+install -Dm644 COPYING.LGPLv3 "$pkgdir/usr/share/licenses/$name/COPYING.LGPLv3" 2>/dev/null || true
+'''

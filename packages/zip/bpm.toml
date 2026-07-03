@@ -1,0 +1,36 @@
+[package]
+name     = "zip"
+version  = "3.0"
+release  = 1
+summary  = "Create and update ZIP archives (zip, zipnote, zipsplit, zipcloak)"
+homepage = "https://infozip.sourceforge.net/"
+license  = ["custom:info-zip"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["make", "gcc"]
+provides    = ["zip"]
+
+[[source]]
+# archive extracts to zip30
+url    = "https://downloads.sourceforge.net/infozip/zip30.tar.gz"
+sha256 = "f0e8bb1f9b7eb0b01285495a2699df3a4b766784c1765a8f1aeedf63c0806369"
+
+[steps]
+build = '''
+cd zip30
+# The `generic` target runs Info-ZIP's own configure probes; under strict GCC 16
+# they misdetect libc (wrongly defining ZMEM → duplicate memset/memcpy). Passing
+# a lenient CC to `generic` (not generic_gcc, which hardcodes CC=gcc) fixes it.
+make -f unix/Makefile generic \
+    CC="gcc -std=gnu89 -fcommon -Wno-implicit-int -Wno-implicit-function-declaration"
+'''
+package = '''
+cd zip30
+install -Dm755 zip "$pkgdir/usr/bin/zip"
+install -m755 zipnote zipsplit zipcloak "$pkgdir/usr/bin/"
+for m in zip zipnote zipsplit zipcloak; do
+  install -Dm644 "man/$m.1" "$pkgdir/usr/share/man/man1/$m.1" 2>/dev/null || true
+done
+install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$name/LICENSE"
+'''

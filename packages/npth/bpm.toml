@@ -1,0 +1,28 @@
+[package]
+name     = "npth"
+version  = "1.8"
+release  = 1
+summary  = "New GNU portable threads library (nPth)"
+homepage = "https://gnupg.org/software/npth/"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["make", "gcc"]
+provides    = ["libnpth.so"]
+
+[[source]]
+url    = "https://www.gnupg.org/ftp/gcrypt/npth/npth-1.8.tar.bz2"
+sha256 = "8bd24b4f23a3065d6e5b26e98aba9ce783ea4fd781069c1b35d149694e90ca3e"
+
+[steps]
+build = '''
+cd "$name-$version"
+./configure --prefix=/usr --disable-static
+make -j"$(nproc)"
+'''
+package = '''
+cd "$name-$version"
+make DESTDIR="$pkgdir" install
+install -Dm644 COPYING.LIB "$pkgdir/usr/share/licenses/$name/COPYING.LIB"
+'''

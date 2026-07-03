@@ -1,0 +1,39 @@
+[package]
+name     = "gnupg"
+version  = "2.4.7"
+release  = 1
+summary  = "Complete implementation of the OpenPGP standard (gpg)"
+homepage = "https://gnupg.org/"
+license  = ["GPL-3.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libgcrypt", "libgpg-error", "libassuan", "libksba",
+               "npth", "bzip2", "readline", "sqlite", "gnutls", "libusb"]
+makedepends = ["make", "gcc", "pkgconf", "libgcrypt", "libgpg-error",
+               "libassuan", "libksba", "npth", "bzip2", "readline", "sqlite",
+               "gnutls", "libusb"]
+provides    = ["gpg", "gpg2", "gpg-agent"]
+
+[[source]]
+url    = "https://www.gnupg.org/ftp/gcrypt/gnupg/gnupg-2.4.7.tar.bz2"
+sha256 = "7b24706e4da7e0e3b06ca068231027401f238102c41c909631349dcc3b85eb46"
+
+[steps]
+build = '''
+cd "$name-$version"
+# --disable-doc: the man pages are generated at build and gpgv.1 fails to
+# materialise, breaking `make install`. gpg itself is unaffected.
+# No --enable-gpg-is-gpg2: that legacy flag names the binary gpg2 (for systems
+# with a gpg 1.x); Blueberry has none, so the primary binary should be `gpg`.
+./configure --prefix=/usr --sysconfdir=/etc --sbindir=/usr/bin \
+    --libexecdir=/usr/lib/gnupg \
+    --enable-symcryptrun --disable-doc
+make -j"$(nproc)"
+'''
+package = '''
+cd "$name-$version"
+make DESTDIR="$pkgdir" install
+# compat symlink for scripts that call gpg2
+ln -sf gpg "$pkgdir/usr/bin/gpg2"
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''
