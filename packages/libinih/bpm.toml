@@ -1,0 +1,30 @@
+[package]
+name     = "libinih"
+version  = "58"
+release  = 1
+summary  = "Simple .INI file parser (libinih + libINIReader)"
+homepage = "https://github.com/benhoyt/inih"
+license  = ["BSD-3-Clause"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["meson", "ninja", "gcc", "pkgconf"]
+provides    = ["libinih.so", "libINIReader.so"]
+
+[[source]]
+# archive extracts to inih-r$version
+url    = "https://github.com/benhoyt/inih/archive/refs/tags/r58.tar.gz"
+sha256 = "e79216260d5dffe809bda840be48ab0eec7737b2bb9f02d2275c1b46344ea7b7"
+
+[steps]
+build = '''
+cd "inih-r$version"
+meson setup build --prefix=/usr --buildtype=release \
+    -Ddefault_library=shared -Ddistro_install=true
+meson compile -C build
+'''
+package = '''
+cd "inih-r$version"
+DESTDIR="$pkgdir" meson install -C build
+install -Dm644 LICENSE.txt "$pkgdir/usr/share/licenses/$name/LICENSE.txt"
+'''

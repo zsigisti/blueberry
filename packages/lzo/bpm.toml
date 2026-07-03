@@ -1,0 +1,28 @@
+[package]
+name     = "lzo"
+version  = "2.10"
+release  = 1
+summary  = "Portable real-time data compression library (liblzo2)"
+homepage = "https://www.oberhumer.com/opensource/lzo/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["make", "gcc"]
+provides    = ["liblzo2.so"]
+
+[[source]]
+url    = "https://www.oberhumer.com/opensource/lzo/download/lzo-2.10.tar.gz"
+sha256 = "c0f892943208266f9b6543b3ae308fab6284c5c90e627931446fb49b4221a072"
+
+[steps]
+build = '''
+cd "$name-$version"
+./configure --prefix=/usr --enable-shared --disable-static
+make -j"$(nproc)"
+'''
+package = '''
+cd "$name-$version"
+make DESTDIR="$pkgdir" install
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

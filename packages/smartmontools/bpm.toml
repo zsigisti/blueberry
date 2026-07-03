@@ -1,0 +1,30 @@
+[package]
+name     = "smartmontools"
+version  = "7.4"
+release  = 1
+summary  = "S.M.A.R.T. disk monitoring tools (smartctl, smartd)"
+homepage = "https://www.smartmontools.org/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libcap-ng"]
+makedepends = ["make", "gcc", "pkgconf", "libcap-ng"]
+provides    = ["smartctl", "smartd"]
+
+[[source]]
+url    = "https://github.com/smartmontools/smartmontools/releases/download/RELEASE_7_4/smartmontools-7.4.tar.gz"
+sha256 = "e9a61f641ff96ca95319edfb17948cd297d0cd3342736b2c49c99d4716fb993d"
+
+[steps]
+build = '''
+cd "$name-$version"
+./configure --prefix=/usr --sbindir=/usr/bin --sysconfdir=/etc \
+    --with-systemdsystemunitdir=/usr/lib/systemd/system \
+    --with-libcap-ng=yes
+make -j"$(nproc)"
+'''
+package = '''
+cd "$name-$version"
+make DESTDIR="$pkgdir" install
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''
