@@ -161,6 +161,7 @@ if [ -n "$BBINSTALL" ]; then
     BLUEBERRY_USERPW=$(cmdline blueberry.userpw)
     BLUEBERRY_LUKS=$(cmdline blueberry.luks)
     BLUEBERRY_LUKSPW=$(cmdline blueberry.lukspw)
+    BLUEBERRY_LVM=$(cmdline blueberry.lvm)
     # bios | uefi | auto (default: match the firmware we booted as)
     BLUEBERRY_BOOTLOADER=$(cmdline blueberry.bootloader)
     BLUEBERRY_KEYMAP=$(cmdline blueberry.keymap)
@@ -168,7 +169,7 @@ if [ -n "$BBINSTALL" ]; then
     BLUEBERRY_FS=$(cmdline blueberry.fs)
     export BLUEBERRY_TARGET BLUEBERRY_ROOTPW BLUEBERRY_PKGS BLUEBERRY_YES=1
     export BLUEBERRY_HOSTNAME BLUEBERRY_SWAP BLUEBERRY_USER BLUEBERRY_USERPW
-    export BLUEBERRY_LUKS BLUEBERRY_LUKSPW BLUEBERRY_BOOTLOADER BLUEBERRY_KEYMAP BLUEBERRY_FS
+    export BLUEBERRY_LUKS BLUEBERRY_LUKSPW BLUEBERRY_BOOTLOADER BLUEBERRY_KEYMAP BLUEBERRY_FS BLUEBERRY_LVM
     blueberry-install; rc=$?
     echo "BLUEBERRY_INSTALL_EXIT=$rc"
     [ "$rc" = 0 ] && echo "BLUEBERRY_INSTALL=OK" || echo "BLUEBERRY_INSTALL=FAIL"
@@ -199,6 +200,12 @@ if [ -n "$CRYPTDEV" ] && command -v cryptsetup >/dev/null 2>&1; then
     else
         echo "init: LUKS source not found: $_csrc" >&2
     fi
+fi
+
+# LVM: activate any volume groups so root= can point at a logical volume. Runs
+# after the LUKS unlock above (LVM-on-LUKS) and is harmless when there is no LVM.
+if command -v vgchange >/dev/null 2>&1; then
+    vgchange -ay >/dev/null 2>&1
 fi
 
 # ── Live desktop mode (squashfs + overlay) ────────────────────────────────────
