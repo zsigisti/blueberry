@@ -1,0 +1,31 @@
+[package]
+name     = "psmisc"
+version  = "23.7"
+release  = 1
+summary  = "Utilities that use the proc filesystem: killall, pstree, fuser, peekfd"
+homepage = "https://gitlab.com/psmisc/psmisc"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "ncurses"]
+makedepends = ["make", "gcc", "autoconf", "automake", "libtool", "gettext", "pkgconf"]
+provides    = ["killall", "pstree", "fuser"]
+
+[[source]]
+# GitLab archive of the release tag; extracts to psmisc-v$version and ships no
+# configure, so autogen.sh regenerates it.
+url    = "https://gitlab.com/psmisc/psmisc/-/archive/v23.7/psmisc-v23.7.tar.gz"
+sha256 = "8f2526ce7ac6ef4976454cd63095fa10e467ef745cf33dc4f91df0bd7b10b905"
+
+[steps]
+build = '''
+cd "$name-v$version"
+./autogen.sh
+./configure --prefix=/usr --disable-nls
+make -j"$(nproc)"
+'''
+package = '''
+cd "$name-v$version"
+make DESTDIR="$pkgdir" install
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

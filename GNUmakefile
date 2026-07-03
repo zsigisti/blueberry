@@ -53,7 +53,12 @@ SYSTEMD_BASE_PKGS := systemd util-linux coreutils libseccomp kmod dbus acl \
                      cryptsetup libcap libcap-ng readline file zlib bzip2 expat \
                      attr device-mapper json-c openssl popt openssh pam glibc-locales gmp \
                      iproute2 iputils libmnl wpa_supplicant linux-firmware networkmanager ufw \
-                     grep sed gawk findutils gzip tar diffutils less which nano vim sudo tzdata kbd
+                     grep sed gawk findutils gzip tar diffutils less which nano vim sudo tzdata kbd \
+                     procps-ng psmisc lsof mandoc man-pages
+# procps-ng gives ps/top/free/uptime/vmstat/pgrep/pkill/sysctl (busybox has these
+# only in the live initramfs; the installed systemd rootfs would have none).
+# psmisc = killall/pstree/fuser, lsof = open-file/port inspection. mandoc is the
+# man/apropos reader (no groff needed) and man-pages ships the actual content.
 # Networking userland: ip/ss/tc/bridge (iproute2, needs libmnl) + ping/tracepath
 # (iputils). The stack itself (systemd-networkd/resolved) is in systemd; these are
 # the diagnostic CLI tools. The base extraction is flat (no dep resolution), so
