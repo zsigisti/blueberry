@@ -152,8 +152,7 @@ fn cmd_install(cfg: &Config, args: &[String]) -> Result<(), String> {
         let n = pkg::install_file(cfg, Path::new(f), force).map_err(|e| e.to_string())?;
         db::mark_explicit(cfg, &n);
     }
-    pkg::run_ldconfig(cfg);
-    pkg::run_makewhatis(cfg);
+    pkg::refresh(cfg);
     Ok(())
 }
 
@@ -328,8 +327,7 @@ fn cmd_remove(cfg: &Config, args: &[String]) -> Result<(), String> {
         db::remove(cfg, name);
         println!(":: removed {name}");
     }
-    pkg::run_ldconfig(cfg);
-    pkg::run_makewhatis(cfg);
+    pkg::refresh(cfg);
 
     let orphans: Vec<String> = dep_candidates
         .into_iter()
@@ -455,8 +453,7 @@ fn install_cached(cfg: &Config, name: &str, path: &Path, force: bool) -> Result<
     if was_explicit {
         db::mark_explicit(cfg, name);
     }
-    pkg::run_ldconfig(cfg);
-    pkg::run_makewhatis(cfg);
+    pkg::refresh(cfg);
     Ok(())
 }
 
@@ -499,7 +496,7 @@ fn cmd_autoremove(cfg: &Config, args: &[String]) -> Result<(), String> {
         }
     }
     if removed > 0 {
-        pkg::run_ldconfig(cfg);
+        pkg::refresh(cfg);
         println!(":: removed {removed} orphan(s)");
     } else {
         println!(":: no orphans");
@@ -627,8 +624,7 @@ fn cmd_upgrade(cfg: &Config) -> Result<(), String> {
         }
         ok += 1;
     }
-    pkg::run_ldconfig(cfg);
-    pkg::run_makewhatis(cfg);
+    pkg::refresh(cfg);
     println!(":: upgraded {ok}/{} package(s)", plan.len());
     Ok(())
 }

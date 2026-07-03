@@ -150,6 +150,14 @@ pub fn run_ldconfig(cfg: &Config) {
     );
 }
 
+/// Post-transaction refresh: rebuild the dynamic-linker cache and the man-page
+/// index together. Every install/remove/upgrade/rollback ends with this, so the
+/// two always run as a pair. Call once per transaction; best-effort.
+pub fn refresh(cfg: &Config) {
+    run_ldconfig(cfg);
+    run_makewhatis(cfg);
+}
+
 /// Rebuild the man-page index so `man <pkg>`/apropos/whatis find pages from
 /// just-installed (or just-removed) packages. Uses mandoc's makewhatis when
 /// present (the base ships mandoc), falling back to man-db's mandb. Call once
