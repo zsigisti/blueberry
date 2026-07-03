@@ -60,18 +60,17 @@ make run             # boot the initramfs live CLI in QEMU (Ctrl-A X to quit)
 make test            # headless boot self-test (asserts BLUEBERRY_TEST=PASS)
 ```
 
-### Edition ISOs and run/test
+### Server ISO and run/test
 
 ```sh
 make server-iso      # systemd Server live ISO   → iso/blueberry-server-x86_64.iso
-make desktop-iso     # KDE Desktop live ISO       → iso/blueberry-desktop-*.iso
+make iso             # busybox live-CLI / installer ISO
 make run-server  / make test-server     # boot Server ISO  (window / headless assert)
-make run-desktop / make test-desktop     # boot Desktop ISO (window / headless assert)
+make test-install                        # unattended install to a disk image, assert boot
 ```
 
-`INIT=systemd` is the default (journald/logind/networkd/OpenSSH); `INIT=runit`
-builds the minimal RAM-first image. The `run-*`/`test-*` targets boot with
-`-cpu host` (required for the desktop's software-GL/llvmpipe rendering).
+`INIT=systemd` is the default (journald/logind/networkd/NetworkManager/OpenSSH);
+`INIT=runit` builds the minimal RAM-first image.
 
 ---
 

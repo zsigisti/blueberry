@@ -1,69 +1,65 @@
 # CI/CD
 
-Blueberry has three GitHub workflows:
+Blueberry has **one** GitHub workflow: `.github/workflows/release.yml`. There is
+no per-push build or test pipeline — building the world happens on the project's
+own build box, not on GitHub runners (GitHub can't build an Arch container full
+of packages cheaply, and git rejects the 100 MB+ ISOs). Instead, the ISOs are
+built and staged locally, and CI only **publishes a GitHub Release**.
 
-- **`.github/workflows/checks.yml`** — fast static checks (seconds), gating
-  every push. It deliberately does **not** build the package set (no `bpmbuild`,
-  no Arch container — that's the repo server's job). Jobs:
-  - **shellcheck** — lints every shell script (`tools/*.sh`, the initramfs
-    `init`/`selftest`).
-  - **closure** — `tools/check-closure.py` asserts every `packages/*/bpm.toml`
-    recipe's `depends` resolve to another recipe or a host-provided name, so the
-    `.bpm` set stays self-contained.
-  - **bpm** — compiles the package manager with `-Werror` and smoke-tests it.
-  - **installer** — compiles `blueberry-install` with `-Werror`.
-- **`.github/workflows/ci.yml`** — the full base build + QEMU boot test (below).
-- **`.github/workflows/build-world.yml`** — the "build the world" closure gate
-  (weekly + on demand). Too slow for per-push, so it runs on a self-hosted
-  builder: `make repo-build` builds **every** package from source, then
-  `make desktop-stage check-runtime-closure` asserts the staged desktop rootfs is
-  dynamically self-contained (see [ARCHITECTURE.md](ARCHITECTURE.md) §7). This is
-  what stops a package shipping with a missing dependency.
+## The release workflow
 
-## What ci.yml does
+`release.yml` triggers on a push to `master` whose commit message contains
+`[RELEASE]`. It:
 
-On every push, pull request, and manual dispatch it:
-
-1. Installs the build toolchain (gcc, kernel build deps, zstd,
-   cpio, `qemu-system-x86`).
-2. Runs `make _check_tools`.
-3. Builds the full OS: `make world` (busybox + runit + dropbear + kernel +
-   initramfs).
-4. Boots the result headless in QEMU and asserts the in-guest self-test
-   prints `BLUEBERRY_TEST=PASS`: `make test TIMEOUT=180`.
-5. On failure, uploads the QEMU serial log as a build artifact.
-
-GitHub runners have no `/dev/kvm`, so `tools/qemu.sh` runs QEMU under TCG
-automatically — slower than KVM but fully deterministic.
-
-## Running it locally
-
-CI runs exactly the same commands you do:
+1. **Derives the tag + flags** from the commit subject: the first `vX…` token
+   becomes the tag (else `beta-<date>-<shortsha>`), and the release is marked
+   **pre-release** unless the message contains `[RELEASE:stable]`.
+2. **Fetches the images** listed in `release/isos.sha256` from the mirror
+   (`https://repo.mmzsigmond.me/isos/<name>`) and **verifies** them against that
+   committed manifest (`sha256sum -c`). A tampered or truncated image fails the
+   build.
+3. **Creates the release** with `gh release create`, attaching the verified
+   ISOs and using `release/NOTES.md` as the body.
 
 ```sh
-make _check_tools
-make world JOBS="$(nproc)"
-make test TIMEOUT=180
+# cut a release
+make release-stage                       # build ISOs, upload to the mirror,
+                                         # write release/isos.sha256 + NOTES.md
+git commit -am "[RELEASE] v0.3.0-beta — <summary>"
+git push origin master                   # → the workflow publishes the release
 ```
 
-`make test` exits non-zero if the boot self-test fails, so it is safe to chain
-in any pipeline.
+Use `[RELEASE:stable]` in the subject to publish a non-prerelease.
+
+## Why images live on the mirror, not in git
+
+GitHub rejects files over 100 MB in a git push, and ISOs are far larger. So the
+build artifacts are uploaded to the mirror by `make release-stage`, and only a
+small **checksum manifest** (`release/isos.sha256`) and **notes**
+(`release/NOTES.md`) are committed. CI re-downloads and re-verifies the images
+before attaching them, so the published release still matches the committed
+hashes.
+
+## Local checks (run by hand or on the build box)
+
+There is no GitHub job for these; run them yourself before a release:
+
+```sh
+make _check_tools                 # verify the build toolchain is present
+python3 tools/check-closure.py    # every recipe's depends resolve (closed graph)
+make world && make test           # build the base + headless boot self-test
+make test-install                 # unattended install to a disk image, assert boot
+make repo-build                   # build every packages/*/bpm.toml
+```
 
 ## The boot self-test
 
-The checks live in `src/initramfs/selftest` and run inside the guest as part
-of `/init` when the kernel is booted with `bbtest` on its command line. They
-verify the live CLI is functional:
+The checks live in `src/initramfs/selftest` and run inside the guest as part of
+`/init` when the kernel is booted with `bbtest` on its command line. They verify
+the live CLI is functional: busybox/`sh` work, core applets work, `/proc`/`/sys`/
+`/dev` are mounted and populated, PID 1 is visible, `/tmp` is writable, the
+hostname was applied. `make test` boots this headless and asserts
+`BLUEBERRY_TEST=PASS`.
 
-- busybox + `sh` work
-- core applets (`ls`, `echo`, `uname`) work
-- `/proc`, `/sys`, `/dev` are mounted and populated
-- `ps` sees PID 1, `/tmp` is writable, the hostname was applied
-
-To add a check, edit `src/initramfs/selftest`, rebuild the initramfs
-(automatic on `make test`), and confirm the new `PASS:` line appears.
-
-## Tuning
-
-- `make test TIMEOUT=<seconds>` — watchdog for slow/TCG hosts.
-- `make test MEM=1G` — give the guest more RAM.
+To add a check, edit `src/initramfs/selftest`, rebuild the initramfs (automatic
+on `make test`), and confirm the new `PASS:` line appears.

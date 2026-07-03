@@ -9,7 +9,7 @@
 > scriptlets run, deps resolved) → `bpm list`/`remove`. The PKGBUILD→bpm.toml
 > converter cleanly translates all 303 existing recipes; a converted zlib recipe
 > builds and installs identically. Remaining before any production flip: build
-> the **whole** package set to `.bpm` and install-verify a desktop closure.
+> the **whole** package set to `.bpm` and install-verify the base closure.
 
 This replaces the two Arch-derived pieces Blueberry currently borrows:
 
@@ -161,7 +161,7 @@ The migration off `PKGBUILD`/`makepkg` is done:
 
 1. ✅ Generated a `bpm.toml` for every `packages/<name>` (one-time, scripted).
 2. ✅ Built the whole set to `.bpm`, indexed + signed, install-verified the base
-   and the desktop closure.
+   closure.
 3. ✅ Flipped the build/repo tooling to `.bpm` (`make repo-build`,
-   `build-bpm-pkg.sh`, `stage-desktop.sh`, the install target).
+   `build-bpm-pkg.sh`, the install target).
 4. ✅ Removed `makepkg`/`PKGBUILD` and the legacy build scripts from the pipeline.

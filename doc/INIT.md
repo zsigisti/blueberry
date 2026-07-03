@@ -2,10 +2,10 @@
 
 ## 1. Overview
 
-Blueberry runs **systemd** as PID 1 by default (`INIT=systemd`) on both editions
-— journald, logind (the seats/sessions the GUI needs), networkd/resolved/
-timesyncd, and OpenSSH. The integration layer is in `src/systemd/`;
-`make server-iso` builds a live systemd Server ISO.
+Blueberry runs **systemd** as PID 1 by default (`INIT=systemd`)
+— journald, logind, networkd/resolved/timesyncd, NetworkManager, and OpenSSH.
+The integration layer is in `src/systemd/`; `make server-iso` builds a live
+systemd Server ISO.
 
 A minimal **runit** build remains available with `INIT=runit` for RAM-first /
 embedded use; the rest of this document describes that scheme. runit is a UNIX

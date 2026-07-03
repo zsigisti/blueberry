@@ -12,7 +12,7 @@
 
 The Blueberry kernel configuration is at `src/kernel/config`. It is a
 standard Linux `.config` file — the exact format produced by `make menuconfig`,
-and a **single config serves both editions** (server + desktop).
+tuned for a headless server.
 
 When a kernel **rebuild** runs (`make kernel-rebuild` / `make kernel-publish`),
 this file is copied to the kernel source tree and `make olddefconfig` is run to
@@ -24,13 +24,17 @@ fill in any missing options added by a newer kernel version.
 
 The kernel config follows these principles:
 
-1. **Nothing the targets don't need.** No wireless (CONFIG_WIRELESS=n) by
-   default; trimmed where it doesn't cost desktop/server functionality.
+1. **Only what a server needs.** No graphics/DRM stack — this is a console
+   system. Trimmed everywhere it doesn't cost server functionality.
 
-   > **The DRM stack and the input event interface are required.** The desktop
-   > (KWin/Wayland) needs `CONFIG_DRM` + `VIRTIO_GPU`/`SIMPLEDRM` to render, and
-   > `CONFIG_INPUT_EVDEV` to create `/dev/input/event*` (without it libinput has
-   > no pointer/keyboard → invisible cursor, dead input). Do not disable these.
+   > **Wi-Fi is enabled** for real-hardware installs: `cfg80211`/`mac80211`
+   > plus common drivers (`iwlwifi`, `rtw88`, …), paired with `linux-firmware`,
+   > `wpa_supplicant`, and NetworkManager in the base image.
+   >
+   > **The legacy netfilter backend is required by `ufw`:**
+   > `CONFIG_NETFILTER_XTABLES_LEGACY=y` plus the `IP_NF_*` / `IP6_NF_*` stack.
+   > Linux 7.0 gates the legacy iptables backend behind that symbol; without it
+   > `ufw` reports "table does not exist."
 
 2. **Everything a server does need.** ext4, xfs, btrfs, LVM, RAID, NVMe,
    virtio, nftables, WireGuard, eBPF, cgroups, namespaces — all built in
