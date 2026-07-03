@@ -17,7 +17,7 @@ summary  = "GNU Hello — example package"
 license  = ["GPL-3.0-or-later"]
 arch     = ["x86_64"]
 depends     = ["glibc"]            # runtime — Blueberry package names
-makedepends = ["cmake", "ninja"]  # build-only — pulled from Arch in the container
+makedepends = ["make", "gcc"]     # build-only — pulled from Arch in the container
 enable      = ["hello.service"]   # optional: systemd units to enable on install
 
 [[source]]
@@ -36,7 +36,7 @@ make DESTDIR="$pkgdir" install
 '''
 ```
 
-The shell steps get `$srcdir $pkgdir $name $version $release $arch`. Build it:
+The shell steps get `$name $version $release $arch $pkgdir`. Build it:
 
 ```sh
 ENGINE=podman tools/build-bpm-pkg.sh ../out hello
@@ -63,24 +63,20 @@ Key rules:
 
 ## Patterns that come up a lot
 
-This repo bootstrapped Qt 6, KDE Plasma, and GTK from source; the recurring
-fixes are worth knowing:
-
-- **GCC 16 strictness.** The build container ships GCC 16. Old C may need
-  `-std=gnu17`; some C++ needs a forced `-include cstdint`. C23 is the default.
-- **KDE Frameworks 6.** Need `qt6-tools` (LinguistTools) and `qt6-declarative`
-  (Qml) as makedeps, and `-DBUILD_PYTHON_BINDINGS=OFF` to skip PySide.
-- **Version matching.** Qt modules must build against the **exact** Qt version
-  the container provides; KDE Frameworks must all share one version.
-- **Wayland/X11 libs.** Compositor/desktop packages often need `vulkan-headers`,
-  `wayland-protocols`, `plasma-wayland-protocols`, and specific `libx*` headers
-  as makedeps.
-- **Optional backends.** KDE apps expose `-DFORCE_NOT_REQUIRED_DEPENDENCIES=...`
-  and feature flags (e.g. `-DGWENVIEW_IMAGEANNOTATOR=OFF`) to drop heavy optional
-  deps.
-- **Arch name mismatches.** A Blueberry package name may differ from Arch's
-  (e.g. `polkit-kde-agent` vs `polkit-kde-agent-1`); use `provides=()` and the
-  Arch name where the build needs it.
+- **GCC 16 strictness.** The build container ships GCC 16. Old K&R / C23 code
+  often needs `-std=gnu17`; some builds need `-Werror=format-security` stripped
+  from CFLAGS.
+- **CFLAGS via ENV, not make args.** Pass overrides through the environment
+  (`export CFLAGS=...`) rather than `make CFLAGS=...`, which can clobber a
+  package's own `-I` include paths.
+- **Extraction dir vs `$name-$version`.** GitLab/GitHub archive tarballs may
+  extract to a differently-named directory (e.g. `foo-v1.2`); `cd` into the real
+  directory in your steps.
+- **Autotools from a VCS archive.** A git-archive tarball often ships no
+  `configure`; run `./autogen.sh` first (add `autoconf automake libtool gettext`
+  to `makedepends`).
+- **Arch name mismatches.** A Blueberry package name may differ from Arch's; use
+  `provides = [...]` and reference the Arch name where a build needs it.
 
 ## Submitting a recipe
 

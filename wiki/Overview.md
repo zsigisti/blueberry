@@ -4,33 +4,37 @@ Blueberry Linux is a Linux distribution with an unusual property: **the whole
 operating system, and every package in it, is built from source out of a single
 git repository** — and shipped from a mirror that depends on no other distro.
 
+It is a minimal, rolling **CLI server** system in the BSD tradition: one tree,
+one package manager, one signed mirror, and no upstream binary dependencies.
+
 ## The shape of the project
 
 ```
 blueberry/                 ← one git repo
-├── src/                   ← the OS itself (kernel, init, bpm, installer)
-├── packages/              ← ~280 from-source package recipes
-├── editions/desktop/      ← Blueberry Desktop (release model, the Blueberry installer, live ISO)
+├── src/                   ← the OS itself (kernel glue, init, bpm, installer)
+├── packages/              ← ~130 from-source package recipes (bpm.toml)
 ├── tools/                 ← build & publish scripts
+├── init/ + systemd/       ← runit stages / systemd units
 └── doc/ + wiki/           ← documentation
 ```
 
-`make world` builds a bootable system. `tools/build-bpm-pkg.sh` builds any package
-from `packages/` into a `.bpm`. `tools/bpmrepo.sh` indexes and signs a
+`make world` builds a bootable system. `tools/build-bpm-pkg.sh` builds any
+package from `packages/` into a `.bpm`. `tools/bpmrepo.sh` indexes and signs a
 mirror. That is the entire supply chain, and you own all of it.
 
-## Two editions
+## What Blueberry Server is
 
-| | Server | Desktop |
-|---|---|---|
-| Interface | Live CLI (busybox + bash) | KDE Plasma 6 (default) / GNOME |
-| Init | systemd (default) · runit | systemd |
-| Releases | Rolling | Stable: `YY.04`/`YY.10`, LTS every even April |
-| Kernel | Rolling `bpm` package | **Pinned per release** |
-| Installer | `blueberry-install` (CLI) | the Blueberry installer (live ISO) |
-
-They are not two repos or two forks — they are one tree with an edition overlay
-in [`editions/desktop/`](../../editions/desktop). See [Desktop Edition](../desktop/Desktop-Edition).
+- **From source, self-hosted.** Every package is a recipe built from upstream
+  source. A running system pulls only from the Blueberry mirror — never an Arch,
+  Debian, or Ubuntu repo. (An Arch container is used only as the *build*
+  toolchain; it is not part of the installed system.)
+- **Rolling.** Userspace advances continuously via `bpm upgrade`.
+- **systemd by default.** PID 1 is systemd — journald, logind,
+  networkd/resolved, NetworkManager, and OpenSSH. A minimal **runit** build
+  (`INIT=runit`) is available for RAM-first / embedded use.
+- **CLI only.** No X11, no Wayland, no desktop. Just a real GNU/Linux server
+  userland: `ps`/`top`/`free`, `ss`/`ip`, `systemctl`/`journalctl`, `ufw`,
+  `nmcli`/`nmtui`, editors, and the toolchain.
 
 ## The package manager: bpm
 
@@ -44,25 +48,23 @@ packages from an HTTP(S) repo, streaming and verifying each one:
 
 See [Package Management](Package-Management).
 
-## What's been built
+## What's on the mirror
 
-The mirror carries the full stack, all from source:
+The full server stack, all from source:
 
-- **Toolchain:** gcc, binutils, make, git.
-- **Graphics:** Mesa, LLVM, Wayland, the X11/XCB libraries, Vulkan loader.
-- **Qt 6.11:** base, declarative, wayland, svg, multimedia, and more.
-- **KDE Frameworks 6.27:** ~66 frameworks.
-- **KDE Plasma 6.7:** KWin, plasma-workspace, plasma-desktop, SDDM, Breeze, the
-  full component set.
-- **GTK 3 stack:** cairo, pango, gdk-pixbuf, at-spi2-core, gtk3.
-- **Apps:** Dolphin, Konsole, Kate, Ark, Okular, Gwenview, Firefox, Brave,
-  GIMP, Blender, Steam, Spotify.
-
-Closed-source apps (Steam, Spotify, Brave) are packaged by wrapping the
-**vendor's official binary** — see [Self-Hosting Philosophy](Self-Hosting-Philosophy).
+- **Toolchain:** gcc, binutils, make, git, python.
+- **Base userland:** glibc, coreutils, util-linux, bash, the GNU tools
+  (grep/sed/gawk/findutils/tar/gzip), procps-ng, psmisc, lsof, less, vim, nano.
+- **Init & services:** systemd, dbus, polkit, OpenSSH, chrony, dcron, logrotate,
+  rsync, nginx, redis.
+- **Networking:** NetworkManager, wpa_supplicant, iproute2, iputils, dhcpcd,
+  wireguard-tools, nftables, iptables, ufw, tcpdump.
+- **Storage & crypto:** e2fsprogs, dosfstools, cryptsetup, mdadm,
+  device-mapper, openssl, gnutls, krb5.
+- **Firmware:** linux-firmware (the full blob set for real hardware).
 
 ## Where to go next
 
 - New here? → [Getting Started](Getting-Started)
-- Want the desktop? → [Installing Blueberry Desktop](../desktop/Installing-Blueberry-Desktop)
+- Installing to disk? → [Installing Blueberry Server](Installing-Blueberry-Server)
 - Curious how it works? → [Architecture](Architecture)
