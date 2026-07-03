@@ -1,0 +1,29 @@
+[package]
+name     = "liburcu"
+version  = "0.15.1"
+release  = 1
+summary  = "Userspace RCU (read-copy-update) library"
+homepage = "https://liburcu.org/"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["make", "gcc", "pkgconf"]
+provides    = ["liburcu.so", "liburcu-cds.so", "liburcu-bp.so"]
+
+[[source]]
+# archive extracts to userspace-rcu-$version
+url    = "https://lttng.org/files/urcu/userspace-rcu-0.15.1.tar.bz2"
+sha256 = "98d66cc12f2c5881879b976f0c55d10d311401513be254e3bd28cf3811fb50c8"
+
+[steps]
+build = '''
+cd "userspace-rcu-$version"
+./configure --prefix=/usr --disable-static
+make -j"$(nproc)"
+'''
+package = '''
+cd "userspace-rcu-$version"
+make DESTDIR="$pkgdir" install
+install -Dm644 LICENSE.md "$pkgdir/usr/share/licenses/$name/LICENSE.md"
+'''

@@ -1,0 +1,31 @@
+[package]
+name     = "lvm2"
+version  = "2.03.30"
+release  = 1
+summary  = "Logical Volume Manager 2 (lvm, vgcreate, lvcreate, …)"
+homepage = "https://sourceware.org/lvm2/"
+license  = ["GPL-2.0-only", "LGPL-2.1-only"]
+arch     = ["x86_64"]
+
+# Built from the same LVM2 source as device-mapper, but installs only the LVM2
+# tools (install_lvm2) — libdevmapper comes from the device-mapper package.
+depends     = ["glibc", "libaio", "readline", "device-mapper"]
+makedepends = ["make", "gcc", "pkgconf", "libaio"]
+provides    = ["lvm", "vgcreate", "lvcreate"]
+
+[[source]]
+url    = "https://sourceware.org/ftp/lvm2/LVM2.2.03.30.tgz"
+sha256 = "ad76abecb8dc887733e06c449cb9add04a3506f9f0780c128817a6e1a17cec05"
+
+[steps]
+build = '''
+cd "LVM2.$version"
+./configure --prefix=/usr --sbindir=/usr/bin --with-default-dm-run-dir=/run \
+    --enable-dmeventd=no --disable-selinux --enable-pkgconfig \
+    --with-thin=internal --with-cache=internal
+make -j"$(nproc)"
+'''
+package = '''
+cd "LVM2.$version"
+make install_lvm2 DESTDIR="$pkgdir"
+'''

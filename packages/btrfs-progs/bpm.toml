@@ -1,0 +1,32 @@
+[package]
+name     = "btrfs-progs"
+version  = "6.13"
+release  = 1
+summary  = "Btrfs filesystem utilities (mkfs.btrfs, btrfs, btrfs-convert, …)"
+homepage = "https://btrfs.readthedocs.io/"
+license  = ["GPL-2.0-only"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "util-linux", "lzo", "zlib"]
+makedepends = ["make", "gcc", "pkgconf", "autoconf", "automake", "util-linux", "lzo", "zlib"]
+provides    = ["mkfs.btrfs", "btrfs"]
+
+[[source]]
+# archive extracts to btrfs-progs-v$version
+url    = "https://mirrors.edge.kernel.org/pub/linux/kernel/people/kdave/btrfs-progs/btrfs-progs-v6.13.tar.xz"
+sha256 = "65b3f21117a594f80013b432620eecc6a7e2b0c05eab97136ff506c74d73ee9a"
+
+[steps]
+build = '''
+cd "$name-v$version"
+./autogen.sh
+./configure --prefix=/usr --bindir=/usr/bin --sbindir=/usr/bin \
+    --disable-documentation --disable-backtrace --disable-python \
+    --with-crypto=builtin
+make -j"$(nproc)"
+'''
+package = '''
+cd "$name-v$version"
+make DESTDIR="$pkgdir" install
+rm -f "$pkgdir"/usr/lib/*.a
+'''

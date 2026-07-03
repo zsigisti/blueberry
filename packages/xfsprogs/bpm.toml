@@ -1,0 +1,40 @@
+[package]
+name     = "xfsprogs"
+version  = "6.13.0"
+release  = 1
+summary  = "XFS filesystem utilities (mkfs.xfs, xfs_repair, xfs_growfs, …)"
+homepage = "https://xfs.wiki.kernel.org/"
+license  = ["LGPL-2.1-or-later", "GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "util-linux", "liburcu", "libinih"]
+makedepends = ["make", "gcc", "pkgconf", "util-linux", "liburcu", "libinih"]
+provides    = ["mkfs.xfs", "xfs_repair"]
+
+[[source]]
+url    = "https://www.kernel.org/pub/linux/utils/fs/xfs/xfsprogs/xfsprogs-6.13.0.tar.xz"
+sha256 = "0459933f93d94c82bc2789e7bd63742273d9d74207cdae67dc3032038da08337"
+
+[steps]
+build = '''
+cd "$name-$version"
+export DEBUG=-DNDEBUG
+# libicu is only used by xfs_scrub for confusable-unicode name checks and its
+# link is broken under binutils --as-needed (libicuuc DSO missing); disable it.
+./configure --prefix=/usr --enable-editline=no --enable-lib64=no --enable-libicu=no
+make -j"$(nproc)"
+'''
+package = '''
+cd "$name-$version"
+make DESTDIR="$pkgdir" PKG_ROOT_SBIN_DIR=/usr/bin PKG_SBIN_DIR=/usr/bin install install-dev
+# merged-usr: fold any /sbin or /usr/sbin into /usr/bin
+for d in sbin usr/sbin; do
+  if [ -d "$pkgdir/$d" ]; then
+    install -dm755 "$pkgdir/usr/bin"
+    mv "$pkgdir/$d"/* "$pkgdir/usr/bin/" 2>/dev/null || true
+    rmdir "$pkgdir/$d" 2>/dev/null || true
+  fi
+done
+# drop static libs
+rm -f "$pkgdir"/usr/lib/*.a
+'''
