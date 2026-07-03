@@ -1,0 +1,25 @@
+[package]
+name     = "man-pages"
+version  = "6.9.1"
+release  = 1
+summary  = "Linux man-pages: sections 2/3/4/5/7 (syscalls, libc, devices, formats, overviews)"
+homepage = "https://www.kernel.org/doc/man-pages/"
+license  = ["GPL-2.0-or-later", "BSD-3-Clause", "custom"]
+arch     = ["x86_64"]
+
+# Content only — no binaries. Rendered by the mandoc `man`/`apropos` reader in
+# base. Without this, `man 2 open`, `man 7 signal`, etc. have nothing to show.
+depends = []
+
+[[source]]
+url    = "https://mirrors.edge.kernel.org/pub/linux/docs/man-pages/man-pages-6.9.1.tar.xz"
+sha256 = "e23cbac29f110ba571f0da8523e79d373691466ed7f2a31301721817d34530bd"
+
+[steps]
+build = '''
+true
+'''
+package = '''
+cd "$name-$version"
+make prefix=/usr DESTDIR="$pkgdir" install
+'''

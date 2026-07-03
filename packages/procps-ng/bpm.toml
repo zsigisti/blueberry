@@ -1,0 +1,33 @@
+[package]
+name     = "procps-ng"
+version  = "4.0.4"
+release  = 1
+summary  = "Process/system monitoring utilities: ps, top, free, uptime, vmstat, pkill, sysctl"
+homepage = "https://gitlab.com/procps-ng/procps"
+license  = ["GPL-2.0-or-later", "LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+# The core process/system toolkit the installed server assumes exists. busybox
+# provides ps/top/free only in the live initramfs; the systemd rootfs has none
+# of these without this package. `kill` is disabled to avoid clashing with the
+# util-linux kill(1) already in base.
+depends     = ["glibc", "ncurses"]
+makedepends = ["make", "gcc", "pkgconf"]
+provides    = ["ps", "top", "free", "uptime", "vmstat", "pgrep", "pkill", "sysctl", "watch"]
+
+[[source]]
+url    = "https://downloads.sourceforge.net/project/procps-ng/Production/procps-ng-4.0.4.tar.xz"
+sha256 = "22870d6feb2478adb617ce4f09a787addaf2d260c5a8aa7b17d889a962c5e42e"
+
+[steps]
+build = '''
+cd "$name-$version"
+./configure --prefix=/usr --sbindir=/usr/bin --bindir=/usr/bin \
+    --libdir=/usr/lib --sysconfdir=/etc --disable-static --disable-kill
+make -j"$(nproc)"
+'''
+package = '''
+cd "$name-$version"
+make DESTDIR="$pkgdir" install
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

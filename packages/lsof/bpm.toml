@@ -1,0 +1,27 @@
+[package]
+name     = "lsof"
+version  = "4.99.4"
+release  = 1
+summary  = "Lists information about files opened by processes (ports, sockets, files)"
+homepage = "https://github.com/lsof-org/lsof"
+license  = ["custom:lsof"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["make", "gcc", "autoconf", "automake", "pkgconf"]
+
+[[source]]
+url    = "https://github.com/lsof-org/lsof/releases/download/4.99.4/lsof-4.99.4.tar.gz"
+sha256 = "0c444e2dabec14ad146cbb7f5b52b5ab4976728402ff348d9feced9ad9740c66"
+
+[steps]
+build = '''
+cd "$name-$version"
+./configure --prefix=/usr
+make -j"$(nproc)"
+'''
+package = '''
+cd "$name-$version"
+make DESTDIR="$pkgdir" install
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''
