@@ -60,5 +60,5 @@ Current releases are **beta** — expect rough edges and report what you find.
 License
 -------
 
-MIT — see `LICENSE`. Bundled components keep their own licenses (Linux kernel
-GPL-2.0 + syscall-note, glibc LGPL-2.1, busybox GPL-2.0, …).
+GPL-3.0-or-later — see `LICENSE`. Bundled components keep their own licenses
+(Linux kernel GPL-2.0 + syscall-note, glibc LGPL-2.1, busybox GPL-2.0, …).

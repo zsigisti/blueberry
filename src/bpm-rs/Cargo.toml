@@ -3,7 +3,7 @@ name = "bpm"
 version = "1.8.0"
 edition = "2021"
 description = "Blueberry Package Manager — Rust rewrite"
-license = "MIT"
+license = "GPL-3.0-or-later"
 
 [[bin]]
 name = "bpm"

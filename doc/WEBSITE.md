@@ -31,7 +31,7 @@ Output is a static `dist/` folder served by nginx on the Rocky box.
 | Default branch | `master` |
 | CI workflow file | `.github/workflows/ci.yml` (name: **CI**) |
 | Release tag pattern | `v*` (e.g. `v0.1.0`) |
-| License | MIT (kernel GPL-2.0, busybox GPL-2.0, runit BSD-3, glibc LGPL-2.1, dropbear MIT) |
+| License | GPL-3.0-or-later (kernel GPL-2.0, busybox GPL-2.0, runit BSD-3, glibc LGPL-2.1, dropbear MIT) |
 
 **Component versions** (source of truth is `Make.config` — read them from there
 at build time if you can; otherwise hard-code these):
