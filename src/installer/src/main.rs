@@ -17,7 +17,7 @@ mod tui;
 mod ui;
 
 use boot::Firmware;
-use engine::{Config, Ev, Payload};
+use engine::{Config, Ev, Filesystem, Payload};
 use run::R;
 use std::env;
 use std::process::exit;
@@ -109,6 +109,7 @@ fn config_from_env(payload: &Payload) -> R<Config> {
     Ok(Config {
         disk_dev,
         firmware,
+        fs: Filesystem::parse(&env::var("BLUEBERRY_FS").unwrap_or_default()),
         keymap: env::var("BLUEBERRY_KEYMAP").unwrap_or_else(|_| "us".into()),
         hostname: env::var("BLUEBERRY_HOSTNAME").unwrap_or_else(|_| "blueberry".into()),
         root_pw: env::var("BLUEBERRY_ROOTPW").unwrap_or_else(|_| "blueberry".into()),
@@ -145,6 +146,10 @@ fn config_from_prompts(payload: &Payload) -> R<Config> {
     let fdef = fw_kinds.iter().position(|k| *k == fw_detected).unwrap_or(0);
     let fi = ui::select("Bootloader", &fw_items, fdef, "BLUEBERRY_BOOTLOADER");
 
+    let fs_items = ["ext4 (default)".to_string(), "xfs".to_string(), "btrfs".to_string()];
+    let fsi = ui::select("Root filesystem", &fs_items, 0, "BLUEBERRY_FS");
+    let fs = Filesystem::ALL[fsi];
+
     println!("\nThis will ERASE ALL DATA on {}.", disks[di].dev);
     if !ui::confirm("Proceed and erase this disk?", false, "BLUEBERRY_ERASE_OK") {
         return Err("aborted by user".into());
@@ -179,6 +184,7 @@ fn config_from_prompts(payload: &Payload) -> R<Config> {
     Ok(Config {
         disk_dev: disks[di].dev.clone(),
         firmware: fw_kinds[fi],
+        fs,
         keymap,
         hostname,
         root_pw,

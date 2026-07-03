@@ -80,10 +80,40 @@ pub const KEYMAPS: &[(&str, &str, &str)] = &[
     ("ro", "ro", "Romanian"),
 ];
 
+/// Root filesystem choice. The kernel builds in ext4/xfs/btrfs; the installer
+/// environment carries mkfs.ext4/mkfs.xfs/mkfs.btrfs.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Filesystem {
+    Ext4,
+    Xfs,
+    Btrfs,
+}
+
+impl Filesystem {
+    /// fstab / mkfs type string.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Filesystem::Ext4 => "ext4",
+            Filesystem::Xfs => "xfs",
+            Filesystem::Btrfs => "btrfs",
+        }
+    }
+    pub const ALL: [Filesystem; 3] = [Filesystem::Ext4, Filesystem::Xfs, Filesystem::Btrfs];
+    /// Parse from a cmdline/env token; unknown falls back to ext4.
+    pub fn parse(s: &str) -> Filesystem {
+        match s.trim().to_lowercase().as_str() {
+            "xfs" => Filesystem::Xfs,
+            "btrfs" => Filesystem::Btrfs,
+            _ => Filesystem::Ext4,
+        }
+    }
+}
+
 /// Everything the engine needs to know; front-ends fill this in.
 pub struct Config {
     pub disk_dev: String, // /dev/vda
     pub firmware: Firmware,
+    pub fs: Filesystem, // root filesystem type
     pub keymap: String, // console keymap name from KEYMAPS
     pub hostname: String,
     pub root_pw: String,
@@ -156,11 +186,11 @@ pub fn run_install(cfg: &Config, payload: &Payload, emit: Emit) -> R<()> {
     }
 
     // ── Format + mount ──────────────────────────────────────────────────────
-    step(emit, "Formatting filesystems");
+    step(emit, &format!("Formatting filesystems (root: {})", cfg.fs.as_str()));
     if let Some(e) = &esp {
         disk::mkfs_fat(e, "EFI")?;
     }
-    disk::mkfs_ext4(&rootfs_dev, "blueberry-root")?;
+    disk::mkfs_root(&rootfs_dev, "blueberry-root", cfg.fs)?;
 
     step(emit, "Mounting target");
     fs::create_dir_all(MNT).ok();
@@ -233,7 +263,7 @@ pub fn run_install(cfg: &Config, payload: &Payload, emit: Emit) -> R<()> {
         );
     }
     let esp_uuid = esp.as_deref().map(disk::uuid).filter(|u| !u.is_empty());
-    boot::write_fstab(MNT, &root_spec, esp_uuid.as_deref())?;
+    boot::write_fstab(MNT, &root_spec, cfg.fs.as_str(), esp_uuid.as_deref())?;
 
     let host = if cfg.hostname.trim().is_empty() { "blueberry" } else { cfg.hostname.trim() };
     let _ = fs::write(format!("{MNT}/etc/hostname"), format!("{host}\n"));

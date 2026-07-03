@@ -100,8 +100,11 @@ pub fn install_kernel(mnt: &str, payload: &str) -> R<()> {
 }
 
 /// Write /etc/fstab (and, for UEFI, mount the ESP under /boot/efi).
-pub fn write_fstab(mnt: &str, root_spec: &str, esp_uuid: Option<&str>) -> R<()> {
-    let mut fstab = format!("{root_spec}  /      ext4  rw,relatime  0 1\n");
+pub fn write_fstab(mnt: &str, root_spec: &str, rootfs: &str, esp_uuid: Option<&str>) -> R<()> {
+    // xfs/btrfs have no fsck pass; ext4 gets pass 1. (fsck.xfs is a no-op and
+    // btrfs is checked online, so a non-zero pass would just log a warning.)
+    let pass = if rootfs == "ext4" { 1 } else { 0 };
+    let mut fstab = format!("{root_spec}  /      {rootfs}  rw,relatime  0 {pass}\n");
     if let Some(u) = esp_uuid {
         fstab.push_str(&format!("UUID={u}  /boot/efi  vfat  rw,relatime  0 2\n"));
     }
