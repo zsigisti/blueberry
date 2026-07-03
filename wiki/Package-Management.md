@@ -9,10 +9,10 @@ single ed25519-signed index.
 
 ```sh
 bpm update                 # refresh the signed package index
-bpm search firefox         # search the index
-bpm info kwin              # show a package's version, size, dependencies
-bpm install dolphin        # install (with dependencies)
-bpm remove dolphin         # uninstall
+bpm search nginx           # search the index
+bpm info redis             # show a package's version, size, dependencies
+bpm install nginx          # install (with dependencies)
+bpm remove nginx           # uninstall
 bpm upgrade                # update everything installed
 bpm list                   # list installed packages
 bpm clean                  # clear the download cache
@@ -50,28 +50,24 @@ root filesystem rather than separate packages. They are listed in
 `etc/bpm/provided` so the dependency solver treats them as already-satisfied and
 doesn't try to install them.
 
-## What `bpm upgrade` does on each edition
+## What `bpm upgrade` updates
 
-| | Server | Desktop |
-|---|---|---|
-| Userspace & apps | Updated | Updated |
-| Kernel | **Updated** (rolling `linux` package) | **Not updated** (pinned per release) |
-
-On Desktop, a newer kernel arrives only when you upgrade to the next release.
-This is intentional — see [The Kernel Model](The-Kernel-Model).
+`bpm upgrade` rolls the whole installed userspace forward. The **kernel** is a
+pinned prebuilt artifact and is *not* part of that roll — it advances when a new
+artifact is published, not on every upgrade. This is intentional; see
+[The Kernel Model](The-Kernel-Model).
 
 ## Services
 
-A package that should run as a service ships a marker `usr/lib/bpm/enable/<unit>`
-(native `.bpm` recipes just list `enable = ["sshd.service"]`). On install `bpm`
-writes the systemd `[Install]` symlinks **offline** — so it works inside a chroot
-or disk image and takes effect on next boot — and starts the unit immediately
-when installing into the live root.
+A package that should run as a service lists `enable = ["sshd.service"]` in its
+recipe. On install `bpm` writes the systemd `[Install]` symlinks **offline** —
+so it works inside a chroot or disk image and takes effect on next boot — and
+starts the unit immediately when installing into the live root.
 
 ## Installing from a local package
 
 ```sh
-bpm install ./firefox-152.0.1-1-x86_64.bpm
+bpm install ./nginx-1.27.3-1-x86_64.bpm
 ```
 
 Useful when testing a recipe you just built (see [Creating Packages](Creating-Packages)).
@@ -81,7 +77,7 @@ Useful when testing a recipe you just built (see [Creating Packages](Creating-Pa
 Any recipe in [`packages/`](../../packages) can be built into a package:
 
 ```sh
-ENGINE=podman tools/build-bpm-pkg.sh <out-dir> firefox kate kwin   # native .bpm
+ENGINE=podman tools/build-bpm-pkg.sh <out-dir> nginx redis   # native .bpm
 ```
 
 This runs the build inside an ephemeral container, fetching build dependencies,

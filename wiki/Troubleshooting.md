@@ -6,21 +6,27 @@ Common problems and fixes, grouped by area. See also the [FAQ](FAQ).
 
 | Symptom | Try |
 |---|---|
-| **Black screen in QEMU** (no greeter) | Add **`-cpu host`** — software GL (llvmpipe) needs AVX, which the default `qemu64` CPU lacks. `make run-desktop` already does this. |
-| Black screen on real hardware after login | Boot the **safe graphics / nomodeset** GRUB entry; ensure your GPU's kernel module/firmware is present |
-| Greeter shows but logging in returns to the greeter | Known limitation: the live autologin→Plasma seat/DRM hand-off; the greeter renders and is usable, full-session work is in progress |
-| Live session won't boot at all | Re-write the USB with `oflag=sync`; verify the ISO checksum; try another port/stick |
+| Live ISO won't boot in QEMU | Give it enough RAM (`-m 2G`); for the installer ISO use `make run-server`/`make run` which pass sane defaults |
+| Live session won't boot on hardware | Re-write the USB with `oflag=sync`; verify the ISO checksum; try another port/stick |
 | "Cannot find live medium" | The USB label must match `root=live:CDLABEL=...`; re-flash with `dd` (not a file copy) |
-| No Wi-Fi in the live session | Load firmware if your card needs it; connect from the Plasma system tray |
+| Boots to a blank console | Add `console=tty0 console=ttyS0` if you're on serial; check the GRUB entry matches BIOS vs UEFI |
 
-## the Blueberry installer (installer)
+## Installer
 
 | Symptom | Try |
 |---|---|
-| Installer won't launch | Open Konsole: `sudo the installer -d` for a debug log |
+| Installer can't find the payload (`rootfs.tar.zst`) | Give USB detection time (the installer retries ~40 s); re-flash the stick if the label is wrong |
 | Partitioning fails | Ensure the disk isn't mounted/in use; for UEFI you need an EFI system partition |
-| No network during install | Connect Wi-Fi in Plasma **before** starting the Blueberry installer — it uses the live connection |
 | Install finishes but won't boot | Confirm UEFI vs BIOS matches how you booted the ISO; reinstall GRUB to the right target |
+| Wrong console keymap | Pick the keymap in the installer, or set it later with `loadkeys` / `/etc/vconsole.conf` |
+
+## Networking
+
+| Symptom | Try |
+|---|---|
+| No Wi-Fi | The stack ships NetworkManager + wpa_supplicant + linux-firmware; connect with `nmtui` or `nmcli device wifi connect <SSID>` |
+| No DNS after connecting | Check `systemd-resolved`/`NetworkManager` is up (`systemctl status NetworkManager`) |
+| Firewall blocks a port | `ufw allow <port>`; check `ufw status` (ufw uses the legacy iptables backend, enabled in the kernel) |
 
 ## Packages (bpm)
 
@@ -37,18 +43,9 @@ Common problems and fixes, grouped by area. See also the [FAQ](FAQ).
 |---|---|
 | `make _check_tools` reports missing tools | Install gcc/make/curl/zstd/cpio/qemu |
 | Package build: C23/implicit-decl errors | GCC 16 strictness — add `-std=gnu17` or the needed includes ([Creating Packages](Creating-Packages)) |
-| KDE framework: "Qml/LinguistTools not found" | Add `qt6-declarative` + `qt6-tools` makedeps |
-| KDE framework: Shiboken6 required | Add `-DBUILD_PYTHON_BINDINGS=OFF` |
-| "target not found: <pkg>" during a build | The makedep uses the wrong Arch name; correct it (e.g. `xf86-input-libinput`, `libaccounts-qt`) |
+| `-Werror=format-security` fails a C build | Strip it from the recipe's CFLAGS (GCC 16 default) |
+| "target not found: <pkg>" during a build | The makedep uses the wrong Arch name; correct it |
 | Build hangs past the shell timeout | Run it detached: `setsid bash -c '… > LOG 2>&1' </dev/null &` |
-
-## Desktop runtime
-
-| Symptom | Try |
-|---|---|
-| App won't start, missing `libgtk-3` | Install the GTK stack (`gtk3` and deps) — needed by Firefox/Brave/Spotify |
-| No system sounds / media in some apps | Ensure `qt6-multimedia` is installed |
-| Kernel didn't update after `bpm upgrade` (Desktop) | **Expected** — the desktop kernel is pinned; upgrade to the next release ([The Kernel Model](The-Kernel-Model)) |
 
 ## Still stuck?
 

@@ -34,7 +34,7 @@ Build, copy, re-index, serve:
 
 ```sh
 # 1. build
-ENGINE=podman tools/build-bpm-pkg.sh ./out firefox kate
+ENGINE=podman tools/build-bpm-pkg.sh ./out nginx redis
 
 # 2. copy to the mirror host
 scp ./out/*.bpm root@mirror:/srv/blueberry-repo/
