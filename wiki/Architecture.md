@@ -30,8 +30,8 @@ firmware ─► GRUB ─► vmlinuz ─► initramfs /init (PID 1)
 
 The live initramfs is busybox-based either way; only the **installed** rootfs
 (`STAGEDIR`) changes with `INIT`. The runit stage scripts live in
-[`init/`](../../init); the systemd units in [`systemd/`](../../systemd). See
-[doc/INIT.md](../../doc/INIT.md).
+[`src/init/`](../../src/init); the systemd units in
+[`src/systemd/`](../../src/systemd). See [doc/INIT.md](../../doc/INIT.md).
 
 ## The installed server
 

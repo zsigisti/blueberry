@@ -11,10 +11,10 @@ one package manager, one signed mirror, and no upstream binary dependencies.
 
 ```
 blueberry/                 ← one git repo
-├── src/                   ← the OS itself (kernel glue, init, bpm, installer)
+├── src/                   ← the OS itself: kernel, busybox, init/systemd,
+│                            initramfs, bpm-rs, installer
 ├── packages/              ← ~130 from-source package recipes (bpm.toml)
 ├── tools/                 ← build & publish scripts
-├── init/ + systemd/       ← runit stages / systemd units
 └── doc/ + wiki/           ← documentation
 ```
 

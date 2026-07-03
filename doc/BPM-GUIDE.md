@@ -398,5 +398,5 @@ as `.BPM`), which made the migration reversible. But nothing produces them
 anymore: every recipe is `bpm.toml` and the build/repo tooling emits `.bpm` only.
 
 **Is it in production?**
-Yes. The whole package set builds to `.bpm`, the base and desktop closures
-install-verify, and the `PKGBUILD`/`makepkg` pipeline has been removed.
+Yes. The whole package set builds to `.bpm`, the base closure install-verifies,
+and the `PKGBUILD`/`makepkg` pipeline has been removed.
