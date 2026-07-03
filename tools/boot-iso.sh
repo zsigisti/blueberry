@@ -49,7 +49,9 @@ test)
     if [ "$EDITION" = desktop ]; then
         MARKER='Reached target Graphical Interface'; FAILRE='Attempted to kill init|Failed to mount.*sysroot|Kernel panic'
     else
-        MARKER='Reached target Multi-User System'; FAILRE='Attempted to kill init|Kernel panic|emergency mode'
+        # `quiet` suppresses the systemd target line, so also accept the getty
+        # login prompt (getty only runs once multi-user.target is reached).
+        MARKER='Reached target Multi-User System|blueberry login:'; FAILRE='Attempted to kill init|Kernel panic|emergency mode'
     fi
     WORK=$(mktemp -d); SER="$WORK/serial.log"; trap 'rm -rf "$WORK"' EXIT
     echo "[test] booting $EDITION ISO headless (marker: \"$MARKER\")"
@@ -62,7 +64,7 @@ test)
     i=0; rc=1
     while [ $i -lt 180 ]; do
         if deansi | grep -qE "$FAILRE"; then echo "[test] FAIL — boot error:"; deansi | grep -E "$FAILRE" | head -1; rc=1; break; fi
-        if deansi | grep -q "$MARKER"; then echo "[test] PASS — reached: $MARKER"; rc=0; break; fi
+        if deansi | grep -qE "$MARKER"; then echo "[test] PASS — reached: $MARKER"; rc=0; break; fi
         sleep 1; i=$((i+1))
     done
     kill "$QPID" 2>/dev/null || true

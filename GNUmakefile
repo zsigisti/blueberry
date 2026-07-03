@@ -72,6 +72,9 @@ endif
 
 # Stable ISO paths (no datestamp) so `make run-*`/`test-*` can find the artifact.
 SERVER_ISO  := $(TOPDIR)/iso/blueberry-server-$(ARCH).iso
+# The installer/rescue ISO (`make iso`) is datestamped and is the medium that
+# actually carries the install payload (rootfs.tar.zst) — test-install uses it.
+INSTALLER_ISO := $(TOPDIR)/iso/blueberry-$(shell date +%Y%m%d)-$(ARCH).iso
 
 LINUX_SRC      := $(OBJDIR_SRC)/linux-$(LINUX_VERSION)
 BUSYBOX_SRC    := $(OBJDIR_SRC)/busybox-$(BUSYBOX_VERSION)
@@ -314,8 +317,9 @@ _do_install:
 	    f=$$(ls -t $(OBJDIR)/bpm-out/$$p-[0-9]*.bpm | head -1); \
 	    zstd -dcq "$$f" | tar -x -C $(STAGEDIR) --exclude .BPM 2>/dev/null; \
 	done
-	@# trim dev cruft (headers, static libs, man/info, pkgconfig)
-	@rm -rf $(STAGEDIR)/usr/include $(STAGEDIR)/usr/share/man \
+	@# trim dev cruft (headers, static libs, info, pkgconfig). Keep /usr/share/man:
+	@# mandoc + man-pages are in the base so `man`/apropos work on the server.
+	@rm -rf $(STAGEDIR)/usr/include \
 	        $(STAGEDIR)/usr/share/info $(STAGEDIR)/usr/lib/pkgconfig
 	@find $(STAGEDIR)/usr/lib -name '*.a' -delete 2>/dev/null || true
 	@# Init-system integration on the installed rootfs.
@@ -488,5 +492,5 @@ help:
 # and assert it reaches multi-user with a login prompt.
 .PHONY: test-install
 test-install:
-	@[ -f $(SERVER_ISO) ] || $(MAKE) server-iso
-	@bash $(TOPDIR)/tools/test-install.sh $(SERVER_ISO)
+	@[ -f $(INSTALLER_ISO) ] || $(MAKE) iso
+	@bash $(TOPDIR)/tools/test-install.sh $(INSTALLER_ISO)
