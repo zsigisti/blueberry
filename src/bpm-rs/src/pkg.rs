@@ -150,6 +150,48 @@ pub fn run_ldconfig(cfg: &Config) {
     );
 }
 
+/// Rebuild the man-page index so `man <pkg>`/apropos/whatis find pages from
+/// just-installed (or just-removed) packages. Uses mandoc's makewhatis when
+/// present (the base ships mandoc), falling back to man-db's mandb. Call once
+/// per transaction; quiet and best-effort.
+pub fn run_makewhatis(cfg: &Config) {
+    run_root_sh(
+        cfg,
+        "if command -v makewhatis >/dev/null 2>&1; then makewhatis /usr/share/man 2>/dev/null; \
+         elif command -v mandb >/dev/null 2>&1; then mandb -q 2>/dev/null; fi",
+    );
+}
+
+/// Read (pkgname, pkgver) from a local `.bpm`/`.pkg.tar.zst` without extracting
+/// it — used to identify cached artifacts for rollback/downgrade/clean. Reads
+/// only the manifest member, then stops.
+pub fn read_meta(path: &Path) -> io::Result<(String, String)> {
+    let file = fs::File::open(path)?;
+    let decoder = zstd::stream::read::Decoder::new(io::BufReader::new(file))?;
+    let mut archive = tar::Archive::new(decoder);
+    for entry in archive.entries()? {
+        let mut e = entry?;
+        let rel_owned = e.path()?.to_string_lossy().into_owned();
+        let rel = strip_dot(&rel_owned);
+        if rel == ".BPM" || rel == ".PKGINFO" {
+            let mut raw = String::new();
+            e.read_to_string(&mut raw)?;
+            let s = if rel == ".BPM" {
+                bpm_manifest_to_pkginfo(&raw).0
+            } else {
+                raw
+            };
+            let name = index::pkginfo_field(&s, "pkgname").unwrap_or_default();
+            let ver = index::pkginfo_field(&s, "pkgver").unwrap_or_default();
+            if name.is_empty() {
+                break;
+            }
+            return Ok((name, ver));
+        }
+    }
+    Err(err("no package manifest (.BPM/.PKGINFO) found"))
+}
+
 struct Outcome {
     name: String,
     version: String,

@@ -1,6 +1,7 @@
 //! bpm — Blueberry Package Manager (Rust). Drop-in for the C bpm: same on-disk
 //! DB/cache/index, same repo index + signature scheme, same commands.
 
+mod cache;
 mod config;
 mod db;
 mod index;
@@ -31,10 +32,14 @@ fn main() -> ExitCode {
         "autoremove" => cmd_autoremove(&cfg, rest),
         "update" | "up" => cmd_update(&cfg),
         "upgrade" => cmd_upgrade(&cfg),
-        "clean" => cmd_clean(&cfg),
+        "rollback" | "rb" => cmd_rollback(&cfg, rest),
+        "downgrade" | "dg" => cmd_downgrade(&cfg, rest),
+        "clean" => cmd_clean(&cfg, rest),
         "search" | "se" => cmd_search(&cfg, rest),
         "list" | "ls" => cmd_list(&cfg),
         "info" => cmd_info(&cfg, rest),
+        "why" => cmd_why(&cfg, rest),
+        "depends" | "deptree" => cmd_depends(&cfg, rest),
         "files" => cmd_files(&cfg, rest),
         "owns" => cmd_owns(&cfg, rest),
         "-h" | "--help" | "help" => {
@@ -64,12 +69,16 @@ fn usage() {
          \x20 bpm autoremove                           remove orphaned dependencies\n\
          \x20 bpm update                               sync repo indices\n\
          \x20 bpm upgrade                              upgrade all installed packages\n\
+         \x20 bpm rollback <name>                      revert a package to the previous cached version\n\
+         \x20 bpm downgrade <name>[=<ver>]             install a specific older cached version\n\
          \x20 bpm search  <term>                       search the repo index\n\
          \x20 bpm list                                 list installed packages\n\
          \x20 bpm info    <name>                       show package metadata\n\
+         \x20 bpm why     <name>                       why a package is installed (reverse deps)\n\
+         \x20 bpm depends <name>                       show a package's dependency tree\n\
          \x20 bpm files   <name>                       list files a package owns\n\
          \x20 bpm owns    <path>                       which package owns a path\n\
-         \x20 bpm clean                                remove cached package downloads\n\n\
+         \x20 bpm clean   [--all]                      prune cached downloads (keep 2 newest/pkg)\n\n\
          Flags: -f/--force  skip space/conflict/reverse-dep checks.\n\
          Env:   BPM_ROOT=<dir> installs into a staging root instead of /.\n",
         config::VERSION
@@ -144,6 +153,7 @@ fn cmd_install(cfg: &Config, args: &[String]) -> Result<(), String> {
         db::mark_explicit(cfg, &n);
     }
     pkg::run_ldconfig(cfg);
+    pkg::run_makewhatis(cfg);
     Ok(())
 }
 
@@ -319,6 +329,7 @@ fn cmd_remove(cfg: &Config, args: &[String]) -> Result<(), String> {
         println!(":: removed {name}");
     }
     pkg::run_ldconfig(cfg);
+    pkg::run_makewhatis(cfg);
 
     let orphans: Vec<String> = dep_candidates
         .into_iter()
@@ -335,25 +346,117 @@ fn cmd_remove(cfg: &Config, args: &[String]) -> Result<(), String> {
 }
 
 // ── clean ────────────────────────────────────────────────────────────────────
-fn cmd_clean(cfg: &Config) -> Result<(), String> {
+/// Prune the package cache. By default keep the KEEP newest versions of each
+/// package (so `bpm rollback`/`downgrade` still have something to fall back to);
+/// `--all` empties the cache entirely. Also sweeps stray `.part` downloads.
+fn cmd_clean(cfg: &Config, args: &[String]) -> Result<(), String> {
+    const KEEP: usize = 2;
+    let all = args.iter().any(|a| a == "--all" || a == "-a");
     let mut n = 0u64;
     let mut bytes = 0u64;
+    let mut rm = |p: &std::path::Path| {
+        let sz = std::fs::metadata(p).map(|m| m.len()).unwrap_or(0);
+        if std::fs::remove_file(p).is_ok() {
+            n += 1;
+            bytes += sz;
+        }
+    };
+
+    for (_name, versions) in cache::grouped(cfg) {
+        let skip = if all { 0 } else { KEEP };
+        for c in versions.into_iter().skip(skip) {
+            rm(&c.path);
+        }
+    }
+    // Interrupted partial downloads are never worth keeping.
     if let Ok(rd) = std::fs::read_dir(&cfg.cache) {
         for e in rd.flatten() {
             let p = e.path();
-            if p.file_name()
-                .and_then(|f| f.to_str())
-                .map(|f| f.ends_with(".pkg.tar.zst"))
-                .unwrap_or(false)
-            {
-                bytes += e.metadata().map(|m| m.len()).unwrap_or(0);
-                if std::fs::remove_file(&p).is_ok() {
-                    n += 1;
-                }
+            if p.extension().and_then(|x| x.to_str()) == Some("part") {
+                rm(&p);
             }
         }
     }
-    println!(":: removed {n} cached package(s), freed {} MiB", bytes / 1048576);
+
+    if all {
+        println!(":: emptied cache — removed {n} file(s), freed {} MiB", bytes / 1048576);
+    } else {
+        println!(
+            ":: pruned {n} old cached package(s) (kept {KEEP} newest each), freed {} MiB",
+            bytes / 1048576
+        );
+    }
+    Ok(())
+}
+
+// ── rollback / downgrade ─────────────────────────────────────────────────────
+/// Reinstall a package's previous version from the local cache.
+fn cmd_rollback(cfg: &Config, args: &[String]) -> Result<(), String> {
+    let (force, names) = split_flags(args);
+    let name = names.first().ok_or("usage: bpm rollback [-f] <name>")?;
+    let cur = db::installed_version(cfg, name)
+        .ok_or_else(|| format!("{name} is not installed"))?;
+    match cache::previous(cfg, name, &cur) {
+        Some(c) => {
+            println!(":: rolling back {name} {cur} -> {}", c.version);
+            install_cached(cfg, name, &c.path, force)
+        }
+        None => {
+            let have = cache::versions(cfg, name);
+            let list = if have.is_empty() {
+                "cache is empty for this package".to_string()
+            } else {
+                format!(
+                    "cached: {}",
+                    have.iter().map(|c| c.version.as_str()).collect::<Vec<_>>().join(", ")
+                )
+            };
+            Err(format!(
+                "no cached version of {name} older than {cur} to roll back to ({list})"
+            ))
+        }
+    }
+}
+
+/// Install a specific older cached version (`bpm downgrade foo=1.2.3`), or the
+/// previous version when no `=<ver>` is given.
+fn cmd_downgrade(cfg: &Config, args: &[String]) -> Result<(), String> {
+    let (force, names) = split_flags(args);
+    let spec = names.first().ok_or("usage: bpm downgrade [-f] <name>[=<version>]")?;
+    let (name, want) = match spec.split_once('=') {
+        Some((n, v)) => (n.to_string(), Some(v.to_string())),
+        None => (spec.clone(), None),
+    };
+    if !db::is_installed(cfg, &name) {
+        return Err(format!("{name} is not installed"));
+    }
+    let target = match want {
+        Some(v) => cache::exact(cfg, &name, &v).ok_or_else(|| {
+            let have = cache::versions(cfg, &name);
+            let list = have.iter().map(|c| c.version.as_str()).collect::<Vec<_>>().join(", ");
+            format!("version {v} of {name} not in cache (cached: {list})")
+        })?,
+        None => {
+            let cur = db::installed_version(cfg, &name).unwrap_or_default();
+            cache::previous(cfg, &name, &cur)
+                .ok_or_else(|| format!("no cached version of {name} older than {cur}"))?
+        }
+    };
+    println!(":: downgrading {name} -> {}", target.version);
+    install_cached(cfg, &name, &target.path, force)
+}
+
+/// Shared tail for rollback/downgrade: install a cached artifact (force, since
+/// it is an intentional version change), preserving the explicit flag, then
+/// refresh ldconfig + the man index.
+fn install_cached(cfg: &Config, name: &str, path: &Path, force: bool) -> Result<(), String> {
+    let was_explicit = db::is_explicit(cfg, name);
+    pkg::install_file(cfg, path, force).map_err(|e| e.to_string())?;
+    if was_explicit {
+        db::mark_explicit(cfg, name);
+    }
+    pkg::run_ldconfig(cfg);
+    pkg::run_makewhatis(cfg);
     Ok(())
 }
 
@@ -525,6 +628,7 @@ fn cmd_upgrade(cfg: &Config) -> Result<(), String> {
         ok += 1;
     }
     pkg::run_ldconfig(cfg);
+    pkg::run_makewhatis(cfg);
     println!(":: upgraded {ok}/{} package(s)", plan.len());
     Ok(())
 }
@@ -613,5 +717,90 @@ fn cmd_owns(cfg: &Config, args: &[String]) -> Result<(), String> {
             Ok(())
         }
         None => Err(format!("no package owns /{rel}")),
+    }
+}
+
+/// Explain why a package is on the system: which installed packages require it,
+/// and whether the user asked for it explicitly.
+fn cmd_why(cfg: &Config, args: &[String]) -> Result<(), String> {
+    let name = args.first().ok_or("usage: bpm why <name>")?;
+    if !db::is_installed(cfg, name) {
+        return Err(format!("{name} is not installed"));
+    }
+    let explicit = db::is_explicit(cfg, name);
+    let reqs = db::requirers(cfg, name, &HashSet::new());
+    if reqs.is_empty() {
+        if explicit {
+            println!("{name} was explicitly installed; nothing else depends on it.");
+        } else {
+            println!(
+                "{name} is installed but nothing requires it and it isn't explicit — \
+                 an orphan (remove with 'bpm autoremove')."
+            );
+        }
+    } else {
+        println!("{name} is required by:");
+        for r in &reqs {
+            let tag = if db::is_explicit(cfg, r) { " (explicit)" } else { "" };
+            println!("    {r}{tag}");
+        }
+        if explicit {
+            println!("{name} is also explicitly installed.");
+        }
+    }
+    Ok(())
+}
+
+/// Print a package's dependency tree (installed deps from the DB, otherwise the
+/// repo index). Base-provided deps are tagged and not recursed into.
+fn cmd_depends(cfg: &Config, args: &[String]) -> Result<(), String> {
+    let name = args.first().ok_or("usage: bpm depends <name>")?;
+    if !db::is_installed(cfg, name) && index::lookup(cfg, name).is_none() {
+        return Err(format!("{name}: not installed and not in any repo"));
+    }
+    println!("{name}");
+    let mut seen = HashSet::new();
+    seen.insert(name.clone());
+    print_deptree(cfg, name, "", &mut seen);
+    Ok(())
+}
+
+/// Direct dependency names of `name`: from the installed DB when present, else
+/// from the repo index.
+fn deps_of(cfg: &Config, name: &str) -> Vec<String> {
+    if db::is_installed(cfg, name) {
+        db::package_deps(cfg, name)
+    } else if let Some(e) = index::lookup(cfg, name) {
+        e.deps
+            .iter()
+            .map(|d| index::dep_name(d).to_string())
+            .filter(|d| !d.is_empty())
+            .collect()
+    } else {
+        Vec::new()
+    }
+}
+
+fn print_deptree(cfg: &Config, name: &str, prefix: &str, seen: &mut HashSet<String>) {
+    let deps = deps_of(cfg, name);
+    let n = deps.len();
+    for (i, dep) in deps.iter().enumerate() {
+        let last = i + 1 == n;
+        let branch = if last { "└─ " } else { "├─ " };
+        let tag = if index::is_provided(cfg, dep) {
+            " (base)"
+        } else if db::is_installed(cfg, dep) {
+            ""
+        } else {
+            " (missing)"
+        };
+        let repeated = seen.contains(dep);
+        let ell = if repeated { " ..." } else { "" };
+        println!("{prefix}{branch}{dep}{tag}{ell}");
+        if !repeated && !index::is_provided(cfg, dep) {
+            seen.insert(dep.clone());
+            let child = format!("{prefix}{}", if last { "   " } else { "│  " });
+            print_deptree(cfg, dep, &child, seen);
+        }
     }
 }

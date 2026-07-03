@@ -1,0 +1,113 @@
+.Dd July 3, 2026
+.Dt BPM 1
+.Os Blueberry Linux
+.Sh NAME
+.Nm bpm
+.Nd Blueberry package manager
+.Sh SYNOPSIS
+.Nm
+.Ar command
+.Op Ar arguments ...
+.Sh DESCRIPTION
+.Nm
+is the native package manager for Blueberry Linux. It installs
+.Pa .bpm
+packages from an HTTP(S) mirror, verifying an ed25519-signed index and a
+per-package SHA-256 before anything is written to disk. Downloaded packages are
+kept in a local cache so they can be reinstalled, rolled back, or downgraded
+offline.
+.Sh COMMANDS
+.Bl -tag -width Ds
+.It Cm install Ar name|file ...
+Install one or more packages, resolving dependencies from the repositories. A
+local
+.Pa .bpm
+or
+.Pa .pkg.tar.zst
+file may be given directly.
+.It Cm remove Ar name ...
+Remove installed package(s). Refuses to strand a still-required package unless
+.Fl f
+is given.
+.It Cm autoremove
+Remove dependencies that are no longer required by any explicitly-installed
+package.
+.It Cm update
+Sync the repository indices (fetch and verify the signed
+.Pa bpm.index ) .
+.It Cm upgrade
+Upgrade every installed package to the newest available version. The kernel is a
+pinned artifact and is not part of this.
+.It Cm rollback Ar name
+Reinstall the previous cached version of a package (the newest cached version
+older than the one installed).
+.It Cm downgrade Ar name Ns Op = Ns Ar version
+Install a specific older cached version, or the previous version when no
+.Ar version
+is given.
+.It Cm search Ar term
+Search the repository index by name and description.
+.It Cm list
+List installed packages and their versions.
+.It Cm info Ar name
+Show a package's metadata (installed record, else the repo entry).
+.It Cm why Ar name
+Explain why a package is present: which installed packages require it and
+whether it was installed explicitly.
+.It Cm depends Ar name
+Print a package's dependency tree.
+.It Cm files Ar name
+List the files a package owns.
+.It Cm owns Ar path
+Report which package owns a path.
+.It Cm clean Op Fl -all
+Prune the download cache. By default the two newest versions of each package are
+kept (so
+.Cm rollback
+and
+.Cm downgrade
+still work);
+.Fl -all
+empties the cache.
+.El
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl f , Fl -force
+Skip the disk-space, file-conflict, and reverse-dependency checks.
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev BPM_ROOT
+Install into the given directory instead of
+.Pa / .
+Scriptlets and
+.Xr ldconfig 8
+are run chrooted into that root.
+.It Ev BPM_ALLOW_UNSIGNED
+Accept an index whose ed25519 signature is missing or invalid. Insecure; for
+development only.
+.It Ev BPM_NO_SCRIPTLETS
+Skip pre/post-install scriptlets and service enablement.
+.El
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa /var/lib/bpm/db
+Installed-package database.
+.It Pa /var/lib/bpm/cache
+Downloaded package cache (source for rollback/downgrade).
+.It Pa /var/lib/bpm/index
+The synced, verified repository index.
+.It Pa /etc/bpm/repos.conf
+Repository/mirror list.
+.It Pa /etc/bpm/provided
+Names the base image already provides; treated as satisfied dependencies.
+.El
+.Sh SEE ALSO
+.Xr makewhatis 8
+.Pp
+After each transaction
+.Nm
+rebuilds the man-page index so newly installed pages are found by
+.Xr man 1
+and
+.Xr apropos 1 .
