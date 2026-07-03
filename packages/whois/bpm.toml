@@ -1,0 +1,27 @@
+[package]
+name     = "whois"
+version  = "5.5.23"
+release  = 1
+summary  = "Intelligent WHOIS client (+ mkpasswd)"
+homepage = "https://github.com/rfc1036/whois"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libidn2"]
+makedepends = ["make", "gcc", "pkgconf", "libidn2", "gettext", "perl"]
+provides    = ["whois", "mkpasswd"]
+
+[[source]]
+url    = "https://github.com/rfc1036/whois/archive/refs/tags/v5.5.23.tar.gz"
+sha256 = "dcfc08f3362c74ec8ae30691941909ebccf0cb3d27da04236f7e2790dbc7757c"
+
+[steps]
+build = '''
+cd "$name-$version"
+make CONFIG_LIBIDN=2 -j"$(nproc)"
+'''
+package = '''
+cd "$name-$version"
+make prefix=/usr BASEDIR="$pkgdir" install-whois install-mkpasswd install-pos
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

@@ -1,0 +1,30 @@
+[package]
+name     = "libuv"
+version  = "1.49.2"
+release  = 1
+summary  = "Cross-platform asynchronous I/O library"
+homepage = "https://libuv.org/"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["make", "gcc", "autoconf", "automake", "libtool", "pkgconf"]
+provides    = ["libuv.so"]
+
+[[source]]
+# archive extracts to libuv-v$version
+url    = "https://dist.libuv.org/dist/v1.49.2/libuv-v1.49.2.tar.gz"
+sha256 = "8c10706bd2cf129045c42b94799a92df9aaa75d05f07e99cf083507239bae5a8"
+
+[steps]
+build = '''
+cd "libuv-v$version"
+./autogen.sh
+./configure --prefix=/usr --disable-static
+make -j"$(nproc)"
+'''
+package = '''
+cd "libuv-v$version"
+make DESTDIR="$pkgdir" install
+install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$name/LICENSE"
+'''

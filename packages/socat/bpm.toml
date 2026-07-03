@@ -1,0 +1,32 @@
+[package]
+name     = "socat"
+version  = "1.8.0.3"
+release  = 1
+summary  = "Multipurpose relay for bidirectional data transfer (netcat on steroids)"
+homepage = "http://www.dest-unreach.org/socat/"
+license  = ["GPL-2.0-only"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "openssl", "readline", "ncurses"]
+makedepends = ["make", "gcc", "openssl", "readline", "ncurses"]
+provides    = ["socat"]
+
+[[source]]
+url    = "http://www.dest-unreach.org/socat/download/socat-1.8.0.3.tar.gz"
+sha256 = "a9f9eb6cfb9aa6b1b4b8fe260edbac3f2c743f294db1e362b932eb3feca37ba4"
+
+[steps]
+build = '''
+cd "$name-$version"
+# GCC 16 (C23): filan.c declares `const char *s` but writes through it
+# (`*strchr(s,'\n')='\0'` on an asctime/ctime result, which is really char*).
+# Drop the bogus const so the write is legal.
+sed -i 's/^   const char \*s;$/   char *s;/' filan.c
+./configure --prefix=/usr
+make -j"$(nproc)"
+'''
+package = '''
+cd "$name-$version"
+make DESTDIR="$pkgdir" install
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

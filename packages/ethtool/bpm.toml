@@ -1,0 +1,28 @@
+[package]
+name     = "ethtool"
+version  = "6.11"
+release  = 1
+summary  = "Query and control network driver and hardware settings"
+homepage = "https://www.kernel.org/pub/software/network/ethtool/"
+license  = ["GPL-2.0-only"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libmnl"]
+makedepends = ["make", "gcc", "pkgconf", "libmnl"]
+provides    = ["ethtool"]
+
+[[source]]
+url    = "https://mirrors.edge.kernel.org/pub/software/network/ethtool/ethtool-6.11.tar.xz"
+sha256 = "8d91f5c72ae3f25b7e88d4781279dcb320f71e30058914370b1c574c96b31202"
+
+[steps]
+build = '''
+cd "$name-$version"
+./configure --prefix=/usr --sbindir=/usr/bin
+make -j"$(nproc)"
+'''
+package = '''
+cd "$name-$version"
+make DESTDIR="$pkgdir" install
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''

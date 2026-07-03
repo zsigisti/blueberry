@@ -1,0 +1,44 @@
+[package]
+name     = "bind-tools"
+version  = "9.20.4"
+release  = 1
+summary  = "DNS lookup utilities from ISC BIND: dig, host, nslookup, delv, nsupdate"
+homepage = "https://www.isc.org/bind/"
+license  = ["MPL-2.0"]
+arch     = ["x86_64"]
+
+# BIND 9.20 requires libuv, OpenSSL and userspace-rcu (liburcu). Optional
+# libxml2/json-c/lmdb/libidn2/linux-caps are disabled to keep the closure small;
+# only the client tools are shipped (the named server is removed in package()).
+depends     = ["glibc", "libuv", "openssl", "liburcu"]
+makedepends = ["make", "gcc", "pkgconf", "perl", "libuv", "liburcu", "openssl"]
+provides    = ["dig", "host", "nslookup"]
+
+[[source]]
+url    = "https://downloads.isc.org/isc/bind9/9.20.4/bind-9.20.4.tar.xz"
+sha256 = "3a8e1a05e00e3e9bc02bdffded7862faf7726ba76ba997f42ab487777bd8210b"
+
+[steps]
+build = '''
+cd "bind-$version"
+./configure --prefix=/usr --sbindir=/usr/bin --sysconfdir=/etc --localstatedir=/var \
+    --without-libxml2 --without-json-c --without-lmdb --without-libidn2 \
+    --disable-linux-caps
+make -j"$(nproc)"
+'''
+package = '''
+cd "bind-$version"
+make DESTDIR="$pkgdir" install
+# keep the client tools + their shared libs; drop the server and admin/DNSSEC
+# tooling that belongs to a full `bind` package.
+for b in named named-checkconf named-checkzone named-compilezone named-journalprint \
+         named-rrchecker named-nzd2nzf rndc rndc-confgen ddns-confgen tsig-keygen \
+         nsec3hash dnssec-cds dnssec-dsfromkey dnssec-importkey dnssec-keyfromlabel \
+         dnssec-keygen dnssec-ksr dnssec-revoke dnssec-settime dnssec-signzone \
+         dnssec-verify; do
+  rm -f "$pkgdir/usr/bin/$b"
+done
+rm -rf "$pkgdir/usr/include" "$pkgdir/usr/lib/pkgconfig" "$pkgdir/etc" "$pkgdir/var"
+rm -f "$pkgdir"/usr/lib/*.la
+install -Dm644 COPYRIGHT "$pkgdir/usr/share/licenses/$name/COPYRIGHT"
+'''

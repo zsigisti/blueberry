@@ -1,0 +1,29 @@
+[package]
+name     = "traceroute"
+version  = "2.1.6"
+release  = 1
+summary  = "Trace the network path packets take to a host"
+homepage = "https://traceroute.sourceforge.net/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["make", "gcc"]
+provides    = ["traceroute"]
+
+[[source]]
+url    = "https://downloads.sourceforge.net/project/traceroute/traceroute/traceroute-2.1.6/traceroute-2.1.6.tar.gz"
+sha256 = "9ccef9cdb9d7a98ff7fbf93f79ebd0e48881664b525c4b232a0fcec7dcb9db5e"
+
+[steps]
+build = '''
+cd "$name-$version"
+make -j"$(nproc)"
+'''
+package = '''
+cd "$name-$version"
+install -Dm755 traceroute/traceroute "$pkgdir/usr/bin/traceroute"
+ln -sf traceroute "$pkgdir/usr/bin/traceroute6"
+install -Dm644 traceroute/traceroute.8 "$pkgdir/usr/share/man/man8/traceroute.8" 2>/dev/null || true
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''
