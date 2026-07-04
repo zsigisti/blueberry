@@ -25,7 +25,9 @@ need=
 for p in "$@"; do
     rec="$TOPDIR/packages/$p/bpm.toml"
     [ -f "$rec" ] || { echo "build-bpm: no bpm.toml for package: $p" >&2; exit 1; }
-    built=$(ls -t "$OUT/$p"-*.bpm 2>/dev/null | head -1)
+    # Anchor on the version digit so "glibc" doesn't match "glibc-locales"
+    # (and "lib" wouldn't match "libX"): artifact = <name>-<version>-<rel>-<arch>.bpm.
+    built=$(ls -t "$OUT/$p"-[0-9]*.bpm 2>/dev/null | head -1)
     if [ -z "$built" ] || [ -n "$(find "$rec" -newer "$built" 2>/dev/null)" ]; then
         need="$need $p"
     fi
@@ -61,7 +63,7 @@ for p in '"$need"'; do
     for d in $deps; do
         pacman -S --noconfirm --needed "$d" >/dev/null 2>&1 || true
     done
-    rm -f /out/$p-*.bpm
+    rm -f /out/$p-[0-9]*.bpm
     if ! su builder -c "cd /tmp/b && SOURCE_DATE_EPOCH=$SDE BPM_ARCH=x86_64 python3 tools/bpmbuild packages/$p /out" >/tmp/$p.log 2>&1; then
         echo "!! FAILED: $p"; tail -8 /tmp/$p.log; fail="$fail $p"
     else

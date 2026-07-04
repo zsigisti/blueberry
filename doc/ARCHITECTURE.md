@@ -5,8 +5,8 @@
 Blueberry Linux is a **self-hosted, build-from-source distribution** produced
 from a single monorepo. It is a minimal, **rolling** CLI **server** system:
 systemd PID 1 by default (runit optional), headless, always the latest tested
-userspace. The base is a pinned prebuilt kernel, the host-provided glibc
-runtime, the `bpm` package manager, and the build system.
+userspace. The base is a pinned prebuilt kernel, a source-built glibc runtime,
+the `bpm` package manager, and the build system.
 
 Two things make a running system: `make world` assembles the bootable base
 image (kernel + initramfs + a systemd or runit rootfs), and the **package set**
@@ -82,8 +82,18 @@ The userland builds dynamically against **glibc** so prebuilt, glibc-only
 software (proprietary binaries, language runtimes) runs without a shim. The
 glibc runtime — the loader `/lib64/ld-linux-x86-64.so.2`, the shared libs, the
 dlopen-only NSS modules, `ld.so.cache` — is staged at the standard ABI paths by
-`tools/bundle-glibc.sh`. No libc is built from source; the build links against
-the host glibc and bundles that runtime.
+`tools/bundle-glibc.sh`.
+
+glibc **is built from source** as a first-class package (`packages/glibc`,
+published to the mirror) and installed into the rootfs like any other base
+package. Because every packaged binary is compiled inside the Arch build
+container, it links against the *container's* glibc; `bundle-glibc.sh` therefore
+sources the runtime from the **staged rootfs** (`GLIBC_SYSROOT=$(STAGEDIR)`),
+not the build host. This is what makes the build reproducible on any host: an
+older host glibc (e.g. Ubuntu 24.04's 2.39 vs the container's 2.43) no longer
+gets bundled, so the image can't panic at boot with "requires glibc 2.4x". The
+host is used only as a fallback for ABI-stable non-glibc libs (`libgcc_s`,
+`libcrypt`) that aren't yet packaged.
 
 ### 3.2  busybox for the base utilities
 

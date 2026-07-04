@@ -17,8 +17,10 @@ TOP = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PKGDIR = os.path.join(TOP, "packages")
 PROVIDED_FILE = os.path.join(TOP, "etc", "bpm", "provided")
 
-# Implicitly provided by the base image (bundle-glibc copies the host glibc; the
-# toolchain ships gcc-libs). Anything here is never expected as a recipe.
+# Implicitly provided by the base image. glibc is now a real recipe
+# (packages/glibc, staged into the rootfs and bundled from there); it stays
+# listed so older `depends = ["glibc"]` atoms still resolve. gcc-libs
+# (libstdc++/libgcc_s) is still host/toolchain-provided via bundle-glibc.
 IMPLICIT = {"glibc", "gcc-libs"}
 
 

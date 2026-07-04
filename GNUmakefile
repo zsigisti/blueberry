@@ -49,7 +49,7 @@ INIT ?= systemd
 # xz/zstd/lz4 are not standalone packages — their libs (liblzma/libzstd/liblz4)
 # are bundled into the base image from the host (see etc/bpm/provided) and pulled
 # into the rootfs via systemd's ldd closure in bundle-glibc.
-SYSTEMD_BASE_PKGS := systemd util-linux coreutils libseccomp kmod dbus acl \
+SYSTEMD_BASE_PKGS := glibc systemd util-linux coreutils libseccomp kmod dbus acl \
                      cryptsetup libcap libcap-ng readline file zlib bzip2 expat \
                      attr device-mapper json-c openssl popt openssh pam glibc-locales gmp \
                      iproute2 iputils libmnl wpa_supplicant linux-firmware networkmanager ufw \
@@ -341,7 +341,9 @@ endif
 	@# Bundle the glibc runtime into the rootfs (disk-boot path + external
 	@# prebuilt glibc software). bpm links libzstd, so include it too. Missing
 	@# binaries (e.g. runit/dropbear on a systemd image) are skipped by the script.
-	@bash $(TOPDIR)/tools/bundle-glibc.sh $(STAGEDIR) \
+	@# GLIBC_SYSROOT=$(STAGEDIR): source glibc from the container-built package
+	@# already staged here, NOT the build host (host may be older — Ubuntu 2.39).
+	@GLIBC_SYSROOT=$(STAGEDIR) bash $(TOPDIR)/tools/bundle-glibc.sh $(STAGEDIR) \
 	    $(STAGEDIR)/bin/busybox \
 	    $(STAGEDIR)/sbin/runit-init \
 	    $(STAGEDIR)/usr/sbin/dropbearmulti \
