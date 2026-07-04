@@ -5,8 +5,8 @@
 Blueberry Linux is a **self-hosted, build-from-source distribution** produced
 from a single monorepo. It is a minimal, **rolling** CLI **server** system:
 systemd PID 1 by default (runit optional), headless, always the latest tested
-userspace. The base is a pinned prebuilt kernel, a source-built glibc runtime,
-the `bpm` package manager, and the build system.
+userspace. The base is a pinned prebuilt kernel, a pinned mirror-fetched glibc
+runtime, the `bpm` package manager, and the build system.
 
 Two things make a running system: `make world` assembles the bootable base
 image (kernel + initramfs + a systemd or runit rootfs), and the **package set**
@@ -84,16 +84,24 @@ glibc runtime — the loader `/lib64/ld-linux-x86-64.so.2`, the shared libs, the
 dlopen-only NSS modules, `ld.so.cache` — is staged at the standard ABI paths by
 `tools/bundle-glibc.sh`.
 
-glibc **is built from source** as a first-class package (`packages/glibc`,
-published to the mirror) and installed into the rootfs like any other base
-package. Because every packaged binary is compiled inside the Arch build
-container, it links against the *container's* glibc; `bundle-glibc.sh` therefore
-sources the runtime from the **staged rootfs** (`GLIBC_SYSROOT=$(STAGEDIR)`),
-not the build host. This is what makes the build reproducible on any host: an
-older host glibc (e.g. Ubuntu 24.04's 2.39 vs the container's 2.43) no longer
-gets bundled, so the image can't panic at boot with "requires glibc 2.4x". The
+glibc is built from source as a first-class package (`packages/glibc`) and then
+**pinned on the mirror** — treated exactly like the kernel: a fixed prebuilt
+artifact, not recompiled on every build. Both the rootfs (`make install`) and
+the initramfs (`make world`) **fetch the glibc `.bpm` from the mirror** with
+`tools/fetch-bpm.sh` (sha256-verified against the signed index) and extract it
+into the image; `bundle-glibc.sh` then sources the runtime from there
+(`GLIBC_SYSROOT` points at the freshly-populated rootfs / initramfs).
+
+This is what makes the build reproducible on any host. Every packaged binary is
+compiled inside the Arch build container, so it links against the *container's*
+glibc; the mirror glibc **is** that container-built glibc. A build host with an
+older glibc (e.g. Ubuntu 24.04's 2.39 vs the container's 2.43) never gets its
+libc bundled, so the image can't panic at boot with "requires glibc 2.4x". The
 host is used only as a fallback for ABI-stable non-glibc libs (`libgcc_s`,
-`libcrypt`) that aren't yet packaged.
+`libcrypt`) that aren't yet packaged. Consequence: like the pinned kernel, a
+build needs the mirror reachable to fetch glibc (cached under
+`$(OBJDIR)/bpm-cache` for repeat builds); bump it by rebuilding + republishing
+`packages/glibc`.
 
 ### 3.2  busybox for the base utilities
 
@@ -194,7 +202,7 @@ firmware → GRUB → pinned vmlinuz → initramfs (root=UUID=…) → switch_ro
 | `src/bpm-rs/` | the `bpm` package manager (Rust) |
 | `src/installer/` | `blueberry-install` (TUI / CLI / unattended installer) |
 | `packages/<name>/` | from-source `.bpm` recipes (`bpm.toml`) |
-| `tools/` | `bundle-glibc.sh`, `build-bpm-pkg.sh`, `bpmrepo.sh`, `check-closure.py`, `qemu.sh`, `mkiso.sh`, `mkserveriso.sh`, `mkdisk.sh`, … |
+| `tools/` | `bundle-glibc.sh`, `fetch-bpm.sh`, `fetch-kernel.sh`, `build-bpm-pkg.sh`, `bpmrepo.sh`, `check-closure.py`, `qemu.sh`, `mkiso.sh`, `mkserveriso.sh`, `mkdisk.sh`, … |
 | `etc/` | /etc skeleton overlaid onto the rootfs |
 | `doc/` + `wiki/` | All documentation |
 | `../blueberry-build/` | Build artefacts (outside the source tree): `boot/`, `rootfs/`, `initramfs/`, `bpm-out/`, `src/` |

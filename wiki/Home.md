@@ -2,7 +2,7 @@
 
 Blueberry is a **self-hosted Linux distribution built entirely from source** —
 a minimal, rolling **CLI server** system in the BSD tradition. One monorepo
-produces the base (a pinned prebuilt kernel, glibc, the `bpm` package manager,
+produces the base (a pinned prebuilt kernel and glibc, the `bpm` package manager,
 the build system) and every package is a recipe in [`packages/`](../packages),
 built from source into one ed25519-signed mirror at
 `https://repo.mmzsigmond.me/`. There are **no upstream binary mirrors**.

@@ -7,7 +7,7 @@ The following tools must be present on the **build host**:
 | Tool | Minimum version | Purpose |
 |------|----------------|---------|
 | GCC or Clang | 12+ | C compiler for the host-built base bits (busybox/runit/dropbear) |
-| glibc + headers | host | links the host-built base bits; packages (incl. glibc) build in the Arch container |
+| glibc + headers | host | links the host-built base bits (busybox/runit/dropbear); `bpm` packages build in the Arch container, and glibc itself is fetched from the mirror |
 | podman or docker | any | runs the Arch build container that compiles all `bpm` packages |
 | GNU Make | 4.0 | build orchestration |
 | wget or curl | any | source downloads |
@@ -97,13 +97,17 @@ host glibc**, from `src/busybox/config`. Output:
 - `../blueberry-build/rootfs/bin/busybox` (dynamic, ~1 MB + the glibc runtime)
 - applet symlinks: `sh`, `ls`, `mount`, … (created in the initramfs)
 
-The glibc runtime is bundled into the image later (initramfs + `make install`)
-by `tools/bundle-glibc.sh`, which sources it from the **staged rootfs** (the
-container-built `glibc` package), not the host — so a host with an older glibc
-than the build container still produces a bootable image. busybox is linked
-against the (possibly older) host glibc, but that runs fine on the newer staged
-glibc; the reverse — bundling an old host glibc under container-built binaries —
-is the boot-panic bug this avoids.
+The glibc runtime is added later (initramfs + `make install`) by **fetching the
+pinned `glibc` `.bpm` from the mirror** (`tools/fetch-bpm.sh`, sha256-verified)
+and extracting it into the image; `tools/bundle-glibc.sh` then stages the
+runtime (linker, shared libs, NSS modules, `ld.so.cache`) from there. The mirror
+glibc is the container-built one, so a host with an older glibc than the build
+container still produces a bootable image. busybox is linked against the
+(possibly older) host glibc, but that runs fine on the newer mirror glibc; the
+reverse — bundling an old host glibc under container-built binaries — is the
+boot-panic bug this avoids. Because glibc is fetched, `make world`/`make install`
+need the mirror reachable (cached under `../blueberry-build/bpm-cache`), just
+like the pinned kernel.
 
 ### `make runit`
 
@@ -323,9 +327,11 @@ On an 8-core machine with `JOBS=8`:
 That error usually means the dynamic linker is missing. The image must contain
 `/lib64/ld-linux-x86-64.so.2`, the libs in `/usr/lib`, and `/etc/ld.so.cache` —
 all staged by `tools/bundle-glibc.sh` during the initramfs build and
-`make install`. Rebuild the initramfs
-(`rm ../blueberry-build/.stamp-initramfs && make initramfs`) and confirm those
-paths are present.
+`make install`, from the glibc `.bpm` fetched from the mirror. Rebuild the
+initramfs (`rm ../blueberry-build/.stamp-initramfs && make initramfs`) and
+confirm those paths are present. If the fetch itself failed (`fetch-bpm: … not
+found` / sha mismatch / network error), the mirror is unreachable or the pinned
+glibc is missing from it — check `https://repo.mmzsigmond.me/bpm.index`.
 
 ### Kernel build fails: `elfutils not found`
 

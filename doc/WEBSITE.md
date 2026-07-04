@@ -39,7 +39,7 @@ at build time if you can; otherwise hard-code these):
 | Component | Version | Role | License |
 |-----------|---------|------|---------|
 | Linux kernel | 7.0 | kernel | GPL-2.0 |
-| glibc | host | C library (dynamic) | LGPL-2.1 |
+| glibc | 2.43 | C library (dynamic, pinned `.bpm` from the mirror) | LGPL-2.1 |
 | busybox | 1.36.1 | userland (standalone shell) | GPL-2.0 |
 | runit | 2.1.2 | init (disk-boot path) | BSD-3-Clause |
 | Dropbear | 2024.86 | SSH server + client | MIT |

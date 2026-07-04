@@ -3,7 +3,7 @@ Blueberry Linux
 
 Blueberry is a self-hosted, source-built Linux distribution: a minimal, rolling
 CLI **server** system in the BSD tradition. A single source tree produces the
-base (a pinned prebuilt kernel, glibc, the `bpm` package manager, the build
+base (a pinned prebuilt kernel and glibc, the `bpm` package manager, the build
 system) and every package is a recipe in `packages/`, built from source and
 served from the project's own signed repository. There are no upstream binary
 mirrors.

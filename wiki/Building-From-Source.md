@@ -30,9 +30,13 @@ make disk           # raw disk image
 
 > The kernel is **not compiled** on a normal build — `make kernel` downloads a
 > fixed prebuilt artifact and verifies its hash (so a small machine never has to
-> build a kernel; gcc/glibc are host-provided too). To compile it yourself use
-> `make kernel-rebuild`, or `make kernel-publish` to release a new pinned
-> artifact. See [The Kernel Model](The-Kernel-Model).
+> build a kernel). **glibc works the same way**: it's a pinned `.bpm` fetched
+> from the mirror (`tools/fetch-bpm.sh`) and never built locally, so the C
+> library is always the container-built one and never the build host's. Both
+> need the mirror reachable (results are cached). To compile the kernel yourself
+> use `make kernel-rebuild`, or `make kernel-publish` to release a new pinned
+> artifact; bump glibc by rebuilding + republishing `packages/glibc`. See
+> [The Kernel Model](The-Kernel-Model).
 
 ### Run & test
 

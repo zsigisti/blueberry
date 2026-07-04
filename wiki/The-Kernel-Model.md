@@ -17,8 +17,14 @@ make kernel        # fetches the pinned prebuilt kernel — no multi-hour compil
 The artifact lives at
 `https://repo.mmzsigmond.me/kernel/blueberry-kernel-<version>-<arch>.tar.zst`
 and is cached locally, so subsequent builds don't even re-download it. Small
-machines never have to build a kernel (nor gcc/glibc — those are host-provided
-too; see [Building From Source](Building-From-Source)).
+machines never have to build a kernel.
+
+**glibc follows the same model.** It is a pinned `.bpm` package on the mirror,
+fetched (not compiled) on every build by `tools/fetch-bpm.sh` and extracted into
+both the rootfs and the initramfs — so the C library is always the
+container-built one, never the build host's (see
+[Building From Source](Building-From-Source)). Bump it by rebuilding and
+republishing `packages/glibc`.
 
 ## Bumping the kernel (maintainers)
 
@@ -42,9 +48,10 @@ The two move on different clocks:
 | | Behaviour |
 |---|---|
 | Kernel | Pinned prebuilt artifact; advances when a new one is published |
-| Compiled on your machine? | **No** |
+| glibc | Pinned `.bpm` on the mirror; advances when republished |
+| Compiled on your machine? | **No** (both fetched from the mirror) |
 | Userspace / apps | **Rolling** — `bpm upgrade` updates everything else |
-| How you get a new kernel | Fetch the new artifact / rebuild the image |
+| How you get a new kernel/glibc | Fetch the new artifact / rebuild the image |
 
 A routine `bpm upgrade` rolls the whole userland forward continuously, while the
 kernel stays a known, pinned anchor until it is deliberately bumped. This keeps
