@@ -113,7 +113,7 @@ TAR  := tar
 .DEFAULT_GOAL := world
 .PHONY: world kernel userland busybox runit dropbear initramfs \
         install iso server-iso disk run test \
-        run-server test-server \
+        run-server test-server test-e2e \
         fetch clean distclean help _check_tools
 
 world: userland kernel initramfs
@@ -485,6 +485,8 @@ help:
 	@echo "  test           Boot headless, run self-tests, assert BLUEBERRY_TEST=PASS"
 	@echo "  run-server     Boot the Server ISO in a QEMU window"
 	@echo "  test-server    Boot the Server ISO headless, assert multi-user.target"
+	@echo "  test-install   Unattended install in QEMU, then boot the installed disk"
+	@echo "  test-e2e       Full smoke test: build + both ISOs + boot + install + boot"
 	@echo ""
 	@echo "Utility targets:"
 	@echo "  fetch          Download all upstream OS sources"
@@ -503,3 +505,19 @@ help:
 test-install:
 	@[ -f $(INSTALLER_ISO) ] || $(MAKE) iso
 	@bash $(TOPDIR)/tools/test-install.sh $(INSTALLER_ISO)
+
+# Full end-to-end smoke test: build the world + both ISOs, boot the live Server
+# ISO to multi-user, then do an unattended install and boot the installed disk.
+# This is the gate CI runs (nightly / on demand) and the one command to run on a
+# build box before a release. Any step failing fails the whole target.
+.PHONY: test-e2e
+test-e2e:
+	@echo "[test-e2e] 1/4 build + install rootfs"
+	@$(MAKE) install
+	@echo "[test-e2e] 2/4 build ISOs"
+	@$(MAKE) iso server-iso
+	@echo "[test-e2e] 3/4 boot the Server ISO"
+	@$(MAKE) test-server
+	@echo "[test-e2e] 4/4 unattended install + boot the installed disk"
+	@$(MAKE) test-install
+	@echo "[test-e2e] PASS — Server ISO boots and an unattended install boots"

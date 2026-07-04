@@ -11,7 +11,7 @@ arch     = ["x86_64"]
 # to install the boot loader onto the freshly-installed target, and copies the
 # /usr/lib/grub/<platform> modules to the target's /boot/grub. Both BIOS (i386-pc)
 # and UEFI (x86_64-efi) module sets are built so either firmware works.
-depends     = ["device-mapper", "gettext", "xz", "bash"]
+depends     = ["device-mapper", "xz", "bash"]
 makedepends = ["make", "gcc", "bison", "flex", "python", "gettext", "device-mapper", "xz", "help2man", "texinfo"]
 provides    = ["grub-install", "grub-mkconfig"]
 
