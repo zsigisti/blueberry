@@ -155,9 +155,10 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 
 	@# Dropbear SSH server + client (single static multi-call binary)
 	@mkdir -p $(INITRAMDIR)/usr/sbin $(INITRAMDIR)/usr/bin $(INITRAMDIR)/root/.ssh
-	@# Prefer the rootfs copy; fall back to the freshly-built binary (the Desktop
-	@# rootfs has no dropbear, and the Server rootfs is glibc/systemd-staged) so
-	@# the initramfs always has SSH regardless of edition.
+	@# The installed system uses OpenSSH; Dropbear is the initramfs SSH server
+	@# only (small static multi-call binary for the live/installer environment).
+	@# The systemd rootfs doesn't stage it, so fall back to the freshly-built
+	@# binary in OBJDIR so the initramfs always has SSH.
 	@db=$(STAGEDIR)/usr/sbin/dropbearmulti; \
 	 [ -f "$$db" ] || db=$$(ls -1 $(OBJDIR)/src/dropbear-*/dropbearmulti 2>/dev/null | head -1); \
 	 if [ -n "$$db" ] && [ -f "$$db" ]; then \
