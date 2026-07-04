@@ -1,28 +1,23 @@
-## Blueberry Linux — v0.4.0-beta
+## Blueberry Linux — v0.4.1-beta
 
-A rolling, source-built, self-hosted **CLI server** distro. This release is about
-the **installer** and **build portability**.
+A bugfix + branding release on top of v0.4.0-beta.
 
-### Installer
-- **Choose your root filesystem** — ext4 (default), xfs, or btrfs. All three boot
-  without an initramfs fs module.
-- **Optional LVM root** — put root on a logical volume (VG `blueberry`, LV `root`);
-  combines with LUKS as LVM-on-LUKS.
-- **Network stack is a guided choice** — `systemd-networkd` (lightweight, wired
-  servers), `NetworkManager` (Wi-Fi / roaming), or `auto` (picks NetworkManager
-  when the machine has a Wi-Fi card, else networkd). Every installer question now
-  carries an inline explanation. Also settable unattended via `BLUEBERRY_NET`.
+### Fixes
+- **Low-RAM boot panic.** The initramfs had ballooned because it extracted the
+  whole glibc package (gconv modules, static libs, glibc tools), so on a 512 MB
+  machine it failed to unpack (`Initramfs unpacking failed: write error`) and
+  panicked (`libncursesw.so.6: cannot open`). glibc now goes into a build-time
+  sysroot and only the runtime libs are bundled — the initramfs is back to ~43 MB
+  and boots in 512 MB again, still using the pinned container glibc.
 
-### Build & packaging
-- **Build from any Linux host.** glibc is now a pinned artifact fetched from the
-  mirror (like the kernel) and bundled from there — never the build host's libc.
-  Building on a host with an older glibc than the Arch build container (e.g.
-  Ubuntu 24.04) no longer produces an image that panics at boot.
-- **Daemon packages ship systemd units.** `nginx`, `redis`, `chrony`, `dcron`
-  (cron!), and `dhcpcd` now install a `/usr/lib/systemd/system/*.service`
-  (shipped, not auto-enabled) — `systemctl enable <svc>` just works.
-- Dependency-closure fixes: `grub` and `krb5` no longer declare runtime deps on
-  unpackaged libraries.
+### Branding / identity
+- Ships `/etc/os-release` (systemd now greets **"Welcome to Blueberry Linux!"**,
+  and `neofetch`/`fastfetch`/`hostnamectl` identify the distro), a branded
+  `/etc/motd` login banner, and `/etc/issue` pre-login banners.
+- `bpm --version` prints a branded banner; `/etc/default/grub` sets
+  `GRUB_DISTRIBUTOR="Blueberry Linux"`.
+- New package: **`fastfetch`** (`bpm install fastfetch`) — the system-info tool,
+  minimal server build.
 
 ### Images
 
@@ -31,7 +26,4 @@ the **installer** and **build portability**.
 | `blueberry-<date>-x86_64.iso` | Installer / rescue ISO (carries the install payload) |
 | `blueberry-server-x86_64.iso` | Live systemd Server (CLI) ISO |
 
-Both are hybrid BIOS + UEFI and boot into the installer. Write to USB:
-`dd if=<iso> of=/dev/sdX bs=4M oflag=sync`.
-
-This is a **beta** — expect rough edges and report what you find.
+Both are hybrid BIOS + UEFI. Write to USB: `dd if=<iso> of=/dev/sdX bs=4M oflag=sync`.
