@@ -1,0 +1,41 @@
+[package]
+name     = "fastfetch"
+version  = "2.65.2"
+release  = 1
+summary  = "Fast, feature-rich system information tool (neofetch successor)"
+homepage = "https://github.com/fastfetch-cli/fastfetch"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["cmake", "gcc", "make", "pkgconf"]
+
+[[source]]
+url    = "https://github.com/fastfetch-cli/fastfetch/archive/refs/tags/2.65.2.tar.gz"
+sha256 = "d0b318c33cf6c8bbae1162325f91624762a040a60f748941cbf1b4b99a75fa30"
+
+[steps]
+# fastfetch dlopens its optional backends (GPU/display/audio/…) at runtime, so a
+# minimal server build needs no extra libraries — disable the graphical/desktop
+# feature detection so the build doesn't require their -dev headers. The core
+# modules (OS, kernel, uptime, packages, shell, CPU, memory, disk, network) read
+# /proc, /sys and /etc/os-release and always work.
+build = '''
+cmake -S "$name-$version" -B build \
+  -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
+  -DBUILD_TESTS=OFF \
+  -DENABLE_VULKAN=OFF -DENABLE_OPENGL=OFF -DENABLE_OPENCL=OFF \
+  -DENABLE_EGL=OFF -DENABLE_GLX=OFF -DENABLE_DRM=OFF \
+  -DENABLE_WAYLAND=OFF -DENABLE_XCB_RANDR=OFF -DENABLE_XCB=OFF \
+  -DENABLE_XRANDR=OFF -DENABLE_X11=OFF \
+  -DENABLE_IMAGEMAGICK7=OFF -DENABLE_CHAFA=OFF -DENABLE_ZIMG=OFF \
+  -DENABLE_DDCUTIL=OFF -DENABLE_DBUS=OFF -DENABLE_PULSE=OFF \
+  -DENABLE_DCONF=OFF -DENABLE_LIBNM=OFF -DENABLE_SQLITE3=OFF \
+  -DENABLE_RPM=OFF -DENABLE_LIBZFS=OFF -DENABLE_IMLIB2=OFF;
+cmake --build build
+'''
+package = '''
+DESTDIR="$pkgdir" cmake --install build;
+# drop dev/completion cruft the server doesn't need
+rm -rf "$pkgdir/usr/include" "$pkgdir/usr/lib" "$pkgdir/usr/share/man/man3"
+'''
