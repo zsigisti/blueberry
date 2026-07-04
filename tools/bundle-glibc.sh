@@ -58,6 +58,9 @@ copy_lib() {
     [ -n "$src" ] && [ -e "$src" ] || return 0
     base=$(basename "$src")
     [ -e "$LIBDIR/$base" ] && return 0
+    # SYSROOT may equal DEST (glibc extracted straight into the target); never
+    # copy a file onto itself — cp errors and, under set -e, would abort.
+    [ "$src" -ef "$LIBDIR/$base" ] && return 0
     cp -Lf "$src" "$LIBDIR/$base"
 }
 
@@ -74,7 +77,8 @@ if [ -n "$SYSROOT" ]; then
     done
 fi
 [ -n "$ld" ] || ld="/lib64/ld-linux-x86-64.so.2"
-cp -Lf "$ld" "$DEST/lib64/ld-linux-x86-64.so.2"
+# Skip if the linker is already in place (SYSROOT == DEST): cp onto self errors.
+[ "$ld" -ef "$DEST/lib64/ld-linux-x86-64.so.2" ] || cp -Lf "$ld" "$DEST/lib64/ld-linux-x86-64.so.2"
 
 # 1. Transitive dependency SONAMEs of the binaries we ship, sourced staged-first.
 #    Use ldd for the (transitive) NEEDED list, but resolve each name ourselves so
