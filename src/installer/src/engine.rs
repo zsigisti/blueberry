@@ -122,6 +122,14 @@ pub enum NetStack {
 
 impl NetStack {
     pub const ALL: [NetStack; 3] = [NetStack::Auto, NetStack::Networkd, NetStack::NetworkManager];
+    /// Short human label for menus/summaries.
+    pub fn label(self) -> &'static str {
+        match self {
+            NetStack::Auto => "auto (Wi-Fi → NetworkManager, else networkd)",
+            NetStack::Networkd => "systemd-networkd (wired)",
+            NetStack::NetworkManager => "NetworkManager (Wi-Fi / roaming)",
+        }
+    }
     /// Parse a cmdline/env token; unknown falls back to auto-detect.
     pub fn parse(s: &str) -> NetStack {
         match s.trim().to_lowercase().as_str() {
