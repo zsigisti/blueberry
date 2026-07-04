@@ -49,7 +49,7 @@ INIT ?= systemd
 # xz/zstd/lz4 are not standalone packages — their libs (liblzma/libzstd/liblz4)
 # are bundled into the base image from the host (see etc/bpm/provided) and pulled
 # into the rootfs via systemd's ldd closure in bundle-glibc.
-SYSTEMD_BASE_PKGS := glibc systemd util-linux coreutils libseccomp kmod dbus acl \
+SYSTEMD_BASE_PKGS := systemd util-linux coreutils libseccomp kmod dbus acl \
                      cryptsetup libcap libcap-ng readline file zlib bzip2 expat \
                      attr device-mapper json-c openssl popt openssh pam glibc-locales gmp \
                      iproute2 iputils libmnl wpa_supplicant linux-firmware networkmanager ufw \
@@ -317,6 +317,13 @@ _do_install:
 	    f=$$(ls -t $(OBJDIR)/bpm-out/$$p-[0-9]*.bpm | head -1); \
 	    zstd -dcq "$$f" | tar -x -C $(STAGEDIR) --exclude .BPM 2>/dev/null; \
 	done
+	@# glibc: ALWAYS fetch the pinned, container-built package from the MIRROR —
+	@# never build it here or copy the build host's libc. Same rationale as the
+	@# initramfs: a host older than the container (Ubuntu 2.39 vs 2.43) would
+	@# otherwise stage a too-old libc and panic at boot. bundle-glibc below sources
+	@# the runtime from here (GLIBC_SYSROOT=$(STAGEDIR)).
+	@echo "[install] fetching glibc from mirror"
+	@sh $(TOPDIR)/tools/fetch-bpm.sh glibc $(STAGEDIR) $(OBJDIR)/bpm-cache
 	@# trim dev cruft (headers, static libs, info, pkgconfig). Keep /usr/share/man:
 	@# mandoc + man-pages are in the base so `man`/apropos work on the server.
 	@rm -rf $(STAGEDIR)/usr/include \
@@ -341,8 +348,8 @@ endif
 	@# Bundle the glibc runtime into the rootfs (disk-boot path + external
 	@# prebuilt glibc software). bpm links libzstd, so include it too. Missing
 	@# binaries (e.g. runit/dropbear on a systemd image) are skipped by the script.
-	@# GLIBC_SYSROOT=$(STAGEDIR): source glibc from the container-built package
-	@# already staged here, NOT the build host (host may be older — Ubuntu 2.39).
+	@# GLIBC_SYSROOT=$(STAGEDIR): source glibc from the mirror package fetched
+	@# above into the rootfs, NOT the build host (host may be older — Ubuntu 2.39).
 	@GLIBC_SYSROOT=$(STAGEDIR) bash $(TOPDIR)/tools/bundle-glibc.sh $(STAGEDIR) \
 	    $(STAGEDIR)/bin/busybox \
 	    $(STAGEDIR)/sbin/runit-init \
