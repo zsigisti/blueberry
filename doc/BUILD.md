@@ -6,8 +6,9 @@ The following tools must be present on the **build host**:
 
 | Tool | Minimum version | Purpose |
 |------|----------------|---------|
-| GCC or Clang | 12+ | C compiler (the userland links against the host glibc) |
-| glibc + headers | host | C library the userland builds against and bundles |
+| GCC or Clang | 12+ | C compiler for the host-built base bits (busybox/runit/dropbear) |
+| glibc + headers | host | links the host-built base bits; packages (incl. glibc) build in the Arch container |
+| podman or docker | any | runs the Arch build container that compiles all `bpm` packages |
 | GNU Make | 4.0 | build orchestration |
 | wget or curl | any | source downloads |
 | tar | any | archive extraction |
@@ -97,7 +98,12 @@ host glibc**, from `src/busybox/config`. Output:
 - applet symlinks: `sh`, `ls`, `mount`, … (created in the initramfs)
 
 The glibc runtime is bundled into the image later (initramfs + `make install`)
-by `tools/bundle-glibc.sh`.
+by `tools/bundle-glibc.sh`, which sources it from the **staged rootfs** (the
+container-built `glibc` package), not the host — so a host with an older glibc
+than the build container still produces a bootable image. busybox is linked
+against the (possibly older) host glibc, but that runs fine on the newer staged
+glibc; the reverse — bundling an old host glibc under container-built binaries —
+is the boot-panic bug this avoids.
 
 ### `make runit`
 

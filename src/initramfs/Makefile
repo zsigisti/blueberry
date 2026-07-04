@@ -182,8 +182,8 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	@# Bundle the glibc runtime: the ELF interpreter + the shared libs every
 	@# binary here needs, plus the compat set + NSS modules, so the dynamic
 	@# busybox/dropbear run AND external prebuilt glibc software works.
-	@echo "[initramfs] bundling glibc runtime"
-	@bash $(THISDIR)/../../tools/bundle-glibc.sh $(INITRAMDIR) \
+	@echo "[initramfs] bundling glibc runtime (from staged rootfs, not the host)"
+	@GLIBC_SYSROOT=$(STAGEDIR) bash $(THISDIR)/../../tools/bundle-glibc.sh $(INITRAMDIR) \
 	    $(INITRAMDIR)/bin/busybox \
 	    $(INITRAMDIR)/usr/sbin/dropbearmulti \
 	    $(INITRAMDIR)/usr/bin/zstd \
