@@ -172,6 +172,23 @@ pub fn uuid(dev: &str) -> String {
     String::new()
 }
 
+/// True if the machine has a Wi-Fi interface. A netdev is wireless when the
+/// kernel exposes `/sys/class/net/<if>/wireless` or a `phy80211` link. Used to
+/// pick NetworkManager over systemd-networkd for the installed system.
+pub fn has_wireless() -> bool {
+    let dir = match std::fs::read_dir("/sys/class/net") {
+        Ok(d) => d,
+        Err(_) => return false,
+    };
+    for e in dir.flatten() {
+        let p = e.path();
+        if p.join("wireless").exists() || p.join("phy80211").exists() {
+            return true;
+        }
+    }
+    false
+}
+
 /// Best-effort: bring up interfaces + DHCP so `bpm` can reach the repo.
 pub fn ensure_network() {
     if run(&["sh", "-c", "ip route 2>/dev/null | grep -q default"]) {

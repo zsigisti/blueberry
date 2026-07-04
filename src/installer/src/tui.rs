@@ -336,6 +336,8 @@ impl Form {
             disk_dev: self.disks[self.disk_idx].dev.clone(),
             firmware: self.fw_options[self.fw_idx],
             fs: engine::Filesystem::ALL[self.fs_idx],
+            // TUI keeps the default: auto-detect Wi-Fi → NetworkManager, else networkd.
+            net: engine::NetStack::Auto,
             keymap: engine::KEYMAPS[self.km_idx].0.to_string(),
             hostname: self.hostname.clone(),
             root_pw: self.root_pw.clone(),

@@ -17,7 +17,7 @@ mod tui;
 mod ui;
 
 use boot::Firmware;
-use engine::{Config, Ev, Filesystem, Payload};
+use engine::{Config, Ev, Filesystem, NetStack, Payload};
 use run::R;
 use std::env;
 use std::process::exit;
@@ -114,6 +114,7 @@ fn config_from_env(payload: &Payload) -> R<Config> {
         disk_dev,
         firmware,
         fs: Filesystem::parse(&env::var("BLUEBERRY_FS").unwrap_or_default()),
+        net: NetStack::parse(&env::var("BLUEBERRY_NET").unwrap_or_default()),
         keymap: env::var("BLUEBERRY_KEYMAP").unwrap_or_else(|_| "us".into()),
         hostname: env::var("BLUEBERRY_HOSTNAME").unwrap_or_else(|_| "blueberry".into()),
         root_pw: env::var("BLUEBERRY_ROOTPW").unwrap_or_else(|_| "blueberry".into()),
@@ -155,6 +156,14 @@ fn config_from_prompts(payload: &Payload) -> R<Config> {
     let fsi = ui::select("Root filesystem", &fs_items, 0, "BLUEBERRY_FS");
     let fs = Filesystem::ALL[fsi];
 
+    let net_items = [
+        "auto — NetworkManager if Wi-Fi, else systemd-networkd".to_string(),
+        "systemd-networkd (wired, lightweight)".to_string(),
+        "NetworkManager (Wi-Fi / roaming)".to_string(),
+    ];
+    let neti = ui::select("Network stack", &net_items, 0, "BLUEBERRY_NET");
+    let net = NetStack::ALL[neti];
+
     println!("\nThis will ERASE ALL DATA on {}.", disks[di].dev);
     if !ui::confirm("Proceed and erase this disk?", false, "BLUEBERRY_ERASE_OK") {
         return Err("aborted by user".into());
@@ -191,6 +200,7 @@ fn config_from_prompts(payload: &Payload) -> R<Config> {
         disk_dev: disks[di].dev.clone(),
         firmware: fw_kinds[fi],
         fs,
+        net,
         keymap,
         hostname,
         root_pw,
