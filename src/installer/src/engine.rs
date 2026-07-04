@@ -109,11 +109,43 @@ impl Filesystem {
     }
 }
 
+/// Which network stack the installed system runs. `Auto` picks NetworkManager
+/// when the machine has a wireless interface (Wi-Fi needs NM's roaming/WPA
+/// handling) and systemd-networkd otherwise (lightweight, declarative, ideal for
+/// wired servers). Both ship in the base; the installer just enables one.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum NetStack {
+    Auto,
+    Networkd,
+    NetworkManager,
+}
+
+impl NetStack {
+    pub const ALL: [NetStack; 3] = [NetStack::Auto, NetStack::Networkd, NetStack::NetworkManager];
+    /// Parse a cmdline/env token; unknown falls back to auto-detect.
+    pub fn parse(s: &str) -> NetStack {
+        match s.trim().to_lowercase().as_str() {
+            "networkd" | "systemd-networkd" | "wired" => NetStack::Networkd,
+            "networkmanager" | "nm" | "wifi" => NetStack::NetworkManager,
+            _ => NetStack::Auto,
+        }
+    }
+    /// Resolve `Auto` to a concrete choice: NetworkManager iff Wi-Fi hardware.
+    pub fn resolve(self) -> bool {
+        match self {
+            NetStack::NetworkManager => true,
+            NetStack::Networkd => false,
+            NetStack::Auto => disk::has_wireless(),
+        }
+    }
+}
+
 /// Everything the engine needs to know; front-ends fill this in.
 pub struct Config {
     pub disk_dev: String, // /dev/vda
     pub firmware: Firmware,
     pub fs: Filesystem, // root filesystem type
+    pub net: NetStack,  // installed-system network stack (Auto = detect Wi-Fi)
     pub keymap: String, // console keymap name from KEYMAPS
     pub hostname: String,
     pub root_pw: String,
@@ -131,6 +163,45 @@ pub enum Ev {
 }
 
 pub type Emit<'a> = &'a mut dyn FnMut(Ev);
+
+/// Enable the chosen network stack in the target. The base rootfs ships with
+/// systemd-networkd (+resolved) enabled; switching to NetworkManager drops those
+/// enable symlinks and adds NM's, and lets NM own /etc/resolv.conf. Wired keeps
+/// the base default, so this only does work for the NetworkManager case.
+fn set_network_stack(mnt: &str, use_nm: bool) {
+    if !use_nm {
+        return; // systemd-networkd is already enabled in the base image
+    }
+    let sysd = format!("{mnt}/etc/systemd/system");
+    // Disable networkd + resolved (remove the [Install] symlinks the base made).
+    for l in [
+        "multi-user.target.wants/systemd-networkd.service",
+        "sockets.target.wants/systemd-networkd.socket",
+        "network-online.target.wants/systemd-networkd-wait-online.service",
+        "dbus-org.freedesktop.network1.service",
+        "multi-user.target.wants/systemd-resolved.service",
+        "dbus-org.freedesktop.resolve1.service",
+    ] {
+        let _ = fs::remove_file(format!("{sysd}/{l}"));
+    }
+    // Let NetworkManager own DNS: drop resolved's stub resolv.conf so NM writes
+    // a real one on first boot.
+    let _ = fs::remove_file(format!("{mnt}/etc/resolv.conf"));
+    // Enable NetworkManager, mirroring its [Install]: WantedBy=multi-user.target
+    // plus Also=NetworkManager-wait-online (WantedBy=network-online.target). NM is
+    // D-Bus activated by unit name, so no dbus-org.* alias symlink is needed.
+    let unit = "/usr/lib/systemd/system";
+    fs::create_dir_all(format!("{sysd}/multi-user.target.wants")).ok();
+    fs::create_dir_all(format!("{sysd}/network-online.target.wants")).ok();
+    for (link, target) in [
+        ("multi-user.target.wants/NetworkManager.service", "NetworkManager.service"),
+        ("network-online.target.wants/NetworkManager-wait-online.service", "NetworkManager-wait-online.service"),
+    ] {
+        let lp = format!("{sysd}/{link}");
+        let _ = fs::remove_file(&lp);
+        let _ = std::os::unix::fs::symlink(format!("{unit}/{target}"), &lp);
+    }
+}
 
 fn step(emit: Emit, s: &str) {
     emit(Ev::Step(s.to_string()));
@@ -274,6 +345,16 @@ pub fn run_install(cfg: &Config, payload: &Payload, emit: Emit) -> R<()> {
 
     let host = if cfg.hostname.trim().is_empty() { "blueberry" } else { cfg.hostname.trim() };
     let _ = fs::write(format!("{MNT}/etc/hostname"), format!("{host}\n"));
+
+    // Network stack: NetworkManager for Wi-Fi machines, systemd-networkd for
+    // wired (the base default). Auto detects Wi-Fi hardware.
+    let use_nm = cfg.net.resolve();
+    logln(emit, &format!(
+        "network: {} ({})",
+        if use_nm { "NetworkManager" } else { "systemd-networkd" },
+        match cfg.net { NetStack::Auto => "auto-detected", _ => "chosen" },
+    ));
+    set_network_stack(MNT, use_nm);
 
     // Keymap: console (systemd-vconsole-setup) + Wayland/X11 (KWin/SDDM read
     // the XDG-wide kxkbrc). loadkeys+keymaps ship in the kbd package.
