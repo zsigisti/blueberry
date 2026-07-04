@@ -68,13 +68,11 @@ ExecStart=-/usr/bin/agetty --autologin root --keep-baud 115200,57600,38400,9600 
 EOF
 ln -sf /usr/lib/systemd/system/serial-getty@ttyS0.service \
   "$LIVEROOT/etc/systemd/system/getty.target.wants/serial-getty@ttyS0.service"
-# Clean console: agetty ships no /etc/issue here so it prints a compiled-in
-# default banner. Create an /etc/issue that begins with RIS (ESC c — full
-# terminal reset) so the boot log is wiped the instant the login banner is
-# drawn, then reproduce that same banner via agetty's \-escapes (\s sysname,
-# \r kernel release, \m machine, \l tty) so it looks identical. Combined with
-# the quiet kernel cmdline below, the login lands on a clean screen.
-printf '\033c\\s\nKernel \\r on an \\m (\\l)\n\n' > "$LIVEROOT/etc/issue"
+# Clean console: begin the issue with RIS (ESC c — full terminal reset) so the
+# boot log is wiped the instant the login banner is drawn. \S is the os-release
+# PRETTY_NAME ("Blueberry Linux"); \r kernel release, \m machine, \l tty.
+# Combined with the quiet kernel cmdline below, the login lands on a clean screen.
+printf '\033c\\S \\r (\\m) \\l\n\n' > "$LIVEROOT/etc/issue"
 # Live-only fstab (no disk).
 printf '# live\ntmpfs /tmp tmpfs nosuid,nodev,size=512M 0 0\n' > "$LIVEROOT/etc/fstab"
 # Enable sshd + networkd-ish basics if present (best-effort).

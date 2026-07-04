@@ -1,0 +1,10 @@
+NAME="Blueberry Linux"
+PRETTY_NAME="Blueberry Linux"
+ID=blueberry
+BUILD_ID=rolling
+ANSI_COLOR="1;34"
+HOME_URL="https://github.com/zsigisti/blueberry"
+DOCUMENTATION_URL="https://github.com/zsigisti/blueberry/wiki"
+SUPPORT_URL="https://github.com/zsigisti/blueberry/issues"
+BUG_REPORT_URL="https://github.com/zsigisti/blueberry/issues"
+LOGO=blueberry
