@@ -1,7 +1,7 @@
 [package]
 name     = "redis"
 version  = "7.4.2"
-release  = 3
+release  = 4
 summary  = "In-memory data structure store, used as database, cache and message broker"
 homepage = "https://redis.io/"
 license  = ["BSD-3-Clause"]
@@ -22,7 +22,29 @@ package = '''
 cd "$name-$version";
 make PREFIX="$pkgdir/usr" install;
 install -Dm644 redis.conf "$pkgdir/etc/redis/redis.conf";
+# runit service (INIT=runit path)
 install -dm755 "$pkgdir/etc/sv/redis";
 printf '#!/bin/sh\nexec /usr/bin/redis-server /etc/redis/redis.conf --daemonize no\n' > "$pkgdir/etc/sv/redis/run";
-chmod 755 "$pkgdir/etc/sv/redis/run"
+chmod 755 "$pkgdir/etc/sv/redis/run";
+# systemd unit (INIT=systemd, the default). DynamicUser + StateDirectory give it
+# an isolated runtime user and /var/lib/redis without a package-created account.
+# Shipped, not enabled — the admin runs `systemctl enable redis`.
+install -dm755 "$pkgdir/usr/lib/systemd/system";
+cat > "$pkgdir/usr/lib/systemd/system/redis.service" <<'UNIT'
+[Unit]
+Description=Redis persistent key-value database
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/redis-server /etc/redis/redis.conf --daemonize no --dir /var/lib/redis
+ExecStop=/usr/bin/redis-cli shutdown
+Restart=always
+DynamicUser=yes
+StateDirectory=redis
+RuntimeDirectory=redis
+
+[Install]
+WantedBy=multi-user.target
+UNIT
 '''

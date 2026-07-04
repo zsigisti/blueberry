@@ -1,7 +1,7 @@
 [package]
 name     = "nginx"
 version  = "1.26.3"
-release  = 2
+release  = 3
 summary  = "Lightweight HTTP server and IMAP/POP3 proxy server"
 homepage = "https://nginx.org/"
 license  = ["BSD-2-Clause"]
@@ -25,7 +25,31 @@ package = '''
 cd "$name-$version";
 make DESTDIR="$pkgdir" install;
 rm -rf "$pkgdir/run";
+# runtime dirs nginx needs (make install does not create them)
+install -dm755 "$pkgdir/var/log/nginx" "$pkgdir/var/lib/nginx";
+# runit service (INIT=runit path)
 install -dm755 "$pkgdir/etc/sv/nginx";
 printf '#!/bin/sh\nexec /usr/bin/nginx -g "daemon off;"\n' > "$pkgdir/etc/sv/nginx/run";
-chmod 755 "$pkgdir/etc/sv/nginx/run"
+chmod 755 "$pkgdir/etc/sv/nginx/run";
+# systemd unit (INIT=systemd, the default). Shipped, not enabled — the admin
+# runs `systemctl enable nginx`.
+install -dm755 "$pkgdir/usr/lib/systemd/system";
+cat > "$pkgdir/usr/lib/systemd/system/nginx.service" <<'UNIT'
+[Unit]
+Description=nginx HTTP and reverse proxy server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=forking
+PIDFile=/run/nginx.pid
+ExecStartPre=/usr/bin/nginx -t -q
+ExecStart=/usr/bin/nginx
+ExecReload=/usr/bin/nginx -s reload
+ExecStop=/usr/bin/nginx -s quit
+KillMode=mixed
+
+[Install]
+WantedBy=multi-user.target
+UNIT
 '''
