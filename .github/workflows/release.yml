@@ -28,8 +28,12 @@ jobs:
 
       - name: Derive tag + flags from the commit message
         id: meta
+        env:
+          # Pass via env, never interpolate into the script — a commit message
+          # with quotes/backticks would otherwise break (or inject into) the shell.
+          MSG: ${{ github.event.head_commit.message }}
         run: |
-          msg='${{ github.event.head_commit.message }}'
+          msg="$MSG"
           subject=$(printf '%s\n' "$msg" | head -1)
           # tag = first vX… token after [RELEASE], else beta-<date>-<shortsha>
           tag=$(printf '%s\n' "$subject" | grep -oE 'v[0-9][A-Za-z0-9._-]*' | head -1)
@@ -55,9 +59,10 @@ jobs:
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
+          MSG: ${{ github.event.head_commit.message }}
         run: |
           body=release/NOTES.md
-          [ -f "$body" ] || { printf '%s\n' "${{ github.event.head_commit.message }}" > /tmp/body.md; body=/tmp/body.md; }
+          [ -f "$body" ] || { printf '%s\n' "$MSG" > /tmp/body.md; body=/tmp/body.md; }
           pre_flag=""
           [ "${{ steps.meta.outputs.pre }}" = "true" ] && pre_flag="--prerelease"
           gh release create "${{ steps.meta.outputs.tag }}" dist/* \
