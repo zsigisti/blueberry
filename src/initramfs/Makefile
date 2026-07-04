@@ -117,14 +117,18 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	    f=$$(ls -t $(OBJDIR)/instpkgs/$$p-[0-9]*.bpm | head -1); \
 	    zstd -dcq "$$f" | tar -x -C $(INITRAMDIR) --exclude .BPM 2>/dev/null; \
 	done
-	@# glibc: pull the pinned, container-built package straight from the MIRROR and
-	@# extract it here. The initramfs is assembled before the rootfs is populated,
-	@# so there is no staged glibc to bundle yet — fetching it from the mirror is
-	@# what makes the initramfs runtime independent of the build host's glibc
-	@# (an older host libc, e.g. Ubuntu 2.39 vs the container's 2.43, would panic
-	@# at boot). bundle-glibc below then sources the runtime from here.
-	@echo "[initramfs] fetching glibc from mirror"
-	@sh $(THISDIR)/../../tools/fetch-bpm.sh glibc $(INITRAMDIR) $(OBJDIR)/bpm-cache
+	@# glibc: pull the pinned, container-built package from the MIRROR into a
+	@# SYSROOT (not the initramfs itself). The initramfs is assembled before the
+	@# rootfs is populated, so there's no staged glibc to bundle yet — fetching it
+	@# from the mirror is what makes the runtime independent of the build host's
+	@# glibc (an older host libc, e.g. Ubuntu 2.39 vs the container's 2.43, would
+	@# panic at boot). bundle-glibc below copies ONLY the runtime libs it needs from
+	@# this sysroot, so the initramfs stays small — extracting the whole glibc here
+	@# added ~25 MB (gconv, static libs, glibc tools) and made low-RAM boots fail to
+	@# unpack the initramfs.
+	@echo "[initramfs] fetching glibc from mirror (into sysroot)"
+	@rm -rf $(OBJDIR)/glibc-sysroot
+	@sh $(THISDIR)/../../tools/fetch-bpm.sh glibc $(OBJDIR)/glibc-sysroot $(OBJDIR)/bpm-cache
 	@# bash lands in /usr/bin; make /bin/bash resolve too (login shell path).
 	@ln -sf /usr/bin/bash $(INITRAMDIR)/bin/bash
 	@# Login wrapper: getty -l runs its program non-login, so bash would skip
@@ -192,7 +196,7 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	@# binary here needs, plus the compat set + NSS modules, so the dynamic
 	@# busybox/dropbear run AND external prebuilt glibc software works.
 	@echo "[initramfs] bundling glibc runtime (from mirror glibc, not the host)"
-	@GLIBC_SYSROOT=$(INITRAMDIR) bash $(THISDIR)/../../tools/bundle-glibc.sh $(INITRAMDIR) \
+	@GLIBC_SYSROOT=$(OBJDIR)/glibc-sysroot bash $(THISDIR)/../../tools/bundle-glibc.sh $(INITRAMDIR) \
 	    $(INITRAMDIR)/bin/busybox \
 	    $(INITRAMDIR)/usr/sbin/dropbearmulti \
 	    $(INITRAMDIR)/usr/bin/zstd \
