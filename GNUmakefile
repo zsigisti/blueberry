@@ -113,7 +113,7 @@ TAR  := tar
 .DEFAULT_GOAL := world
 .PHONY: world kernel userland busybox runit dropbear initramfs \
         install iso server-iso disk run test \
-        run-server test-server test-e2e container \
+        run-server test-server test-e2e \
         fetch clean distclean help _check_tools
 
 world: userland kernel initramfs
@@ -488,10 +488,6 @@ help:
 	@echo "  test-install   Unattended install in QEMU, then boot the installed disk"
 	@echo "  test-e2e       Full smoke test: build + both ISOs + boot + install + boot"
 	@echo ""
-	@echo "Contribute from any Linux (podman/docker):"
-	@echo "  container      Build the whole OS in the reproducible Arch container"
-	@echo "                 (CMD=<target>, e.g. make container CMD=test-e2e)"
-	@echo ""
 	@echo "Utility targets:"
 	@echo "  fetch          Download all upstream OS sources"
 	@echo "  clean          Remove build artefacts (keep downloads)"
@@ -525,11 +521,3 @@ test-e2e:
 	@echo "[test-e2e] 4/4 unattended install + boot the installed disk"
 	@$(MAKE) test-install
 	@echo "[test-e2e] PASS — Server ISO boots and an unattended install boots"
-
-# Build (and test) the whole OS inside the reproducible Arch container, so any
-# Linux machine with podman/docker can build Blueberry — no Arch host, no host
-# toolchain. `make container` builds the world; `make container CMD=test-e2e`
-# runs any target. See tools/build-in-container.sh.
-.PHONY: container
-container:
-	@sh $(TOPDIR)/tools/build-in-container.sh $(CMD)

@@ -37,15 +37,13 @@ done
 echo "build-bpm: building$need"
 SCRIPT='
 set -eu
-REPO=${REPO:-/repo}; OUT=${OUT:-/out}
 grep -q "^\[multilib\]" /etc/pacman.conf || \
   printf "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n" >> /etc/pacman.conf
 pacman -Syu --noconfirm --needed base-devel git python zstd fakeroot curl >/dev/null 2>&1
-grep -q "^MAKEFLAGS=" /etc/makepkg.conf || echo "MAKEFLAGS=\"-j$(nproc)\"" >> /etc/makepkg.conf
+echo "MAKEFLAGS=\"-j$(nproc)\"" >> /etc/makepkg.conf
 SDE=1767225600
-id -u builder >/dev/null 2>&1 || useradd -m builder
-echo "builder ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/builder
-rm -rf /tmp/b; cp -a "$REPO" /tmp/b; chown -R builder /tmp/b "$OUT"
+useradd -m builder; echo "builder ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/builder
+cp -a /repo /tmp/b; chown -R builder /tmp/b /out
 extract_deps() {
     python3 - "$1" <<"PY"
 import sys, tomllib
@@ -65,8 +63,8 @@ for p in '"$need"'; do
     for d in $deps; do
         pacman -S --noconfirm --needed "$d" >/dev/null 2>&1 || true
     done
-    rm -f "$OUT"/$p-[0-9]*.bpm
-    if ! su builder -c "cd /tmp/b && SOURCE_DATE_EPOCH=$SDE BPM_ARCH=x86_64 python3 tools/bpmbuild packages/$p $OUT" >/tmp/$p.log 2>&1; then
+    rm -f /out/$p-[0-9]*.bpm
+    if ! su builder -c "cd /tmp/b && SOURCE_DATE_EPOCH=$SDE BPM_ARCH=x86_64 python3 tools/bpmbuild packages/$p /out" >/tmp/$p.log 2>&1; then
         echo "!! FAILED: $p"; tail -8 /tmp/$p.log; fail="$fail $p"
     else
         echo "build-bpm: built $p"
@@ -74,21 +72,10 @@ for p in '"$need"'; do
 done
 [ -z "$fail" ] || { echo "build-bpm: FAILED:$fail" >&2; exit 1; }
 '
-# Two ways to run the build:
-#   • INLINE — we are ALREADY inside the Arch build container (the whole `make`
-#     runs there, e.g. `tools/build-in-container.sh`). Build in-place; spawning a
-#     nested container would need --privileged and is slow/fragile.
-#   • CONTAINER (default) — spawn an ephemeral Arch container per invocation.
-# BLUEBERRY_INLINE=1 is set inside the build container image.
-if [ "${BLUEBERRY_INLINE:-0}" = "1" ]; then
-    echo "build-bpm: inline (already in the build container)"
-    REPO="$TOPDIR" OUT="$OUT" bash -euc "$SCRIPT"
-else
-    # Persistent pacman package cache: makedeps download once, not every build.
-    # Pair with a pre-warmed IMAGE (tools/mk-builder-image.sh) to also skip install.
-    PACMAN_CACHE=${PACMAN_CACHE:-blueberry-pacman}
-    "$ENGINE" run --rm --ipc=host --security-opt seccomp=unconfined \
-        -v "$PACMAN_CACHE:/var/cache/pacman/pkg" \
-        -v "$TOPDIR:/repo:ro,z" -v "$OUT:/out:z" "$IMAGE" bash -euc "$SCRIPT"
-fi
+# Persistent pacman package cache: makedeps download once, not every build.
+# Pair with a pre-warmed IMAGE (tools/mk-builder-image.sh) to also skip install.
+PACMAN_CACHE=${PACMAN_CACHE:-blueberry-pacman}
+"$ENGINE" run --rm --ipc=host --security-opt seccomp=unconfined \
+    -v "$PACMAN_CACHE:/var/cache/pacman/pkg" \
+    -v "$TOPDIR:/repo:ro,z" -v "$OUT:/out:z" "$IMAGE" bash -euc "$SCRIPT"
 echo "build-bpm: done ->$need"

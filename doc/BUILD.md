@@ -1,27 +1,6 @@
 # Building Blueberry Linux
 
-## Build from any Linux (recommended)
-
-You don't need Arch or a hand-assembled toolchain. Blueberry ships a reproducible
-build container, so **any Linux machine with podman (or docker)** can build and
-test the whole OS identically:
-
-```sh
-git clone https://github.com/zsigisti/blueberry.git
-cd blueberry
-make container                 # build the world in the container → ../blueberry-build/
-make container CMD=test-e2e    # full boot/install smoke test (needs /dev/kvm to be quick)
-tools/build-in-container.sh shell   # drop into the build environment
-```
-
-The first run builds the image (`Containerfile`) once; later runs reuse it.
-Artifacts land in `../blueberry-build/` on your host, exactly like a native
-build. This is the supported path for contributing from a non-Arch machine —
-everything below (native prerequisites) is only needed if you'd rather build
-directly on the host. See [ARCHITECTURE](ARCHITECTURE.md) for why the build runs
-in an Arch container (it's where every `bpm` package is compiled).
-
-## Prerequisites (native host build)
+## Prerequisites
 
 The following tools must be present on the **build host**:
 
