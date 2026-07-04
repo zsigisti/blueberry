@@ -1,7 +1,7 @@
 [package]
 name     = "dhcpcd"
 version  = "10.1.0"
-release  = 3
+release  = 4
 summary  = "RFC2131 compliant DHCP client daemon"
 homepage = "https://roy.marples.name/projects/dhcpcd"
 license  = ["BSD-2-Clause"]
@@ -22,7 +22,32 @@ make
 package = '''
 cd "$name-$version";
 make DESTDIR="$pkgdir" install;
+# runit service (INIT=runit path). Binary is /usr/sbin/dhcpcd.
 install -dm755 "$pkgdir/etc/sv/dhcpcd";
-printf '#!/bin/sh\nexec /usr/bin/dhcpcd -B\n' > "$pkgdir/etc/sv/dhcpcd/run";
-chmod 755 "$pkgdir/etc/sv/dhcpcd/run"
+printf '#!/bin/sh\nexec /usr/sbin/dhcpcd -B\n' > "$pkgdir/etc/sv/dhcpcd/run";
+chmod 755 "$pkgdir/etc/sv/dhcpcd/run";
+# The build uses --privsepuser=dhcpcd, so that user must exist. Ship a
+# sysusers.d fragment; systemd-sysusers creates it at boot (INIT=systemd).
+install -dm755 "$pkgdir/usr/lib/sysusers.d";
+cat > "$pkgdir/usr/lib/sysusers.d/dhcpcd.conf" <<'SYSU'
+u dhcpcd - "dhcpcd privilege separation" /var/lib/dhcpcd
+SYSU
+# systemd unit (INIT=systemd, the default). Alternative to systemd-networkd's
+# DHCP. Shipped, not enabled — the admin runs `systemctl enable dhcpcd`.
+install -dm755 "$pkgdir/usr/lib/systemd/system";
+cat > "$pkgdir/usr/lib/systemd/system/dhcpcd.service" <<'UNIT'
+[Unit]
+Description=dhcpcd DHCP client
+Wants=network.target
+Before=network.target
+
+[Service]
+Type=forking
+PIDFile=/run/dhcpcd/pid
+ExecStart=/usr/sbin/dhcpcd -q -b
+ExecStop=/usr/sbin/dhcpcd -x
+
+[Install]
+WantedBy=multi-user.target
+UNIT
 '''
