@@ -47,7 +47,12 @@ fn main() -> ExitCode {
             Ok(())
         }
         "-V" | "--version" => {
-            println!("bpm {}", config::VERSION);
+            println!(
+                "bpm {} — Blueberry Package Manager\n\
+                 the native package manager for Blueberry Linux\n\
+                 https://github.com/zsigisti/blueberry",
+                config::VERSION
+            );
             Ok(())
         }
         other => Err(format!("unknown command '{other}' (try: bpm help)")),

@@ -1,0 +1,14 @@
+# /etc/default/grub — GRUB defaults for Blueberry Linux.
+#
+# The installer writes /boot/grub/grub.cfg directly (a single 'Blueberry Linux'
+# entry), so these values are used only if you regenerate the config with
+# `grub-mkconfig -o /boot/grub/grub.cfg`. GRUB_DISTRIBUTOR is what names the
+# menu entries there ("Blueberry Linux").
+GRUB_DISTRIBUTOR="Blueberry Linux"
+GRUB_DEFAULT=0
+GRUB_TIMEOUT=3
+GRUB_TIMEOUT_STYLE=menu
+GRUB_CMDLINE_LINUX_DEFAULT="quiet"
+GRUB_CMDLINE_LINUX=""
+GRUB_TERMINAL_OUTPUT="console"
+GRUB_DISABLE_RECOVERY="true"
