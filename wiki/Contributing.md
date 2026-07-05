@@ -35,5 +35,3 @@ fix a build, improve a doc, send a PR.
 
 Contributions are under the repo's GPL-3.0-or-later license (bundled upstreams
 keep their own licenses). Be respectful; review is about the code, not the coder.
-
-See [doc/CONTRIBUTING.md](../../doc/CONTRIBUTING.md) for the full version.

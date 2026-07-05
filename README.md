@@ -26,7 +26,6 @@ Start with `doc/BUILD.md`. In short:
   - `doc/ARCHITECTURE.md`  how the system fits together
   - `doc/BPM.md`           the package manager and package format
   - `doc/KERNEL.md`        the pinned-kernel model
-  - `doc/CONTRIBUTING.md`  patches, style, workflow
   - `wiki/`                user-facing guides (installing, networking, mirrors)
 
 Installing
