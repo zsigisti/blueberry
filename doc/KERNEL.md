@@ -7,6 +7,9 @@
 > `make kernel-rebuild` builds it locally; `make kernel-publish` builds **and**
 > uploads a new pinned artifact. The sections below describe the config that
 > those rebuilds use.
+>
+> **On an installed system the kernel is upgraded with `bpm upgrade`** — it is a
+> normal, bpm-tracked package (`linux`). See [§10](#10-upgrading-the-kernel-with-bpm).
 
 ## 1. Configuration File
 
@@ -33,7 +36,7 @@ The kernel config follows these principles:
    >
    > **The legacy netfilter backend is required by `ufw`:**
    > `CONFIG_NETFILTER_XTABLES_LEGACY=y` plus the `IP_NF_*` / `IP6_NF_*` stack.
-   > Linux 7.0 gates the legacy iptables backend behind that symbol; without it
+   > Linux 7.1.3 gates the legacy iptables backend behind that symbol; without it
    > `ufw` reports "table does not exist."
 
 2. **Everything a server does need.** ext4, xfs, btrfs, LVM, RAID, NVMe,
@@ -84,10 +87,37 @@ CONFIG_RANDOMIZE_MEMORY=y        Physical memory map randomization
 CONFIG_STACKPROTECTOR_STRONG=y   -fstack-protector-strong for kernel
 CONFIG_FORTIFY_SOURCE=y          String function bounds checking
 CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y  Zero-initialize allocations (prevents info leak)
+CONFIG_INIT_ON_FREE_DEFAULT_ON=y   Zero memory on free (prevents use-after-free leaks)
 CONFIG_SECURITY_YAMA=y           Yama ptrace scope restriction
 CONFIG_SECURITY_LOCKDOWN_LSM=y   Kernel lockdown mode (integrity protection)
 CONFIG_IMA=y                     Integrity Measurement Architecture
 ```
+
+**KSPP hardening baseline** (Kernel Self-Protection Project). These are all
+config-only — no GCC-plugin options, so there is no toolchain dependency; any a
+given tree lacks are dropped by `make olddefconfig`:
+
+```
+CONFIG_STRICT_KERNEL_RWX=y       No writable+executable kernel memory
+CONFIG_DEBUG_WX=y                Warn on any W+X mapping at boot
+CONFIG_HARDENED_USERCOPY=y       Bounds-check copy_to/from_user against slab/stack
+CONFIG_VMAP_STACK=y              Guard-paged kernel stacks (catches overflow)
+CONFIG_SCHED_STACK_END_CHECK=y   Detect stack overrun at schedule()
+CONFIG_SLAB_FREELIST_RANDOM=y    Randomize slab free-list order
+CONFIG_SLAB_FREELIST_HARDENED=y  Harden slab free-list pointers against overwrite
+CONFIG_SHUFFLE_PAGE_ALLOCATOR=y  Randomize the page allocator free-list
+CONFIG_RANDOM_KMALLOC_CACHES=y   Spread kmalloc across randomized caches
+CONFIG_LIST_HARDENED=y           Sanity-check linked-list operations
+CONFIG_BUG_ON_DATA_CORRUPTION=y  BUG() on detected list/refcount corruption
+CONFIG_ZERO_CALL_USED_REGS=y     Zero call-clobbered registers on return (ROP defense)
+CONFIG_SECURITY_DMESG_RESTRICT=y Restrict dmesg to root (hides kernel pointers)
+CONFIG_DEFAULT_MMAP_MIN_ADDR=65536  Block low-address mmap (NULL-deref exploits)
+```
+
+> **No source patches — hardening is config-only.** Blueberry tracks the latest
+> stable kernel and rebuilds on each bump, so carrying a hardened *patchset*
+> (which would need rebasing every release) is deliberately avoided; the KSPP
+> config above captures the security win with zero maintenance cost. See §5.
 
 ### Networking
 
@@ -173,19 +203,19 @@ CONFIG_BPF_EVENTS=y        BPF tracing via perf events
 make fetch
 
 # Start the interactive configurator
-make -C obj/src/linux-7.0 \
+make -C $OBJDIR/src/linux-7.1.3 \
     ARCH=x86_64 \
     menuconfig
 
 # Copy the result back into the source tree
-cp obj/src/linux-7.0/.config src/kernel/config
+cp $OBJDIR/src/linux-7.1.3/.config src/kernel/config
 ```
 
 ### Adding a driver as a module
 
 Find the config symbol with:
 ```sh
-make -C obj/src/linux-7.0 ARCH=x86_64 grep-config SEARCH=REALTEK_PHY
+make -C $OBJDIR/src/linux-7.1.3 ARCH=x86_64 grep-config SEARCH=REALTEK_PHY
 ```
 
 Then add to `src/kernel/config`:
@@ -193,7 +223,7 @@ Then add to `src/kernel/config`:
 CONFIG_REALTEK_PHY=m
 ```
 
-Modules are installed to `obj/rootfs/lib/modules/7.0-blueberry/` by
+Modules are installed to `obj/rootfs/lib/modules/7.1.3-blueberry/` by
 `make kernel` and loaded at runtime via `modprobe`.
 
 ### Disabling something
@@ -231,7 +261,7 @@ re-applying on incremental builds.
 ## 6. Building a Custom Kernel Outside the Build System
 
 ```sh
-cd obj/src/linux-7.0
+cd $OBJDIR/src/linux-7.1.3
 cp ../../src/kernel/config .config
 make ARCH=x86_64 olddefconfig
 make ARCH=x86_64 -j$(nproc)
@@ -278,6 +308,13 @@ cp src/kernel/config src/kernel/config.debug
 make kernel KERNEL_CONFIG=src/kernel/config.debug
 ```
 
+> **Localversion — set in exactly one place.** The `-blueberry` suffix comes
+> **only** from `CONFIG_LOCALVERSION` in `src/kernel/config`. The artifact build
+> (`src/kernel/Makefile`) passes `LOCALVERSION=` **empty** on purpose: passing
+> `-blueberry` there too would append it a second time and produce
+> `uname -r = 7.1.3-blueberry-blueberry`. Empty (not unset) also suppresses the
+> kernel's `+` "scm-dirty" auto-suffix. Result: `uname -r = 7.1.3-blueberry`.
+
 ---
 
 ## 9. Kernel Version Policy & Publishing
@@ -287,12 +324,59 @@ The source tree targets a specific kernel version (`LINUX_VERSION` in
 changing it means publishing a new artifact. On a build box:
 
 1. Update `LINUX_VERSION` in `Make.config` and/or edit `src/kernel/config`.
-2. Run `make kernel-rebuild` — compiles the new kernel locally (KERNEL_BUILD=1),
-   running `make olddefconfig` and surfacing any new CONFIG_ options to review.
-3. Run `make kernel-publish` — recompiles and uploads the new
-   `blueberry-kernel-<version>-<arch>.tar.zst` (+ `.sha256`) to the repo.
-4. Commit the `Make.config`/`src/kernel/config` change.
+2. Run `make kernel-publish` — compiles the new kernel (KERNEL_BUILD=1, runs
+   `make olddefconfig`) **and** uploads the pinned
+   `blueberry-kernel-<version>-blueberry-<arch>.tar.zst` (+ `.sha256`) to the repo.
+   (`make kernel-rebuild` compiles without uploading.)
+3. Also bump `packages/linux/bpm.toml` (version + `sha256` + `release`) and
+   rebuild that installable `linux` **.bpm** (`tools/build-bpm-pkg.sh`), then
+   publish + re-index it — this is what `bpm upgrade` pulls (see §10).
+4. Commit the `Make.config` / `src/kernel/config` / `packages/linux/bpm.toml` change.
+
+**Two gotchas when bumping the version** (both caused hard-to-see bugs):
+
+- `$(OBJDIR)/.stamp-fetch-linux` is **not** version-keyed, so make thinks the old
+  source is already fetched and the rebuild fails. Remove it first:
+  `rm -f ../blueberry-build/.stamp-fetch-linux ../blueberry-build/.stamp-kernel`.
+- `publish-kernel.sh` picks the modules dir with `ls | head -1`, so a leftover
+  **old-version** module tree (alphabetically first) can be packed with the new
+  bzImage. Purge stale module dirs before publishing:
+  `rm -rf ../blueberry-build/rootfs/{,usr/}lib/modules/<oldver>*`.
 
 Every other machine then just `make kernel`-fetches the new pinned artifact; no
-one else recompiles. Long-term stable (LTS) kernels are preferred for production
-use; when Linux 7.0 becomes EOL, migrate to the next LTS release.
+one else recompiles. The latest **stable** kernel is tracked (rebuild on each
+release rather than backporting), which is also why no source patchset is carried
+(§5).
+
+---
+
+## 10. Upgrading the Kernel with `bpm`
+
+On an installed system the kernel is a normal, bpm-tracked package named
+`linux`, so it upgrades like anything else:
+
+```sh
+bpm update      # refresh the signed repo index
+bpm upgrade     # if the repo has a newer linux, it is pulled + installed
+```
+
+How it is wired (see `tools/seed-kernel-db.sh`, `packages/linux/bpm.toml`,
+`packages/linux/blueberry-kernel-hook`):
+
+- The image build registers `linux` in the bpm DB
+  (`var/lib/bpm/db/linux/{desc,files}`) at `make install`, because the running
+  kernel comes from the pinned artifact (copied by the installer), not from a
+  package — without this seed, `bpm upgrade` could not see the kernel.
+  `/boot/vmlinuz` is deliberately **not** listed as owned, so an upgrade never
+  deletes the running kernel before it can be preserved.
+- The `linux` .bpm ships the kernel **versioned-only**
+  (`/boot/vmlinuz-<ver>-blueberry`) plus `post_install`/`post_upgrade` scriptlets
+  that run `blueberry-kernel-hook`: it promotes the newest versioned kernel to
+  `/boot/vmlinuz`, stashes the previous one as `/boot/vmlinuz.old` (a **fallback**
+  boot entry), and regenerates `grub.cfg` via `blueberry-grub-mkconfig`.
+- The initramfs is kernel-agnostic (busybox, no loadable modules), so it is not
+  re-generated on a kernel upgrade — the same `/boot/initramfs.cpio.zst` boots
+  any kernel version.
+
+If a new kernel misbehaves, pick **"Blueberry Linux (fallback — previous
+kernel)"** in the GRUB menu to boot `/boot/vmlinuz.old`.

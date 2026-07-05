@@ -54,3 +54,16 @@ dbus 1.16.0, polkit 126, wpa_supplicant 2.11, ncurses 6.5, readline 8.2.
 Bumps 1–3 are point releases (low-risk recipe edits: version + sha256 + rebuild).
 openssh 10.x, nginx 1.31, gnupg 2.5 are major-branch moves and want a recipe
 review before rebuilding.
+
+## Delivery mechanism (in place as of 2026-07-05)
+
+The whole base userland is now bpm-tracked: `make install` records every base
+package (and glibc, and the `linux` kernel) in the image's bpm database, so
+`bpm upgrade` maintains the entire system — see [BPM.md](BPM.md) and
+[KERNEL.md §10](KERNEL.md). So the remediation for each row above is:
+
+1. bump the recipe (`version` + `sha256`, and `release` if same version),
+2. rebuild the `.bpm` and publish + re-index it on the mirror,
+
+and every installed system picks it up on its next `bpm upgrade` — no reinstall.
+The version bumps themselves are still pending.

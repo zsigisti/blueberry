@@ -32,9 +32,27 @@ assembly and tests).
 - **Cache:** `/var/lib/bpm/cache/`.
 - **Integrity:** every download is checked against the sha256 from the index.
 - **Dependencies:** `install <name>` resolves `depend` entries recursively;
-  names not in any repo are assumed provided by the base system (glibc, bash…).
+  a name not in any repo index is assumed already provided (a `provides` from
+  another package, or a bootstrap file), rather than being an error.
 - **Scriptlets:** a package's `.INSTALL` may define `pre/post_install` and
   `pre/post_upgrade` shell hooks; bpm sources them in the install root.
+
+## The whole base system is bpm-tracked
+
+Every package baked into an image is recorded in the bpm DB **at build time**, so
+`bpm list` shows the entire base and `bpm upgrade` maintains the whole system —
+not just packages installed later:
+
+- Base packages + glibc are extracted **and recorded** by
+  `tools/bpm-extract-record.sh` (called from `make install` for each `BASE_PKGS`
+  entry, and `--record-only` for the mirror-fetched glibc). It writes the same
+  `.PKGINFO` `desc` + `files` a normal `bpm install` would.
+- The **kernel** (`linux`) is registered by `tools/seed-kernel-db.sh`, since it
+  ships as a pinned artifact rather than a package; it then upgrades via
+  `bpm upgrade` like anything else — see [KERNEL.md §10](KERNEL.md).
+
+When a base recipe is version-bumped and republished, `bpm upgrade` on installed
+systems pulls the update — this is how security fixes reach the fleet.
 
 ## systemd services
 
