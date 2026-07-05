@@ -1,0 +1,25 @@
+[package]
+name     = "tree"
+version  = "2.2.1"
+release  = 1
+summary  = "A directory listing program displaying a depth-indented list of files"
+homepage = "https://gitlab.com/OldManProgrammer/unix-tree"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends = ["glibc"]
+
+[[source]]
+url    = "https://github.com/Old-Man-Programmer/tree/archive/2.2.1/tree-2.2.1.tar.gz"
+sha256 = "5caddcbca805131ff590b126d3218019882e4ca10bc9eb490bba51c05b9b3b75"
+
+[steps]
+build = '''
+cd "$name-$version";
+make CFLAGS="${CFLAGS:-} -std=c11"
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" PREFIX=/usr MANDIR=/usr/share/man install;
+install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$name/LICENSE"
+'''

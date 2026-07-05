@@ -1,0 +1,31 @@
+[package]
+name     = "zsh"
+version  = "5.9"
+release  = 1
+summary  = "A powerful shell with scripting language and command-line completion"
+homepage = "https://www.zsh.org/"
+license  = ["custom:zsh"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "ncurses", "libcap", "gdbm"]
+makedepends = ["pkgconf"]
+
+[[source]]
+url    = "https://downloads.sourceforge.net/project/zsh/zsh/5.9/zsh-5.9.tar.xz"
+sha256 = "9b8d1ecedd5b5e81fbf1918e876752a7dd948e05c1a0dba10ab863842d45acd5"
+
+[steps]
+build = '''
+cd "$name-$version";
+export CFLAGS="${CFLAGS:-} -Wno-error";
+./configure --prefix=/usr --bindir=/usr/bin --sysconfdir=/etc/zsh --enable-etcdir=/etc/zsh \
+  --enable-zshenv=/etc/zsh/zshenv --docdir=/usr/share/doc/zsh --enable-multibyte \
+  --enable-function-subdirs --enable-fndir=/usr/share/zsh/functions --with-tcsetpgrp \
+  --enable-cap --enable-gdbm --with-term-lib='ncursesw';
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install;
+install -Dm644 LICENCE "$pkgdir/usr/share/licenses/$name/LICENCE"
+'''
