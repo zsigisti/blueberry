@@ -1,0 +1,37 @@
+[package]
+name     = "perl"
+version  = "5.40.2"
+release  = 1
+summary  = "A highly capable, feature-rich programming language"
+homepage = "https://www.perl.org/"
+license  = ["GPL-1.0-or-later", "Artistic-1.0-Perl"]
+arch     = ["x86_64"]
+
+depends = ["glibc", "gdbm"]
+
+[[source]]
+url    = "https://www.cpan.org/src/5.0/perl-5.40.2.tar.xz"
+sha256 = "0551c717458e703ef7972307ab19385edfa231198d88998df74e12226abf563b"
+
+[steps]
+build = '''
+cd "$name-$version";
+./Configure -des \
+  -Dprefix=/usr -Dvendorprefix=/usr \
+  -Dprivlib=/usr/share/perl5/core_perl \
+  -Darchlib=/usr/lib/perl5/core_perl \
+  -Dsitelib=/usr/share/perl5/site_perl \
+  -Dsitearch=/usr/lib/perl5/site_perl \
+  -Dvendorlib=/usr/share/perl5/vendor_perl \
+  -Dvendorarch=/usr/lib/perl5/vendor_perl \
+  -Dman1dir=/usr/share/man/man1 -Dman3dir=/usr/share/man/man3 \
+  -Dusethreads -Duseshrplib -Dinc_version_list=none \
+  -Accflags='-std=gnu17 -fwrapv -fno-strict-aliasing';
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install;
+install -Dm644 Copying "$pkgdir/usr/share/licenses/$name/Copying";
+install -Dm644 Artistic "$pkgdir/usr/share/licenses/$name/Artistic"
+'''

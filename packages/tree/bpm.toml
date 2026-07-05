@@ -20,6 +20,8 @@ make CFLAGS="${CFLAGS:-} -std=c11"
 '''
 package = '''
 cd "$name-$version";
-make DESTDIR="$pkgdir" PREFIX=/usr MANDIR=/usr/share/man install;
+# tree's Makefile repurposes DESTDIR as the bindir and has no staging prefix,
+# so point DESTDIR/MANDIR straight into $pkgdir (TREE_DEST=tree is the binary).
+make DESTDIR="$pkgdir/usr/bin" MANDIR="$pkgdir/usr/share/man" install;
 install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$name/LICENSE"
 '''
