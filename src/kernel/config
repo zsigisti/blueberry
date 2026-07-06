@@ -1,4 +1,4 @@
-# Blueberry Linux — Linux 7.1.3 minimal server kernel configuration
+# Blueberry Linux — Linux 6.18 LTS minimal server kernel configuration
 # Target: x86_64 bare-metal and VM (KVM/Xen/VMware)
 # Philosophy: nothing you don't need, everything you do
 

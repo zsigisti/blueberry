@@ -21,7 +21,7 @@ There is **no third-party binary mirror** at runtime.
 │  GNUmakefile ─ top-level BSD-style build orchestrator                  │
 │  Make.config ─ tunable build variables (arch, jobs, versions)          │
 │                                                                        │
-│  src/kernel/      pinned prebuilt Linux 7.1.3 (fetch+verify; build opt-in)│
+│  src/kernel/      pinned prebuilt Linux 6.18.38 (fetch+verify; build opt-in)│
 │  src/busybox/     busybox 1.36.x → /bin/busybox (live-CLI userland)     │
 │  src/init/        runit stage scripts (INIT=runit path)                 │
 │  src/systemd/     systemd integration: units, networkd, sshd (default)  │

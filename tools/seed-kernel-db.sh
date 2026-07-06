@@ -6,10 +6,11 @@
 # know it is installed and would never offer to upgrade it.
 #
 # Writes the bpm local-db entry (var/lib/bpm/db/linux/{desc,files}, the same
-# .PKGINFO shape bpm records on a normal install) and stages the kernel's helper
-# scripts (blueberry-grub-mkconfig, blueberry-kernel-hook) into /usr/bin so the
-# post_upgrade scriptlet of a future kernel .bpm can run. Version/release are read
-# from packages/linux/bpm.toml so the seed always matches the published package.
+# .PKGINFO shape bpm records on a normal install). The linux .bpm installs the
+# kernel straight to /boot/vmlinuz — the stable path the installer's grub.cfg
+# boots by UUID — so an upgrade just overwrites that file; no hook or grub
+# regeneration is involved. Version/release are read from packages/linux/bpm.toml
+# so the seed always matches the published package.
 #
 # Usage: seed-kernel-db.sh <stagedir>
 set -eu
@@ -30,16 +31,7 @@ mkdir -p "$DB"
     printf 'pkgver = %s-%s\n' "$ver" "$rel"
     printf 'pkgdesc = %s\n' "$summary"
 } > "$DB/desc"
-# NOTE: deliberately do NOT list boot/vmlinuz here. It is managed by
-# blueberry-kernel-hook (a promoted copy of the newest versioned kernel), not
-# owned by the package — so bpm must not delete it on upgrade, otherwise the
-# running kernel would vanish before the hook can stash it as vmlinuz.old.
-{
-    printf 'usr/bin/blueberry-grub-mkconfig\n'
-    printf 'usr/bin/blueberry-kernel-hook\n'
-} > "$DB/files"
-
-install -Dm755 "$TOP/packages/linux/blueberry-grub-mkconfig" "$STAGE/usr/bin/blueberry-grub-mkconfig"
-install -Dm755 "$TOP/packages/linux/blueberry-kernel-hook"    "$STAGE/usr/bin/blueberry-kernel-hook"
+# The kernel owns /boot/vmlinuz; a `bpm upgrade` overwrites it in place.
+printf 'boot/vmlinuz\n' > "$DB/files"
 
 echo "[seed-kernel-db] registered linux $ver-$rel (bpm upgrade will track the kernel)"

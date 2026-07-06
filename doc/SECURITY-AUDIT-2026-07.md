@@ -8,7 +8,7 @@ exposure. Versions were checked against upstream release pages / endoflife.date.
 **Headline:** the base userland was largely assembled around late-2024 / early-2025
 and has since drifted roughly 1–1.5 years behind upstream. Several
 security-critical components carry known-CVE exposure. Kernel is being bumped to
-7.1.3 separately (tracked); this audit covers userland.
+6.18 LTS separately (tracked); this audit covers userland.
 
 ## Outdated — action recommended (worst first)
 

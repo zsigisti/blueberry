@@ -34,10 +34,11 @@ The kernel config follows these principles:
    > plus common drivers (`iwlwifi`, `rtw88`, …), paired with `linux-firmware`,
    > `wpa_supplicant`, and NetworkManager in the base image.
    >
-   > **The legacy netfilter backend is required by `ufw`:**
-   > `CONFIG_NETFILTER_XTABLES_LEGACY=y` plus the `IP_NF_*` / `IP6_NF_*` stack.
-   > Linux 7.1.3 gates the legacy iptables backend behind that symbol; without it
-   > `ufw` reports "table does not exist."
+   > **The legacy netfilter backend is required by `ufw`:** the `IP_NF_*` /
+   > `IP6_NF_*` stack (built in). On kernel versions that gate the legacy iptables
+   > backend behind `CONFIG_NETFILTER_XTABLES_LEGACY`, that symbol is set too;
+   > `make olddefconfig` drops it on trees that predate it. Without the legacy
+   > stack `ufw` reports "table does not exist."
 
 2. **Everything a server does need.** ext4, xfs, btrfs, LVM, RAID, NVMe,
    virtio, nftables, WireGuard, eBPF, cgroups, namespaces — all built in
@@ -114,10 +115,11 @@ CONFIG_SECURITY_DMESG_RESTRICT=y Restrict dmesg to root (hides kernel pointers)
 CONFIG_DEFAULT_MMAP_MIN_ADDR=65536  Block low-address mmap (NULL-deref exploits)
 ```
 
-> **No source patches — hardening is config-only.** Blueberry tracks the latest
-> stable kernel and rebuilds on each bump, so carrying a hardened *patchset*
-> (which would need rebasing every release) is deliberately avoided; the KSPP
-> config above captures the security win with zero maintenance cost. See §5.
+> **No source patches — hardening is config-only.** Blueberry pins an **LTS**
+> kernel line (currently 6.18 LTS) and takes its point releases for security, so
+> carrying a hardened *patchset* (which would need rebasing every bump) is
+> deliberately avoided; the KSPP config above captures the security win with zero
+> maintenance cost, and the LTS branch already backports upstream fixes. See §5.
 
 ### Networking
 
@@ -203,19 +205,19 @@ CONFIG_BPF_EVENTS=y        BPF tracing via perf events
 make fetch
 
 # Start the interactive configurator
-make -C $OBJDIR/src/linux-7.1.3 \
+make -C $OBJDIR/src/linux-6.18.38 \
     ARCH=x86_64 \
     menuconfig
 
 # Copy the result back into the source tree
-cp $OBJDIR/src/linux-7.1.3/.config src/kernel/config
+cp $OBJDIR/src/linux-6.18.38/.config src/kernel/config
 ```
 
 ### Adding a driver as a module
 
 Find the config symbol with:
 ```sh
-make -C $OBJDIR/src/linux-7.1.3 ARCH=x86_64 grep-config SEARCH=REALTEK_PHY
+make -C $OBJDIR/src/linux-6.18.38 ARCH=x86_64 grep-config SEARCH=REALTEK_PHY
 ```
 
 Then add to `src/kernel/config`:
@@ -223,7 +225,7 @@ Then add to `src/kernel/config`:
 CONFIG_REALTEK_PHY=m
 ```
 
-Modules are installed to `obj/rootfs/lib/modules/7.1.3-blueberry/` by
+Modules are installed to `obj/rootfs/lib/modules/6.18.38-blueberry/` by
 `make kernel` and loaded at runtime via `modprobe`.
 
 ### Disabling something
@@ -261,7 +263,7 @@ re-applying on incremental builds.
 ## 6. Building a Custom Kernel Outside the Build System
 
 ```sh
-cd $OBJDIR/src/linux-7.1.3
+cd $OBJDIR/src/linux-6.18.38
 cp ../../src/kernel/config .config
 make ARCH=x86_64 olddefconfig
 make ARCH=x86_64 -j$(nproc)
@@ -312,12 +314,19 @@ make kernel KERNEL_CONFIG=src/kernel/config.debug
 > **only** from `CONFIG_LOCALVERSION` in `src/kernel/config`. The artifact build
 > (`src/kernel/Makefile`) passes `LOCALVERSION=` **empty** on purpose: passing
 > `-blueberry` there too would append it a second time and produce
-> `uname -r = 7.1.3-blueberry-blueberry`. Empty (not unset) also suppresses the
-> kernel's `+` "scm-dirty" auto-suffix. Result: `uname -r = 7.1.3-blueberry`.
+> `uname -r = 6.18.38-blueberry-blueberry`. Empty (not unset) also suppresses the
+> kernel's `+` "scm-dirty" auto-suffix. Result: `uname -r = 6.18.38-blueberry`.
 
 ---
 
 ## 9. Kernel Version Policy & Publishing
+
+**Blueberry pins an LTS kernel line** (currently **6.18 LTS**), Debian-style: the
+base stays on one long-term-supported series and takes its **point releases** for
+security, rather than chasing the newest mainline. LTS branches receive upstream
+security backports, so a bump is just `6.18.x → 6.18.(x+1)` — no patchset, and no
+config churn. Move to a newer LTS line only deliberately (e.g. for hardware
+support), reviewing the config diff when you do.
 
 The source tree targets a specific kernel version (`LINUX_VERSION` in
 `Make.config`). Because the kernel ships as a **pinned prebuilt artifact**,
@@ -344,9 +353,9 @@ changing it means publishing a new artifact. On a build box:
   `rm -rf ../blueberry-build/rootfs/{,usr/}lib/modules/<oldver>*`.
 
 Every other machine then just `make kernel`-fetches the new pinned artifact; no
-one else recompiles. The latest **stable** kernel is tracked (rebuild on each
-release rather than backporting), which is also why no source patchset is carried
-(§5).
+one else recompiles. Because an **LTS** line is pinned, a bump is normally just
+the next point release on the same series — which is also why no source patchset
+is carried (§5): the LTS branch already backports fixes upstream.
 
 ---
 
@@ -360,23 +369,23 @@ bpm update      # refresh the signed repo index
 bpm upgrade     # if the repo has a newer linux, it is pulled + installed
 ```
 
-How it is wired (see `tools/seed-kernel-db.sh`, `packages/linux/bpm.toml`,
-`packages/linux/blueberry-kernel-hook`):
+How it is wired (see `tools/seed-kernel-db.sh` and `packages/linux/bpm.toml`) —
+deliberately minimal, because a single pinned LTS kernel needs no promotion,
+fallback, or grub-regeneration machinery:
 
 - The image build registers `linux` in the bpm DB
-  (`var/lib/bpm/db/linux/{desc,files}`) at `make install`, because the running
-  kernel comes from the pinned artifact (copied by the installer), not from a
-  package — without this seed, `bpm upgrade` could not see the kernel.
-  `/boot/vmlinuz` is deliberately **not** listed as owned, so an upgrade never
-  deletes the running kernel before it can be preserved.
-- The `linux` .bpm ships the kernel **versioned-only**
-  (`/boot/vmlinuz-<ver>-blueberry`) plus `post_install`/`post_upgrade` scriptlets
-  that run `blueberry-kernel-hook`: it promotes the newest versioned kernel to
-  `/boot/vmlinuz`, stashes the previous one as `/boot/vmlinuz.old` (a **fallback**
-  boot entry), and regenerates `grub.cfg` via `blueberry-grub-mkconfig`.
+  (`var/lib/bpm/db/linux/{desc,files}`, owning `boot/vmlinuz`) at `make install`,
+  because the running kernel comes from the pinned artifact copied by the
+  installer, not from a package — without this seed, `bpm upgrade` could not see
+  the kernel.
+- The `linux` .bpm installs the kernel straight to `/boot/vmlinuz`. On upgrade
+  `bpm` overwrites that file (atomic rename, safe even for the running kernel),
+  and the **installer's grub.cfg already boots `/boot/vmlinuz` by root-fs UUID**
+  (`src/installer/src/boot.rs`), so the new kernel boots on next reboot with **no
+  grub.cfg change**.
 - The initramfs is kernel-agnostic (busybox, no loadable modules), so it is not
-  re-generated on a kernel upgrade — the same `/boot/initramfs.cpio.zst` boots
-  any kernel version.
+  regenerated either — the same `/boot/initramfs.cpio.zst` boots any kernel.
 
-If a new kernel misbehaves, pick **"Blueberry Linux (fallback — previous
-kernel)"** in the GRUB menu to boot `/boot/vmlinuz.old`.
+That's the whole mechanism: overwrite one file. There is no `post_upgrade` hook
+and no `grub-mkconfig` step — those were removed as unnecessary once the kernel
+became a stable-path, single-LTS package.

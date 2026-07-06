@@ -84,7 +84,7 @@ extracts them. Does NOT start compilation. Use this to pre-populate a machine
 with internet access before building air-gapped.
 
 ```
-../blueberry-build/src/linux-7.1.3.tar.xz
+../blueberry-build/src/linux-6.18.38.tar.xz
 ../blueberry-build/src/busybox-1.36.1.tar.bz2
 ../blueberry-build/src/runit-2.1.2.tar.gz
 ```
