@@ -44,10 +44,10 @@ Every package baked into an image is recorded in the bpm DB **at build time**, s
 not just packages installed later:
 
 - Base packages + glibc are extracted **and recorded** by
-  `tools/bpm-extract-record.sh` (called from `make install` for each `BASE_PKGS`
+  `tools/pkg/bpm-extract-record.sh` (called from `make install` for each `BASE_PKGS`
   entry, and `--record-only` for the mirror-fetched glibc). It writes the same
   `.PKGINFO` `desc` + `files` a normal `bpm install` would.
-- The **kernel** (`linux`) is registered by `tools/seed-kernel-db.sh`, since it
+- The **kernel** (`linux`) is registered by `tools/kernel/seed-kernel-db.sh`, since it
   ships as a pinned artifact rather than a package; it then upgrades via
   `bpm upgrade` like anything else — see [KERNEL.md §10](KERNEL.md).
 
@@ -85,16 +85,16 @@ into the binary (`src/bpm-rs/src/repokey.rs`) before trusting the index; then
 every package download is checked against the per-package SHA-256 from that
 signed index. The index is also fetched over TLS.
 
-Build a repo from a directory of `.bpm` files with `tools/bpmrepo.sh`:
+Build a repo from a directory of `.bpm` files with `tools/pkg/bpmrepo.sh`:
 
 ```sh
-tools/bpmrepo.sh /path/to/repo      # writes /path/to/repo/bpm.index
+tools/pkg/bpmrepo.sh /path/to/repo      # writes /path/to/repo/bpm.index
 ```
 
 ### Building + publishing a repo
 
 `make repo-build` builds every `packages/<name>/bpm.toml` into `obj/bpm-out`,
-driving `tools/build-bpm-pkg.sh` (which runs `bpmbuild` in an ephemeral Arch
+driving `tools/pkg/build-bpm-pkg.sh` (which runs `bpmbuild` in an ephemeral Arch
 container). It is **idempotent**: a package whose `.bpm` is newer than its
 `bpm.toml` is skipped, so adding one recipe rebuilds one package.
 
@@ -103,10 +103,10 @@ container). It is **idempotent**: a package whose `.bpm` is newer than its
 make repo-build
 
 # build a subset directly
-ENGINE=podman tools/build-bpm-pkg.sh obj/bpm-out nano vim
+ENGINE=podman tools/pkg/build-bpm-pkg.sh obj/bpm-out nano vim
 
 # index + ed25519-sign a repo directory
-tools/bpmrepo.sh /srv/blueberry-repo
+tools/pkg/bpmrepo.sh /srv/blueberry-repo
 ```
 
 To publish, `scp` the `.bpm` files to the mirror host and re-index there

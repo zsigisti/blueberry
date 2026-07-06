@@ -2,7 +2,7 @@
 # seed-kernel-db.sh — register the pinned kernel as an installed bpm package in
 # the rootfs, so `bpm upgrade` on the running system can later pull a newer linux
 # .bpm from the repo and install it. The kernel ships as a prebuilt artifact (it
-# is NOT built per image — see tools/fetch-kernel.sh), so bpm would otherwise not
+# is NOT built per image — see tools/kernel/fetch-kernel.sh), so bpm would otherwise not
 # know it is installed and would never offer to upgrade it.
 #
 # Writes the bpm local-db entry (var/lib/bpm/db/linux/{desc,files}, the same
@@ -15,7 +15,7 @@
 # Usage: seed-kernel-db.sh <stagedir>
 set -eu
 STAGE=${1:?usage: seed-kernel-db.sh <stagedir>}
-TOP=$(cd "$(dirname "$0")/.." && pwd)
+TOP=$(cd "$(dirname "$0")/../.." && pwd)
 REC="$TOP/packages/linux/bpm.toml"
 [ -f "$REC" ] || { echo "seed-kernel-db: no $REC" >&2; exit 1; }
 

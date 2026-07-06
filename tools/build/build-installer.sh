@@ -7,7 +7,7 @@
 set -eu
 
 OUT=${1:?usage: build-installer.sh <out-binary>}
-DIR=$(cd "$(dirname "$0")/../src/installer" && pwd)
+DIR=$(cd "$(dirname "$0")/../../src/installer" && pwd)
 
 command -v cargo >/dev/null 2>&1 || {
     echo "build-installer: cargo not found — install the Rust toolchain" >&2

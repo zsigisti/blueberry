@@ -206,7 +206,7 @@ post_remove  = "ldconfig 2>/dev/null || true"
 ## 4. Building a package: `bpmbuild`
 
 ```sh
-tools/bpmbuild <recipe-dir> <out-dir>
+tools/pkg/bpmbuild <recipe-dir> <out-dir>
 ```
 
 What it does, in order:
@@ -226,7 +226,7 @@ recipe's `makedepends` pull in).
 
 ```sh
 # inside the build container:
-python3 tools/bpmbuild experimental/recipes/zlib ./out
+python3 tools/pkg/bpmbuild experimental/recipes/zlib ./out
 # → ./out/zlib-1.3.1-1-x86_64.bpm
 ```
 
@@ -235,7 +235,7 @@ python3 tools/bpmbuild experimental/recipes/zlib ./out
 ## 5. Indexing a repo: `bpmrepo.sh`
 
 ```sh
-tools/bpmrepo.sh <repo-dir>
+tools/pkg/bpmrepo.sh <repo-dir>
 ```
 
 Reads every `*.bpm` in the directory, extracts its `.BPM` manifest, and writes
@@ -305,11 +305,11 @@ The complete, verified loop (run inside the build container, then on a client):
 
 ```sh
 # 1. Build two packages from recipes
-python3 tools/bpmbuild experimental/recipes/hello ./repo
-python3 tools/bpmbuild experimental/recipes/zlib  ./repo
+python3 tools/pkg/bpmbuild experimental/recipes/hello ./repo
+python3 tools/pkg/bpmbuild experimental/recipes/zlib  ./repo
 
 # 2. Index + sign the repo
-sh tools/bpmrepo.sh ./repo
+sh tools/pkg/bpmrepo.sh ./repo
 #  → wrote ./repo/bpm.index (2 packages) [+ bpm.index.sig if key present]
 
 # 3. Serve it
@@ -341,9 +341,9 @@ Every step above has been run and passes on the `feature/bpm-pkg-format` branch.
 |---|---|
 | `doc/BPM-FORMAT.md` | Terse design spec |
 | `doc/BPM-GUIDE.md` | This guide |
-| `tools/bpmbuild` | recipe → `.bpm` (Python) |
-| `tools/build-bpm-pkg.sh` | build `bpm.toml` in an Arch container → `.bpm` |
-| `tools/bpmrepo.sh` | `.bpm` dir → signed `bpm.index` (sh) |
+| `tools/pkg/bpmbuild` | recipe → `.bpm` (Python) |
+| `tools/pkg/build-bpm-pkg.sh` | build `bpm.toml` in an Arch container → `.bpm` |
+| `tools/pkg/bpmrepo.sh` | `.bpm` dir → signed `bpm.index` (sh) |
 | `experimental/recipes/<name>/bpm.toml` | example recipes (zlib, hello) |
 | `src/bpm-rs/src/pkg.rs` | `.BPM` translator + install path |
 

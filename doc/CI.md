@@ -46,7 +46,7 @@ There is no GitHub job for these; run them yourself before a release:
 
 ```sh
 make _check_tools                 # verify the build toolchain is present
-python3 tools/check-closure.py    # every recipe's depends resolve (closed graph)
+python3 tools/pkg/check-closure.py    # every recipe's depends resolve (closed graph)
 make world && make test           # build the base + headless boot self-test
 make test-install                 # unattended install to a disk image, assert boot
 make repo-build                   # build every packages/*/bpm.toml

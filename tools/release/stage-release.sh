@@ -5,7 +5,7 @@
 # mirror and only a sha256 manifest is committed; .github/workflows/release.yml
 # fetches + verifies them from there when a [RELEASE] commit lands on master.
 #
-# Usage:  tools/stage-release.sh [user@host:/srv/blueberry-repo]
+# Usage:  tools/release/stage-release.sh [user@host:/srv/blueberry-repo]
 #   1. uploads iso/*.iso to <mirror>/isos/
 #   2. writes release/isos.sha256 (the manifest CI verifies against)
 #   3. seeds release/NOTES.md if absent (edit it — it becomes the release body)
@@ -13,7 +13,7 @@
 set -euo pipefail
 
 DEST=${1:-root@192.168.0.79:/srv/blueberry-repo}
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 # Server-only: never stage stray desktop images (the desktop edition is gone).
 isos=()

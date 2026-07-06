@@ -127,7 +127,7 @@ trust chain (signed index → per-file sha256 → TLS) carries over verbatim.
 
 ## 3. The builder: `bpmbuild`
 
-`tools/bpmbuild.sh <recipe-dir> <out-dir>`:
+`tools/pkg/bpmbuild <recipe-dir> <out-dir>`:
 
 1. Parse `bpm.toml` (TOML → JSON via a tiny embedded parser; no bash eval).
 2. Fetch each `[[sources]]` URL into `$srcdir`, verify `sha256`.

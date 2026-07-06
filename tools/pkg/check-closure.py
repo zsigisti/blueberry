@@ -8,12 +8,12 @@ must resolve to either another recipe in packages/ or a host-provided name
 kirigami-addons, the applets…) at CI time instead of at runtime on the ISO.
 
 Usage:
-  tools/check-closure.py [--make]   # --make also checks makedepends
+  tools/pkg/check-closure.py [--make]   # --make also checks makedepends
 Exit status: 0 if closed, 1 if any dependency is missing.
 """
 import os, sys, glob, tomllib
 
-TOP = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TOP = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 PKGDIR = os.path.join(TOP, "packages")
 PROVIDED_FILE = os.path.join(TOP, "etc", "bpm", "provided")
 

@@ -6,11 +6,11 @@
 # the target; asserts BLUEBERRY_INSTALL=OK on serial, then boots the installed
 # disk and asserts it reaches multi-user with a login prompt.
 #
-# Usage: tools/test-install.sh <installer.iso>   (desktop or server payload)
+# Usage: tools/test/test-install.sh <installer.iso>   (desktop or server payload)
 set -u
 
 ISO=${1:?usage: $0 <installer.iso>}
-BOOTDIR=${BOOTDIR:-$(dirname "$0")/../../blueberry-build/boot}
+BOOTDIR=${BOOTDIR:-$(dirname "$0")/../../../blueberry-build/boot}
 WORK=${WORK:-$(dirname "$ISO")/../../blueberry-build/installtest}
 [ -f "$ISO" ] || { echo "FAIL: ISO not found: $ISO"; exit 1; }
 VMLINUZ="$BOOTDIR/vmlinuz"; INITRD="$BOOTDIR/initramfs.cpio.zst"

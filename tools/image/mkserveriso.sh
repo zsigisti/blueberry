@@ -10,7 +10,7 @@
 set -eu
 STAGEDIR=${1:?usage: mkserveriso.sh <rootfs> <output.iso>}
 OUTPUT=${2:?usage: mkserveriso.sh <rootfs> <output.iso>}
-TOPDIR=$(cd "$(dirname "$0")/.." && pwd)
+TOPDIR=$(cd "$(dirname "$0")/../.." && pwd)
 VOLID=${VOLID:-BLUEBERRY_SRV}
 BOOTDIR=${BOOTDIR:-$STAGEDIR/boot}
 log() { printf '\033[1;34m==> %s\033[0m\n' "$*"; }

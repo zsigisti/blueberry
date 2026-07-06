@@ -5,7 +5,7 @@
 # disk, no squashfs, no package manager. It is identical to what `make run`
 # boots, just on real media (CD/USB) for bare metal.
 #
-# Usage: tools/mkiso.sh <rootfsdir> [output.iso]
+# Usage: tools/image/mkiso.sh <rootfsdir> [output.iso]
 #   <rootfsdir> must contain boot/vmlinuz and boot/initramfs.cpio.zst
 #               (populated by `make install`)
 #

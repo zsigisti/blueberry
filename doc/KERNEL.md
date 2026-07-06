@@ -338,7 +338,7 @@ changing it means publishing a new artifact. On a build box:
    `blueberry-kernel-<version>-blueberry-<arch>.tar.zst` (+ `.sha256`) to the repo.
    (`make kernel-rebuild` compiles without uploading.)
 3. Also bump `packages/linux/bpm.toml` (version + `sha256` + `release`) and
-   rebuild that installable `linux` **.bpm** (`tools/build-bpm-pkg.sh`), then
+   rebuild that installable `linux` **.bpm** (`tools/pkg/build-bpm-pkg.sh`), then
    publish + re-index it — this is what `bpm upgrade` pulls (see §10).
 4. Commit the `Make.config` / `src/kernel/config` / `packages/linux/bpm.toml` change.
 
@@ -369,7 +369,7 @@ bpm update      # refresh the signed repo index
 bpm upgrade     # if the repo has a newer linux, it is pulled + installed
 ```
 
-How it is wired (see `tools/seed-kernel-db.sh` and `packages/linux/bpm.toml`) —
+How it is wired (see `tools/kernel/seed-kernel-db.sh` and `packages/linux/bpm.toml`) —
 deliberately minimal, because a single pinned LTS kernel needs no promotion,
 fallback, or grub-regeneration machinery:
 

@@ -14,14 +14,14 @@
 # Built entirely without root/loop devices (sgdisk + mkfs -d + mtools + dd),
 # so it runs in any unprivileged environment / CI.
 #
-# Usage: tools/mkdisk.sh <output.img> [rootfsdir] [size]
+# Usage: tools/image/mkdisk.sh <output.img> [rootfsdir] [size]
 #   rootfsdir  dir holding boot/vmlinuz + boot/initramfs.cpio.zst (make install)
 #   size       total image size (default 2G)
 
 set -euo pipefail
 
 OUT=${1:?usage: $0 <output.img> [rootfsdir] [size]}
-TOPDIR="$(cd "$(dirname "$0")/.." && pwd)"
+TOPDIR="$(cd "$(dirname "$0")/../.." && pwd)"
 ROOTFS=${2:-$(cd "$TOPDIR/.." && pwd)/blueberry-build/rootfs}
 SIZE=${3:-2G}
 WORK=$(mktemp -d /tmp/blueberry-disk.XXXXXX)

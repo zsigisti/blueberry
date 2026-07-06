@@ -241,9 +241,9 @@ $(STAMP_KERNEL): $(STAMP_FETCH_LINUX) $(TOPDIR)/src/kernel/config | $(BOOTDIR)
 	    JOBS=$(JOBS)
 	@touch $@
 else
-$(STAMP_KERNEL): $(TOPDIR)/tools/fetch-kernel.sh | $(BOOTDIR)
+$(STAMP_KERNEL): $(TOPDIR)/tools/kernel/fetch-kernel.sh | $(BOOTDIR)
 	@echo "[kernel] using pinned prebuilt linux-$(LINUX_VERSION)$(KERNEL_LOCALVERSION) (set KERNEL_BUILD=1 to compile)"
-	@sh $(TOPDIR)/tools/fetch-kernel.sh \
+	@sh $(TOPDIR)/tools/kernel/fetch-kernel.sh \
 	    $(BOOTDIR) $(STAGEDIR) $(LINUX_VERSION) $(KERNEL_LOCALVERSION) $(ARCH)
 	@touch $@
 endif
@@ -256,7 +256,7 @@ kernel-rebuild:
 
 # Compile + upload a new pinned artifact so every other build can fetch it.
 kernel-publish: kernel-rebuild
-	@sh $(TOPDIR)/tools/publish-kernel.sh \
+	@sh $(TOPDIR)/tools/kernel/publish-kernel.sh \
 	    $(BOOTDIR) $(STAGEDIR) $(LINUX_VERSION) $(KERNEL_LOCALVERSION) $(ARCH)
 
 # ── initramfs ─────────────────────────────────────────────────────────────────
@@ -300,7 +300,7 @@ _do_install:
 	@# /init → runit-init
 	@ln -sf /sbin/runit-init $(STAGEDIR)/init 2>/dev/null || true
 	@# bpm package manager (Rust, src/bpm-rs) + zstd helper
-	@ARCH=$(ARCH) sh $(TOPDIR)/tools/build-bpm.sh $(STAGEDIR)/usr/bin/bpm
+	@ARCH=$(ARCH) sh $(TOPDIR)/tools/pkg/build-bpm.sh $(STAGEDIR)/usr/bin/bpm
 	@install -Dm755 $$(command -v zstd) $(STAGEDIR)/usr/bin/zstd
 	@# CA trust store so bpm and curl can verify HTTPS (rustls TLS in bpm).
 	@install -Dm644 $$(readlink -f /etc/ssl/certs/ca-certificates.crt) \
@@ -312,13 +312,13 @@ _do_install:
 	@echo "[install] bundling base packages ($(BASE_PKGS))"
 	@# Native .bpm path (PKGBUILD/.pkg.tar.zst fully retired). Each .bpm is a zstd
 	@# tarball of ./usr… plus a .BPM manifest; build then extract into the rootfs.
-	@sh $(TOPDIR)/tools/build-bpm-pkg.sh $(OBJDIR)/bpm-out $(BASE_PKGS)
+	@sh $(TOPDIR)/tools/pkg/build-bpm-pkg.sh $(OBJDIR)/bpm-out $(BASE_PKGS)
 	@# Extract each base package AND record it in the rootfs bpm DB, so the base
 	@# userland is bpm-tracked and `bpm upgrade` can pull security/version updates
 	@# for it (openssl, openssh, sudo, expat, …) — not just the kernel.
 	@for p in $(BASE_PKGS); do \
 	    f=$$(ls -t $(OBJDIR)/bpm-out/$$p-[0-9]*.bpm | head -1); \
-	    sh $(TOPDIR)/tools/bpm-extract-record.sh "$$f" $(STAGEDIR); \
+	    sh $(TOPDIR)/tools/pkg/bpm-extract-record.sh "$$f" $(STAGEDIR); \
 	done
 	@# glibc: ALWAYS fetch the pinned, container-built package from the MIRROR —
 	@# never build it here or copy the build host's libc. Same rationale as the
@@ -326,9 +326,9 @@ _do_install:
 	@# otherwise stage a too-old libc and panic at boot. bundle-glibc below sources
 	@# the runtime from here (GLIBC_SYSROOT=$(STAGEDIR)).
 	@echo "[install] fetching glibc from mirror"
-	@sh $(TOPDIR)/tools/fetch-bpm.sh glibc $(STAGEDIR) $(OBJDIR)/bpm-cache
+	@sh $(TOPDIR)/tools/pkg/fetch-bpm.sh glibc $(STAGEDIR) $(OBJDIR)/bpm-cache
 	@# Record glibc in the bpm DB too (fetch-bpm already extracted it).
-	@sh $(TOPDIR)/tools/bpm-extract-record.sh \
+	@sh $(TOPDIR)/tools/pkg/bpm-extract-record.sh \
 	    $$(ls -t $(OBJDIR)/bpm-cache/glibc-[0-9]*.bpm | head -1) $(STAGEDIR) --record-only
 	@# trim dev cruft (headers, static libs, info, pkgconfig). Keep /usr/share/man:
 	@# mandoc + man-pages are in the base so `man`/apropos work on the server.
@@ -338,7 +338,7 @@ _do_install:
 	@# Register the pinned kernel as an installed bpm package so `bpm upgrade`
 	@# can pull + install a newer linux .bpm from the repo (the kernel is a
 	@# prebuilt artifact, not a base package, so bpm otherwise can't see it).
-	@sh $(TOPDIR)/tools/seed-kernel-db.sh $(STAGEDIR)
+	@sh $(TOPDIR)/tools/kernel/seed-kernel-db.sh $(STAGEDIR)
 	@# Init-system integration on the installed rootfs.
 ifeq ($(INIT),systemd)
 	@echo "[install] INIT=systemd — installing systemd integration layer"
@@ -347,7 +347,7 @@ ifeq ($(INIT),systemd)
 	@# systemd 256 requires it: the glibc linker only searches /usr/lib and PID 1
 	@# has compiled-in /usr/sbin/{mount,sulogin} paths, so a split rootfs panics /
 	@# drops to emergency mode. /lib64 keeps the ELF interpreter and stays real.
-	@sh $(TOPDIR)/tools/usr-merge.sh $(STAGEDIR)
+	@sh $(TOPDIR)/tools/image/usr-merge.sh $(STAGEDIR)
 	@# /sbin/init → systemd PID 1 (the initramfs execs /sbin/init on switch_root,
 	@# so this is the single indirection that selects the installed init system).
 	@# Absolute target: switch_root resolves it inside the new root, and the
@@ -360,7 +360,7 @@ endif
 	@# binaries (e.g. runit/dropbear on a systemd image) are skipped by the script.
 	@# GLIBC_SYSROOT=$(STAGEDIR): source glibc from the mirror package fetched
 	@# above into the rootfs, NOT the build host (host may be older — Ubuntu 2.39).
-	@GLIBC_SYSROOT=$(STAGEDIR) bash $(TOPDIR)/tools/bundle-glibc.sh $(STAGEDIR) \
+	@GLIBC_SYSROOT=$(STAGEDIR) bash $(TOPDIR)/tools/image/bundle-glibc.sh $(STAGEDIR) \
 	    $(STAGEDIR)/bin/busybox \
 	    $(STAGEDIR)/sbin/runit-init \
 	    $(STAGEDIR)/usr/sbin/dropbearmulti \
@@ -378,7 +378,7 @@ endif
 iso: install
 	@echo "[iso] building bootable image"
 	@mkdir -p $(TOPDIR)/iso
-	@$(TOPDIR)/tools/mkiso.sh $(STAGEDIR) \
+	@$(TOPDIR)/tools/image/mkiso.sh $(STAGEDIR) \
 	    $(TOPDIR)/iso/blueberry-$(shell date +%Y%m%d)-$(ARCH).iso
 
 # ── Server ISO (systemd live CLI) ─────────────────────────────────────────────
@@ -389,7 +389,7 @@ iso: install
 server-iso: install
 	@echo "[server-iso] assembling systemd live CLI ISO"
 	@mkdir -p $(TOPDIR)/iso
-	@INIT=systemd BOOTDIR=$(BOOTDIR) $(TOPDIR)/tools/mkserveriso.sh $(STAGEDIR) \
+	@INIT=systemd BOOTDIR=$(BOOTDIR) $(TOPDIR)/tools/image/mkserveriso.sh $(STAGEDIR) \
 	    $(SERVER_ISO)
 
 # ── Disk image ────────────────────────────────────────────────────────────────
@@ -398,7 +398,7 @@ server-iso: install
 disk: install
 	@echo "[disk] building UEFI disk image"
 	@mkdir -p $(TOPDIR)/disk
-	@$(TOPDIR)/tools/mkdisk.sh \
+	@$(TOPDIR)/tools/image/mkdisk.sh \
 	    $(TOPDIR)/disk/blueberry-$(shell date +%Y%m%d)-$(ARCH).img \
 	    $(STAGEDIR)
 
@@ -410,19 +410,19 @@ disk: install
 # Stage iso/*.iso on the mirror + write the release manifest (then commit with
 # [RELEASE] in the message — .github/workflows/release.yml does the rest).
 release-stage:
-	@bash $(TOPDIR)/tools/stage-release.sh
+	@bash $(TOPDIR)/tools/release/stage-release.sh
 
 run:
-	@BOOTDIR=$(BOOTDIR) ARCH=$(ARCH) bash $(TOPDIR)/tools/qemu.sh run
+	@BOOTDIR=$(BOOTDIR) ARCH=$(ARCH) bash $(TOPDIR)/tools/test/qemu.sh run
 test:
-	@BOOTDIR=$(BOOTDIR) ARCH=$(ARCH) bash $(TOPDIR)/tools/qemu.sh test
+	@BOOTDIR=$(BOOTDIR) ARCH=$(ARCH) bash $(TOPDIR)/tools/test/qemu.sh test
 
 run-server:
 	@[ -f $(SERVER_ISO) ] || $(MAKE) server-iso
-	@bash $(TOPDIR)/tools/boot-iso.sh run  $(SERVER_ISO) server
+	@bash $(TOPDIR)/tools/test/boot-iso.sh run  $(SERVER_ISO) server
 test-server:
 	@[ -f $(SERVER_ISO) ] || $(MAKE) server-iso
-	@bash $(TOPDIR)/tools/boot-iso.sh test $(SERVER_ISO) server
+	@bash $(TOPDIR)/tools/test/boot-iso.sh test $(SERVER_ISO) server
 
 
 # ── Directory creation ────────────────────────────────────────────────────────
@@ -437,14 +437,14 @@ ALL_BPM_PKGS := $(notdir $(patsubst %/bpm.toml,%,$(wildcard $(TOPDIR)/packages/*
 # host-provided). Catches "declared but never packaged" before it ships.
 .PHONY: check-closure build-world repo-build
 check-closure:
-	@python3 $(TOPDIR)/tools/check-closure.py
+	@python3 $(TOPDIR)/tools/pkg/check-closure.py
 
 
 # Build every .bpm package (idempotent: skips up-to-date ones). The bulk of the
 # repo; run on a build box. ENGINE=podman|docker.
 repo-build:
 	@echo "[repo] building all $(words $(ALL_BPM_PKGS)) .bpm packages"
-	@sh $(TOPDIR)/tools/build-bpm-pkg.sh $(OBJDIR)/bpm-out $(ALL_BPM_PKGS)
+	@sh $(TOPDIR)/tools/pkg/build-bpm-pkg.sh $(OBJDIR)/bpm-out $(ALL_BPM_PKGS)
 
 # "Build the world" gate: recipe closure must hold, then build every package
 # from source (fails if any recipe doesn't build). Run on a build box / nightly
@@ -514,7 +514,7 @@ help:
 .PHONY: test-install
 test-install:
 	@[ -f $(INSTALLER_ISO) ] || $(MAKE) iso
-	@bash $(TOPDIR)/tools/test-install.sh $(INSTALLER_ISO)
+	@bash $(TOPDIR)/tools/test/test-install.sh $(INSTALLER_ISO)
 
 # Full end-to-end smoke test: build the world + both ISOs, boot the live Server
 # ISO to multi-user, then do an unattended install and boot the installed disk.

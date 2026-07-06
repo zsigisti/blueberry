@@ -7,7 +7,7 @@
 # is retired). Pointing a .pkg.tar.zst indexer at the .bpm repo writes an empty
 # index and clobbers it, so always use this script.
 #
-# Usage: tools/bpmrepo.sh <repo-dir>
+# Usage: tools/pkg/bpmrepo.sh <repo-dir>
 #   Index line:  name|version|filename|sha256|deps|size|desc
 set -eu
 REPO="${1:-.}"

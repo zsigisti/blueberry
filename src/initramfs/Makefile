@@ -84,7 +84,7 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 
 	@# bpm package manager (Rust, src/bpm-rs) + default repo config
 	@mkdir -p $(INITRAMDIR)/usr/bin $(INITRAMDIR)/etc/bpm
-	@ARCH=$(ARCH) sh $(THISDIR)/../../tools/build-bpm.sh $(INITRAMDIR)/usr/bin/bpm
+	@ARCH=$(ARCH) sh $(THISDIR)/../../tools/pkg/build-bpm.sh $(INITRAMDIR)/usr/bin/bpm
 	@cp $(THISDIR)/../../etc/bpm/repos.conf $(INITRAMDIR)/etc/bpm/repos.conf
 	@cp $(THISDIR)/../../etc/bpm/provided  $(INITRAMDIR)/etc/bpm/provided
 
@@ -109,7 +109,7 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	@# installer mkfs.xfs / mkfs.btrfs so root can be XFS or Btrfs, not just ext4.
 	@# lvm2 (+ libaio/readline) gives the installer pvcreate/vgcreate/lvcreate and
 	@# the boot-time `vgchange -ay` for LVM (and LVM-on-LUKS) roots.
-	@sh $(THISDIR)/../../tools/build-bpm-pkg.sh $(OBJDIR)/instpkgs \
+	@sh $(THISDIR)/../../tools/pkg/build-bpm-pkg.sh $(OBJDIR)/instpkgs \
 	    popt e2fsprogs dosfstools gptfdisk json-c device-mapper openssl zlib cryptsetup \
 	    grub kbd ncurses bash xfsprogs btrfs-progs liburcu libinih lzo lvm2 libaio readline
 	@for p in popt e2fsprogs dosfstools gptfdisk json-c device-mapper openssl zlib cryptsetup \
@@ -128,7 +128,7 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	@# unpack the initramfs.
 	@echo "[initramfs] fetching glibc from mirror (into sysroot)"
 	@rm -rf $(OBJDIR)/glibc-sysroot
-	@sh $(THISDIR)/../../tools/fetch-bpm.sh glibc $(OBJDIR)/glibc-sysroot $(OBJDIR)/bpm-cache
+	@sh $(THISDIR)/../../tools/pkg/fetch-bpm.sh glibc $(OBJDIR)/glibc-sysroot $(OBJDIR)/bpm-cache
 	@# bash lands in /usr/bin; make /bin/bash resolve too (login shell path).
 	@ln -sf /usr/bin/bash $(INITRAMDIR)/bin/bash
 	@# Login wrapper: getty -l runs its program non-login, so bash would skip
@@ -150,7 +150,7 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	@find $(INITRAMDIR)/usr/lib -name '*.a' -delete 2>/dev/null || true
 	@# blueberry-install is now the Rust guided CLI installer (src/installer/,
 	@# built like bpm via cargo). It links glibc+libgcc_s, picked up by bundle-glibc.
-	@sh $(THISDIR)/../../tools/build-installer.sh $(INITRAMDIR)/usr/bin/blueberry-install
+	@sh $(THISDIR)/../../tools/build/build-installer.sh $(INITRAMDIR)/usr/bin/blueberry-install
 	@chmod 755 $(INITRAMDIR)/usr/bin/blueberry-install
 	@# short aliases — people reach for `bb-install` / `bb-installer` at the shell
 	@ln -sf blueberry-install $(INITRAMDIR)/usr/bin/bb-install
@@ -196,7 +196,7 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	@# binary here needs, plus the compat set + NSS modules, so the dynamic
 	@# busybox/dropbear run AND external prebuilt glibc software works.
 	@echo "[initramfs] bundling glibc runtime (from mirror glibc, not the host)"
-	@GLIBC_SYSROOT=$(OBJDIR)/glibc-sysroot bash $(THISDIR)/../../tools/bundle-glibc.sh $(INITRAMDIR) \
+	@GLIBC_SYSROOT=$(OBJDIR)/glibc-sysroot bash $(THISDIR)/../../tools/image/bundle-glibc.sh $(INITRAMDIR) \
 	    $(INITRAMDIR)/bin/busybox \
 	    $(INITRAMDIR)/usr/sbin/dropbearmulti \
 	    $(INITRAMDIR)/usr/bin/zstd \

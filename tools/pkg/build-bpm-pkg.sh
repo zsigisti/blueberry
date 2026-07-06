@@ -1,13 +1,13 @@
 #!/bin/sh
 # build-bpm-pkg.sh — build native .bpm packages from packages/<name>/bpm.toml in an
 # ephemeral Arch container (the self-hosted build toolchain), driving
-# tools/bpmbuild. This is the sole package builder: PKGBUILD/makepkg is retired.
+# tools/pkg/bpmbuild. This is the sole package builder: PKGBUILD/makepkg is retired.
 #
 # EXPERIMENTAL (feature/bpm-pkg-format). The .bpm format is not used in
 # production until both CLI and GUI boot; this is the build-side counterpart so
 # recipes can be migrated and tested end-to-end.
 #
-# Usage:  tools/build-bpm-pkg.sh <out-dir> <pkgname>...
+# Usage:  tools/pkg/build-bpm-pkg.sh <out-dir> <pkgname>...
 # Env:    ENGINE=podman|docker   IMAGE=<arch image>
 #
 # For each package it reads bpm.toml's depends+makedepends, installs them (plus
@@ -16,7 +16,7 @@
 
 set -eu
 OUT=${1:?usage: build-bpm-pkg.sh <out-dir> <pkg>...}; shift
-TOPDIR=$(cd "$(dirname "$0")/.." && pwd)
+TOPDIR=$(cd "$(dirname "$0")/../.." && pwd)
 ENGINE=${ENGINE:-podman}
 IMAGE=${IMAGE:-docker.io/library/archlinux:latest}
 mkdir -p "$OUT"
@@ -64,7 +64,7 @@ for p in '"$need"'; do
         pacman -S --noconfirm --needed "$d" >/dev/null 2>&1 || true
     done
     rm -f /out/$p-[0-9]*.bpm
-    if ! su builder -c "cd /tmp/b && SOURCE_DATE_EPOCH=$SDE BPM_ARCH=x86_64 python3 tools/bpmbuild packages/$p /out" >/tmp/$p.log 2>&1; then
+    if ! su builder -c "cd /tmp/b && SOURCE_DATE_EPOCH=$SDE BPM_ARCH=x86_64 python3 tools/pkg/bpmbuild packages/$p /out" >/tmp/$p.log 2>&1; then
         echo "!! FAILED: $p"; tail -8 /tmp/$p.log; fail="$fail $p"
     else
         echo "build-bpm: built $p"
@@ -73,7 +73,7 @@ done
 [ -z "$fail" ] || { echo "build-bpm: FAILED:$fail" >&2; exit 1; }
 '
 # Persistent pacman package cache: makedeps download once, not every build.
-# Pair with a pre-warmed IMAGE (tools/mk-builder-image.sh) to also skip install.
+# Pair with a pre-warmed IMAGE (tools/build/mk-builder-image.sh) to also skip install.
 PACMAN_CACHE=${PACMAN_CACHE:-blueberry-pacman}
 "$ENGINE" run --rm --ipc=host --security-opt seccomp=unconfined \
     -v "$PACMAN_CACHE:/var/cache/pacman/pkg" \

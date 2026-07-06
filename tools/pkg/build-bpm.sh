@@ -8,7 +8,7 @@
 set -eu
 
 OUT=${1:?usage: build-bpm.sh <out-binary>}
-DIR=$(cd "$(dirname "$0")/../src/bpm-rs" && pwd)
+DIR=$(cd "$(dirname "$0")/../../src/bpm-rs" && pwd)
 
 command -v cargo >/dev/null 2>&1 || {
     echo "build-bpm: cargo not found — install the Rust toolchain" >&2

@@ -1,12 +1,12 @@
 #!/bin/sh
-# mk-builder-image.sh — bake a pre-warmed Arch build image for tools/build-bpm-pkg.sh.
+# mk-builder-image.sh — bake a pre-warmed Arch build image for tools/pkg/build-bpm-pkg.sh.
 #
 # Each package build otherwise runs `pacman -Syu base-devel + makedeps` from
 # scratch in a fresh container (minutes of download+install per build). This bakes
 # base-devel plus the recurring heavy toolchain into one image so builds only need
 # the few package-specific makedeps. Use it with:
 #
-#   ENGINE=podman IMAGE=localhost/blueberry-builder tools/build-bpm-pkg.sh <out> <pkg>...
+#   ENGINE=podman IMAGE=localhost/blueberry-builder tools/pkg/build-bpm-pkg.sh <out> <pkg>...
 #
 # Re-run occasionally to refresh against current Arch (the package recipes still
 # pin their own source versions; this only affects the *build* toolchain).
@@ -41,4 +41,4 @@ $ENGINE run --name "$CTR" docker.io/library/archlinux:latest bash -euc "
 $ENGINE commit -q "$CTR" "$TAG"
 $ENGINE rm -f "$CTR" >/dev/null 2>&1 || true
 echo "mk-builder-image: wrote $TAG"
-echo "  use: IMAGE=$TAG tools/build-bpm-pkg.sh <out> <pkg>..."
+echo "  use: IMAGE=$TAG tools/pkg/build-bpm-pkg.sh <out> <pkg>..."

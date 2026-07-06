@@ -98,8 +98,8 @@ host glibc**, from `src/busybox/config`. Output:
 - applet symlinks: `sh`, `ls`, `mount`, … (created in the initramfs)
 
 The glibc runtime is added later (initramfs + `make install`) by **fetching the
-pinned `glibc` `.bpm` from the mirror** (`tools/fetch-bpm.sh`, sha256-verified)
-and extracting it into the image; `tools/bundle-glibc.sh` then stages the
+pinned `glibc` `.bpm` from the mirror** (`tools/pkg/fetch-bpm.sh`, sha256-verified)
+and extracting it into the image; `tools/image/bundle-glibc.sh` then stages the
 runtime (linker, shared libs, NSS modules, `ld.so.cache`) from there. The mirror
 glibc is the container-built one, so a host with an older glibc than the build
 container still produces a bootable image. busybox is linked against the
@@ -326,7 +326,7 @@ On an 8-core machine with `JOBS=8`:
 
 That error usually means the dynamic linker is missing. The image must contain
 `/lib64/ld-linux-x86-64.so.2`, the libs in `/usr/lib`, and `/etc/ld.so.cache` —
-all staged by `tools/bundle-glibc.sh` during the initramfs build and
+all staged by `tools/image/bundle-glibc.sh` during the initramfs build and
 `make install`, from the glibc `.bpm` fetched from the mirror. Rebuild the
 initramfs (`rm ../blueberry-build/.stamp-initramfs && make initramfs`) and
 confirm those paths are present. If the fetch itself failed (`fetch-bpm: … not

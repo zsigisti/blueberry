@@ -66,9 +66,9 @@ Arch binaries ship), producing a native `.bpm`:
 
 ```
 packages/<name>/bpm.toml
-        │  tools/build-bpm-pkg.sh  (ephemeral container → tools/bpmbuild)
+        │  tools/pkg/build-bpm-pkg.sh  (ephemeral container → tools/pkg/bpmbuild)
         ▼
-   name-ver-rel-arch.bpm  ──scp──►  mirror  ──tools/bpmrepo.sh──►  bpm.index (+ .sig)
+   name-ver-rel-arch.bpm  ──scp──►  mirror  ──tools/pkg/bpmrepo.sh──►  bpm.index (+ .sig)
                                                                         │  HTTPS + TLS
                                                                         ▼
                                                 bpm install  (ed25519 index + per-pkg SHA-256)
@@ -82,13 +82,13 @@ The userland builds dynamically against **glibc** so prebuilt, glibc-only
 software (proprietary binaries, language runtimes) runs without a shim. The
 glibc runtime — the loader `/lib64/ld-linux-x86-64.so.2`, the shared libs, the
 dlopen-only NSS modules, `ld.so.cache` — is staged at the standard ABI paths by
-`tools/bundle-glibc.sh`.
+`tools/image/bundle-glibc.sh`.
 
 glibc is built from source as a first-class package (`packages/glibc`) and then
 **pinned on the mirror** — treated exactly like the kernel: a fixed prebuilt
 artifact, not recompiled on every build. Both the rootfs (`make install`) and
 the initramfs (`make world`) **fetch the glibc `.bpm` from the mirror** with
-`tools/fetch-bpm.sh` (sha256-verified against the signed index) and extract it
+`tools/pkg/fetch-bpm.sh` (sha256-verified against the signed index) and extract it
 into the image; `bundle-glibc.sh` then sources the runtime from there
 (`GLIBC_SYSROOT` points at the freshly-populated rootfs / initramfs).
 
@@ -143,7 +143,7 @@ with no dependency on any other distro's mirror at runtime. See
 
 Because every runtime dependency must itself be a package in the repo, the set
 has to stay **self-contained**: no recipe may declare a dependency that nothing
-provides. `tools/check-closure.py` enforces this (see §7).
+provides. `tools/pkg/check-closure.py` enforces this (see §7).
 
 ## 4. Boot Sequence
 
@@ -211,7 +211,7 @@ firmware → GRUB → pinned vmlinuz → initramfs (root=UUID=…) → switch_ro
 
 The package graph must stay closed, or `bpm install` fails at runtime:
 
-- **`tools/check-closure.py`** (static) — asserts every recipe's `depends`
+- **`tools/pkg/check-closure.py`** (static) — asserts every recipe's `depends`
   resolves to another recipe or a host-provided name in `etc/bpm/provided`.
   Catches "declared but never packaged."
 

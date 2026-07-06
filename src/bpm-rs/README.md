@@ -35,5 +35,5 @@ cargo test                   # vercmp parity tests
 ```
 
 Packaged for the repo by `packages/bpm/PKGBUILD` (built in the Arch container,
-`makedepends=rust`); also built into the image/initramfs by `tools/build-bpm.sh`.
+`makedepends=rust`); also built into the image/initramfs by `tools/pkg/build-bpm.sh`.
 Install/update on a running system with `bpm install bpm`.

@@ -1,9 +1,9 @@
 #!/bin/bash
-# tools/qemu.sh — boot Blueberry's kernel + initramfs in QEMU.
+# tools/test/qemu.sh — boot Blueberry's kernel + initramfs in QEMU.
 #
 # Usage:
-#   tools/qemu.sh run     interactive live CLI (serial on your terminal)
-#   tools/qemu.sh test    headless self-test; asserts BLUEBERRY_TEST=PASS
+#   tools/test/qemu.sh run     interactive live CLI (serial on your terminal)
+#   tools/test/qemu.sh test    headless self-test; asserts BLUEBERRY_TEST=PASS
 #
 # Environment:
 #   BOOTDIR   directory with vmlinuz + initramfs.cpio.zst
@@ -19,7 +19,7 @@
 set -euo pipefail
 
 MODE="${1:-run}"
-TOPDIR="$(cd "$(dirname "$0")/.." && pwd)"
+TOPDIR="$(cd "$(dirname "$0")/../.." && pwd)"
 BOOTDIR="${BOOTDIR:-$(cd "$TOPDIR/.." && pwd)/blueberry-build/boot}"
 ARCH="${ARCH:-x86_64}"
 MEM="${MEM:-512M}"
