@@ -1,0 +1,16 @@
+[package]
+name = "bbdev"
+version = "0.1.0"
+edition = "2021"
+description = "Blueberry repository developer tool — detect and build changed package recipes"
+license = "GPL-3.0-or-later"
+
+[[bin]]
+name = "bbdev"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true
+panic = "abort"

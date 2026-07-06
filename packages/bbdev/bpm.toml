@@ -1,0 +1,26 @@
+[package]
+name     = "bbdev"
+version  = "0.1.0"
+release  = 1
+summary  = "Blueberry repository developer tool — detect + build changed package recipes"
+homepage = "https://github.com/zsigisti/blueberry"
+license  = ["GPL-3.0-or-later"]
+arch     = ["x86_64"]
+
+# Runtime it drives git + a container engine (podman/docker) itself; those aren't
+# hard deps here (podman may be rootless from the AUR/base), but git is required.
+depends     = ["glibc", "gcc-libs", "git"]
+makedepends = ["rust"]
+options     = ["!lto"]
+
+[steps]
+build = '''
+rm -rf bbsrc;
+cp -r "$startdir/../../src/bbdev" bbsrc;
+cd bbsrc;
+export CARGO_HOME="$srcdir/cargo";
+cargo build --release --locked 2>/dev/null || cargo build --release
+'''
+package = '''
+install -Dm755 "$srcdir/bbsrc/target/release/bbdev" "$pkgdir/usr/bin/bbdev"
+'''
