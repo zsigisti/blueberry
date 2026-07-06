@@ -42,6 +42,41 @@ pub fn read_files(cfg: &Config, name: &str) -> Vec<String> {
         .collect()
 }
 
+/// Config files the package declares as user-editable (`backup =` in the desc).
+/// These are preserved across upgrades (never blindly overwritten or removed).
+pub fn read_backup(cfg: &Config, name: &str) -> Vec<String> {
+    let desc = cfg.db.join(name).join("desc");
+    let txt = fs::read_to_string(desc).unwrap_or_default();
+    index::pkginfo_all(&txt, "backup")
+        .iter()
+        .map(|s| s.trim_start_matches('/').to_string())
+        .collect()
+}
+
+/// The sha256 the *packaged* version of a backup file had when this package was
+/// installed (db/<name>/backuphash, one `path\tsha256` per line). Lets an upgrade
+/// tell "user edited it" from "package changed it".
+pub fn backup_hash(cfg: &Config, name: &str, path: &str) -> Option<String> {
+    let p = cfg.db.join(name).join("backuphash");
+    let txt = fs::read_to_string(p).ok()?;
+    for line in txt.lines() {
+        if let Some((f, h)) = line.split_once('\t') {
+            if f == path {
+                return Some(h.to_string());
+            }
+        }
+    }
+    None
+}
+
+/// Record the packaged sha256 of each backup file (overwrites the previous set).
+pub fn write_backup(cfg: &Config, name: &str, entries: &[(String, String)]) -> std::io::Result<()> {
+    let dir = cfg.db.join(name);
+    fs::create_dir_all(&dir)?;
+    let body: String = entries.iter().map(|(f, h)| format!("{f}\t{h}\n")).collect();
+    fs::write(dir.join("backuphash"), body)
+}
+
 /// Declared dependencies of an installed package (atoms stripped to names).
 pub fn package_deps(cfg: &Config, name: &str) -> Vec<String> {
     let desc = cfg.db.join(name).join("desc");
@@ -86,7 +121,14 @@ pub fn file_owners(cfg: &Config, skip: &str) -> std::collections::HashMap<String
 /// Remove an installed package's files from disk (deepest first), pruning empty
 /// parent directories — the same teardown the C bpm does before an upgrade.
 pub fn remove_files(cfg: &Config, name: &str) {
-    let mut files = read_files(cfg, name);
+    // Never delete declared config files — on upgrade the installer compares +
+    // preserves them; on removal they're left behind (like pacsave) so a user's
+    // edits are never lost.
+    let backup: std::collections::HashSet<String> = read_backup(cfg, name).into_iter().collect();
+    let mut files: Vec<String> = read_files(cfg, name)
+        .into_iter()
+        .filter(|f| !backup.contains(f.as_str()))
+        .collect();
     files.sort();
     files.reverse(); // deepest paths first
     for rel in &files {

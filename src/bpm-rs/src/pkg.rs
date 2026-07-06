@@ -103,6 +103,12 @@ fn bpm_manifest_to_pkginfo(toml: &str) -> (String, Option<String>) {
                     pkginfo.push_str(&format!("provides = {p}\n"));
                 }
             }
+            "backup" => {
+                for b in array_items(v) {
+                    // paths are relative (no leading /), matching the `files` list
+                    pkginfo.push_str(&format!("backup = {}\n", b.trim_start_matches('/')));
+                }
+            }
             _ => {}
         }
     }
@@ -227,6 +233,9 @@ pub fn install_file(cfg: &Config, path: &Path, force: bool) -> io::Result<String
     let mut old_version: Option<String> = None;
     let mut settled = false;
     let mut owners: HashMap<String, String> = HashMap::new();
+    // Config files the package declares user-editable, and the hashes we install.
+    let mut backup_set: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut new_backup: Vec<(String, String)> = Vec::new();
 
     for entry in archive.entries()? {
         let mut e = entry?;
@@ -282,6 +291,10 @@ pub fn install_file(cfg: &Config, path: &Path, force: bool) -> io::Result<String
                 if let Some(ref n) = pkgname {
                     owners = db::file_owners(cfg, n);
                 }
+                backup_set = index::pkginfo_all(&s, "backup")
+                    .iter()
+                    .map(|p| p.trim_start_matches('/').to_string())
+                    .collect();
                 name = pkgname;
                 info = Some(s);
             } else if rel == ".INSTALL" && script.is_none() {
@@ -365,7 +378,31 @@ pub fn install_file(cfg: &Config, path: &Path, force: bool) -> io::Result<String
                 out.flush()?;
             }
             fs::set_permissions(&tmp, fs::Permissions::from_mode(mode))?;
-            fs::rename(&tmp, &full)?;
+            if backup_set.contains(&rel) {
+                // Config file — the pacman/dpkg model: don't clobber user edits.
+                let newhash = index::sha256_file(&tmp).unwrap_or_default();
+                let on_disk = full.exists();
+                let disk_hash = if on_disk { index::sha256_file(&full).ok() } else { None };
+                let old_pkg = match (upgrade, name.as_deref()) {
+                    (true, Some(n)) => db::backup_hash(cfg, n, &rel),
+                    _ => None,
+                };
+                if !on_disk || disk_hash.as_deref() == Some(newhash.as_str()) {
+                    // fresh install, or already identical to the new version
+                    fs::rename(&tmp, &full)?;
+                } else if old_pkg.is_some() && disk_hash == old_pkg {
+                    // user hasn't touched it (on-disk == old packaged) → update
+                    fs::rename(&tmp, &full)?;
+                } else {
+                    // user edited it and the package's version differs → keep theirs
+                    let nf = full.with_file_name(format!("{fname}.bpmnew"));
+                    fs::rename(&tmp, &nf)?;
+                    println!(":: config /{rel} preserved — new version saved as /{rel}.bpmnew");
+                }
+                new_backup.push((rel.clone(), newhash));
+            } else {
+                fs::rename(&tmp, &full)?;
+            }
             files.push(rel);
         }
     }
@@ -375,6 +412,9 @@ pub fn install_file(cfg: &Config, path: &Path, force: bool) -> io::Result<String
     let version = version.unwrap_or_default();
 
     db::record(cfg, &name, &info, &files)?;
+    // Remember the packaged hash of each config file so the next upgrade can tell
+    // a user edit from a package change.
+    let _ = db::write_backup(cfg, &name, &new_backup);
 
     run_scriptlet(
         cfg,

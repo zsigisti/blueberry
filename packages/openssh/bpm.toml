@@ -1,13 +1,15 @@
 [package]
 name     = "openssh"
 version  = "10.3p1"
-release  = 1
+release  = 2
 summary  = "OpenSSH — full SSH server and client suite"
 homepage = "https://www.openssh.com/"
 license  = ["BSD-2-Clause"]
 arch     = ["x86_64"]
 
 depends     = ["glibc", "openssl", "zlib"]
+# user-editable config — preserved across upgrades (bpm writes a .bpmnew instead)
+backup      = ["etc/ssh/sshd_config", "etc/ssh/ssh_config"]
 
 [[source]]
 url    = "https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-10.3p1.tar.gz"
