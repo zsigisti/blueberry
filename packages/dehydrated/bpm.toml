@@ -1,0 +1,31 @@
+[package]
+name     = "dehydrated"
+version  = "0.7.2"
+release  = 1
+summary  = "Lightweight ACME / Let's Encrypt client (a single Bash script)"
+homepage = "https://dehydrated.io/"
+license  = ["MIT"]
+arch     = ["any"]
+
+# Pure shell — drives the base openssl + curl. No compiler needed.
+depends     = ["bash", "curl", "openssl"]
+
+[[source]]
+url    = "https://github.com/dehydrated-io/dehydrated/archive/refs/tags/v0.7.2.tar.gz"
+sha256 = "34d0e316dd86108cf302fddfe1c6d7b72c2fa98bed338ddd6c0155da2ec75a94"
+
+[steps]
+package = '''
+cd "$name-$version"
+install -Dm755 dehydrated "$pkgdir/usr/bin/dehydrated"
+install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$name/LICENSE"
+# Ship the example config + domains file as .example (don't clobber real config).
+for f in config domains.txt; do
+  [ -f "docs/examples/$f" ] && install -Dm644 "docs/examples/$f" "$pkgdir/etc/dehydrated/$f.example"
+done
+# Man page, if the tarball carries a built one.
+for m in docs/man/dehydrated.1 docs/dehydrated.1; do
+  [ -f "$m" ] && install -Dm644 "$m" "$pkgdir/usr/share/man/man1/dehydrated.1" && break
+done
+true
+'''

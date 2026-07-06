@@ -1,7 +1,7 @@
 [package]
 name     = "nginx"
-version  = "1.26.3"
-release  = 3
+version  = "1.28.3"
+release  = 1
 summary  = "Lightweight HTTP server and IMAP/POP3 proxy server"
 homepage = "https://nginx.org/"
 license  = ["BSD-2-Clause"]
@@ -10,8 +10,8 @@ arch     = ["x86_64"]
 depends     = ["glibc", "pcre2", "zlib", "openssl"]
 
 [[source]]
-url    = "https://nginx.org/download/nginx-1.26.3.tar.gz"
-sha256 = "69ee2b237744036e61d24b836668aad3040dda461fe6f570f1787eab570c75aa"
+url    = "https://nginx.org/download/nginx-1.28.3.tar.gz"
+sha256 = "2c96a946bfb0882a21744ed429770a2123ae1828c7c48665092993ddee91a918"
 
 [steps]
 build = '''

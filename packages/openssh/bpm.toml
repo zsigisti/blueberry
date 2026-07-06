@@ -1,6 +1,6 @@
 [package]
 name     = "openssh"
-version  = "9.9p2"
+version  = "10.3p1"
 release  = 1
 summary  = "OpenSSH — full SSH server and client suite"
 homepage = "https://www.openssh.com/"
@@ -10,8 +10,8 @@ arch     = ["x86_64"]
 depends     = ["glibc", "openssl", "zlib"]
 
 [[source]]
-url    = "https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-9.9p2.tar.gz"
-sha256 = "91aadb603e08cc285eddf965e1199d02585fa94d994d6cae5b41e1721e215673"
+url    = "https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-10.3p1.tar.gz"
+sha256 = "56682a36bb92dcf4b4f016fd8ec8e74059b79a8de25c15d670d731e7d18e45f4"
 
 [steps]
 build = '''
