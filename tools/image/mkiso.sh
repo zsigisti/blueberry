@@ -47,7 +47,13 @@ if command -v zstd >/dev/null; then
     PAYLOAD="$ISO_ROOT/blueberry"
     mkdir -p "$PAYLOAD"
     log "Building installer payload (rootfs.tar.zst)"
+    # Force root:root ownership. The build runs rootless (uid 1000), so the
+    # staged rootfs is owned by the build user; without this the archive records
+    # uid 1000 and the installer restores it verbatim, leaving every setuid
+    # binary (mount, su, sudo, passwd, ping) setuid-to-1000 instead of root —
+    # which breaks tmp.mount/dev-mqueue at boot and silently breaks su/sudo.
     tar -C "$ROOTFS" \
+        --owner=0 --group=0 --numeric-owner \
         --exclude='./boot/vmlinuz' --exclude='./boot/initramfs.cpio.zst' \
         -cf - . | zstd -q -19 > "$PAYLOAD/rootfs.tar.zst"
     cp "$VMLINUZ" "$PAYLOAD/vmlinuz"

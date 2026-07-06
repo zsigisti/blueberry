@@ -96,8 +96,11 @@ ln -sf /run/systemd/resolve/resolv.conf "$LIVEROOT/etc/resolv.conf"
 mkdir -p "$LIVEROOT/run/systemd/resolve"
 
 log "building squashfs (zstd)"
+# -all-root: the build is rootless (uid 1000), so force every file in the live
+# filesystem to root:root — otherwise setuid binaries (mount, su, sudo, …) end
+# up setuid-to-1000 instead of root, breaking tmp.mount/dev-mqueue at boot.
 mksquashfs "$LIVEROOT" "$ISO_ROOT/live/filesystem.squashfs" \
-  -comp zstd -Xcompression-level 19 -noappend -quiet \
+  -comp zstd -Xcompression-level 19 -noappend -quiet -all-root \
   -e boot/vmlinuz boot/initramfs.cpio.zst
 cp "$VMLINUZ" "$ISO_ROOT/boot/vmlinuz"
 cp "$INITRD"  "$ISO_ROOT/boot/initramfs.cpio.zst"

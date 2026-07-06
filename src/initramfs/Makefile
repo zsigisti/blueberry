@@ -216,11 +216,13 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	    $(INITRAMDIR)/sbin/cryptsetup \
 	    $(INITRAMDIR)/sbin/blkid
 
-	@# Pack as CPIO
+	@# Pack as CPIO. -R 0:0 forces root:root: the build is rootless (uid 1000),
+	@# so without it the archived files (and any setuid bits) are owned by the
+	@# build user instead of root.
 	@echo "[initramfs] packing"
 	@cd $(INITRAMDIR) && \
 	    find . | sort | \
-	    cpio --create --format=newc --quiet 2>/dev/null | \
+	    cpio --create --format=newc -R 0:0 --quiet 2>/dev/null | \
 	    zstd -19 -q > $(BOOTDIR)/initramfs.cpio.zst
 	@echo "[initramfs] written to $(BOOTDIR)/initramfs.cpio.zst"
 	@ls -lh $(BOOTDIR)/initramfs.cpio.zst
