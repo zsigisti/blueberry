@@ -1,34 +1,27 @@
-## Blueberry Linux — v0.5.0-beta
+## Blueberry Linux — v0.5.1-beta
 
-The "maintainable base" release: Blueberry moves to a Debian-style **LTS kernel**
-and a **bpm-upgradable base**, so an installed system can take security updates in
-place instead of being a frozen snapshot.
+A point release on top of v0.5.0-beta, shipping **bpm 1.9.0** by default.
 
-### Kernel — now 6.18 LTS
-- Pinned to the **6.18 LTS** line (was chasing latest-stable). Security comes from
-  LTS point releases, which backport upstream fixes — no patchset to maintain.
-- **KSPP hardening baseline** in the config: STRICT_KERNEL_RWX, HARDENED_USERCOPY,
-  INIT_ON_FREE, SLAB_FREELIST_HARDENED, RANDOM_KMALLOC_CACHES, LIST_HARDENED,
-  ZERO_CALL_USED_REGS, VMAP_STACK, DMESG_RESTRICT, and more.
-- `uname -r` is now a clean `6.18.38-blueberry` (fixed a doubled-suffix bug).
+### Package manager (bpm 1.9.0)
+- **Download progress bar** — `bpm install` / `bpm upgrade` now show a live
+  pacman-style meter across the parallel downloads: packages done/total, MiB
+  done/total, percent, and speed, e.g.
 
-### The whole base is `bpm`-tracked
-- Every base package **and** the kernel are recorded in the bpm database at build
-  time, so `bpm list` shows the full system and **`bpm upgrade` maintains it** —
-  not just packages you install later.
-- Kernel upgrades are now dead simple: the `linux` package overwrites
-  `/boot/vmlinuz` and the existing UUID-based grub.cfg boots it. (The previous
-  hook / fallback / grub-regeneration machinery was removed as unnecessary.)
+      :: downloading  12/13 pkgs  63.4/63.4 MiB  100%  5.9 MiB/s
 
-### Security updates (delivered via `bpm upgrade`)
-- In the base image: **openssl** 3.4.0 → 3.4.6, **sudo** 1.9.16p2 → 1.9.17p2
-  (mid-2025 chroot local-priv-esc fix), **expat** 2.6.4 → 2.8.2 (13 CVEs).
-- Refreshed on the repo: **curl** 8.21.0, **xz** 5.8.3, **gnutls** 3.8.13,
-  **sqlite** 3.53.3, **postgresql** 17.10.
+- **`bpm` is now self-tracked.** It's registered in its own database
+  (`/var/lib/bpm/db/bpm`), so `bpm list` shows it and `bpm upgrade` keeps the
+  package manager itself up to date.
+- **Removed `bpm owns <path>`** (little-used reverse path lookup); `bpm files
+  <name>` still lists a package's files.
 
-### Housekeeping
-- `tools/` reorganized into role subdirectories (pkg / kernel / image / test /
-  release / build); dropped a dead publisher script.
+### Fixes
+- `linux-api-headers` realigned to the running kernel (6.18.38), clearing the
+  "not in repo index" warning on `bpm install gcc` and similar.
+
+### Base (unchanged from v0.5.0-beta)
+- 6.18 LTS kernel (KSPP-hardened), bpm-tracked base, in-place security updates
+  via `bpm upgrade`.
 
 ### Images
 
@@ -39,6 +32,5 @@ place instead of being a frozen snapshot.
 
 Both are hybrid BIOS + UEFI. Write to USB: `dd if=<iso> of=/dev/sdX bs=4M oflag=sync`.
 
-Verified end-to-end in QEMU: boots to `6.18.38-blueberry`, unattended install +
-boot of the installed disk, and a rooted `bpm upgrade` pulling the new kernel +
-security packages.
+Already on v0.5.0? Just `bpm update && bpm install bpm` to get 1.9.0 without
+reinstalling.
