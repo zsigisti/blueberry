@@ -412,10 +412,11 @@ disk: install
 # test-* : boot it headless and assert the edition reached its ready target.
 # Each builds the ISO only if it is missing (no forced world rebuild). The bare
 # `run`/`test` keep the fast initramfs smoke path (what CI runs).
-# Stage iso/*.iso on the mirror + write the release manifest (then commit with
-# [RELEASE] in the message — .github/workflows/release.yml does the rest).
-release-stage:
-	@bash $(TOPDIR)/tools/release/stage-release.sh
+# Cut a GitHub release with iso/*.iso attached DIRECTLY as assets (never on the
+# mirror). Edit release/NOTES.md first, then: make release TAG=v0.5.2-beta
+.PHONY: release release-stage
+release release-stage:
+	@bash $(TOPDIR)/tools/release/stage-release.sh $(TAG) $(if $(TITLE),"$(TITLE)",)
 
 run:
 	@BOOTDIR=$(BOOTDIR) ARCH=$(ARCH) bash $(TOPDIR)/tools/test/qemu.sh run

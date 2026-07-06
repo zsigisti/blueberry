@@ -1,59 +1,45 @@
 #!/bin/bash
-# stage-release.sh — stage the current iso/ images for a GitHub release.
+# stage-release.sh — cut a GitHub release for the current iso/ images.
 #
-# GitHub can't hold multi-GB files in git, so the images live on the project
-# mirror and only a sha256 manifest is committed; .github/workflows/release.yml
-# fetches + verifies them from there when a [RELEASE] commit lands on master.
+# ISOs are attached DIRECTLY to the GitHub release (assets support up to 2 GB
+# each) — they are NEVER uploaded to the project mirror. The mirror carries only
+# .bpm packages + the pinned kernel/glibc. (This replaced an older flow that
+# scp'd the ISOs to <mirror>/isos/ and had CI fetch them back.)
 #
-# Usage:  tools/release/stage-release.sh [user@host:/srv/blueberry-repo]
-#   1. uploads iso/*.iso to <mirror>/isos/
-#   2. writes release/isos.sha256 (the manifest CI verifies against)
-#   3. seeds release/NOTES.md if absent (edit it — it becomes the release body)
-# Then:   git add release/ && git commit -m "[RELEASE] v0.1.0-beta — …" && git push
+# Usage:  tools/release/stage-release.sh v0.5.2-beta ["Release title"]
+#   - attaches every non-desktop iso/*.iso to the release
+#   - uses release/NOTES.md as the body (edit it first)
+#   - marks the release a pre-release when the tag has -beta/-rc/-alpha
+#
+# Requires: gh (authenticated), and the ISOs already built (make iso server-iso).
 set -euo pipefail
 
-DEST=${1:-root@192.168.0.79:/srv/blueberry-repo}
 cd "$(dirname "$0")/../.."
 
-# Server-only: never stage stray desktop images (the desktop edition is gone).
+TAG=${1:?usage: stage-release.sh <tag> [title]   e.g. v0.5.2-beta}
+TITLE=${2:-$TAG}
+
+command -v gh >/dev/null 2>&1 || { echo "stage-release: gh CLI required (and authenticated)"; exit 1; }
+[ -f release/NOTES.md ] || { echo "stage-release: release/NOTES.md missing — write the notes first"; exit 1; }
+
+# Server-only: never ship stray desktop images (the desktop edition is gone).
 isos=()
 for f in iso/*.iso; do
     case "$f" in *desktop*) continue ;; esac
     [ -e "$f" ] && isos+=("$f")
 done
-[ "${#isos[@]}" -gt 0 ] || { echo "no server ISOs in iso/ — build them first (make iso)"; exit 1; }
+[ "${#isos[@]}" -gt 0 ] || { echo "stage-release: no server ISOs in iso/ — build them first (make iso server-iso)"; exit 1; }
 
-mkdir -p release
-: > release/isos.sha256
-for f in "${isos[@]}"; do
-    echo "==> checksumming $(basename "$f")"
-    (cd iso && sha256sum "$(basename "$f")") >> release/isos.sha256
-done
+# Pre-release unless the tag is a plain final version.
+pre=""
+case "$TAG" in *-beta*|*-rc*|*-alpha*) pre="--prerelease" ;; esac
 
-echo "==> uploading ${#isos[@]} image(s) to $DEST/isos/"
-ssh "${DEST%%:*}" "mkdir -p ${DEST#*:}/isos"
-scp "${isos[@]}" "$DEST/isos/"
+echo "==> creating GitHub release $TAG with ${#isos[@]} ISO(s) attached directly:"
+for f in "${isos[@]}"; do echo "      $(basename "$f")  ($(du -h "$f" | cut -f1))"; done
 
-if [ ! -f release/NOTES.md ]; then
-    cat > release/NOTES.md <<'EOF'
-## Blueberry Linux — beta release
+# Recreate cleanly if a partial release/tag already exists.
+gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
+gh release create "$TAG" "${isos[@]}" \
+    --title "$TITLE" --notes-file release/NOTES.md --target master $pre
 
-First public beta. Images (BIOS + UEFI, all boot into the TUI installer):
-
-| image | what it is |
-|---|---|
-| `blueberry-<date>-x86_64.iso` | Server (rolling CLI) |
-| `blueberry-desktop-<ver>-kde-x86_64.iso` | Desktop, offline install |
-| `blueberry-desktop-<ver>-kde-netinstall-x86_64.iso` | Desktop, netinstall |
-
-Write to a USB stick: `dd if=<iso> of=/dev/sdX bs=4M oflag=sync`
-
-This is a **beta**: expect rough edges, report what you find.
-EOF
-    echo "==> seeded release/NOTES.md — edit it before committing"
-fi
-
-echo
-echo "Staged. Now:"
-echo "  \$EDITOR release/NOTES.md"
-echo "  git add release/ && git commit -m '[RELEASE] v0.1.0-beta — first beta' && git push"
+echo "==> released: $(gh release view "$TAG" --json url -q .url 2>/dev/null)"
