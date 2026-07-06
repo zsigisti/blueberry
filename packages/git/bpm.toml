@@ -1,17 +1,20 @@
 [package]
 name     = "git"
-version  = "2.49.0"
-release  = 2
+version  = "2.55.0"
+release  = 1
 summary  = "The fast distributed version control system"
 homepage = "https://git-scm.com/"
 license  = ["GPL-2.0-only"]
 arch     = ["x86_64"]
 
 depends     = ["curl", "openssl", "expat", "zlib", "pcre2"]
+# git 2.55 builds a Rust core library (target/release/libgitcore.a) as part of
+# `make all`, so cargo/rustc are needed at build time (static lib — no runtime dep).
+makedepends = ["rust"]
 
 [[source]]
-url    = "https://mirrors.kernel.org/pub/software/scm/git/git-2.49.0.tar.xz"
-sha256 = "618190cf590b7e9f6c11f91f23b1d267cd98c3ab33b850416d8758f8b5a85628"
+url    = "https://mirrors.kernel.org/pub/software/scm/git/git-2.55.0.tar.xz"
+sha256 = "457fdb04dc8728e007d4688695e6912e6f680727920f2a40bf11eacc17505357"
 
 [steps]
 # Upstream PKGBUILD wraps make in a _make() helper carrying the build knobs; the
