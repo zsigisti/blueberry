@@ -1,0 +1,26 @@
+[package]
+name     = "passt"
+version  = "2026_06_11.a9c61ff"
+release  = 1
+summary  = "Plug A Simple Socket Transport — user-mode networking (pasta) for rootless containers"
+homepage = "https://passt.top"
+license  = ["GPL-2.0-or-later", "BSD-3-Clause"]
+arch     = ["x86_64"]
+
+# podman 5+/6 uses pasta (a passt symlink) as the default rootless network uplink.
+depends     = ["glibc"]
+makedepends = ["make", "pkgconf"]
+
+[[source]]
+url    = "https://passt.top/passt/snapshot/passt-2026_06_11.a9c61ff.tar.xz"
+sha256 = "b94b235cb96ce1b7aeab6552b7e0b4c9a780e5d700ced500c65e429b2d8b8450"
+
+[steps]
+build = '''
+cd "passt-$version"
+make
+'''
+package = '''
+cd "passt-$version"
+make install DESTDIR="$pkgdir" prefix=/usr
+'''

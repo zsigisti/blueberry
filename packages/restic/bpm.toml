@@ -1,0 +1,27 @@
+[package]
+name     = "restic"
+version  = "0.19.1"
+release  = 1
+summary  = "Fast, secure, deduplicating backup program"
+homepage = "https://restic.net"
+license  = ["BSD-2-Clause"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["go", "git"]
+
+[[source]]
+url    = "https://github.com/restic/restic/releases/download/v0.19.1/restic-0.19.1.tar.gz"
+sha256 = "bb9b1a19040744d26d8a79be029d4e6b189c45ccc9d8831d7fe367d3c33df725"
+
+[steps]
+build = '''
+cd "restic-$version"
+export GOPATH="$srcdir/go" GOCACHE="$srcdir/gocache" GOFLAGS=-trimpath
+# restic ships a build script that stamps the version and builds ./cmd/restic.
+go run build.go --enable-cgo=0 || CGO_ENABLED=0 go build -ldflags "-s -w" -o restic ./cmd/restic
+'''
+package = '''
+cd "restic-$version"
+install -Dm755 restic "$pkgdir/usr/bin/restic"
+'''

@@ -1,0 +1,29 @@
+[package]
+name     = "msmtp"
+version  = "1.8.32"
+release  = 1
+summary  = "Lightweight SMTP client — sendmail replacement for cron/alert mail"
+homepage = "https://marlam.de/msmtp/"
+license  = ["GPL-3.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "gnutls", "libidn2"]
+makedepends = ["pkgconf", "gnutls", "libidn2"]
+
+[[source]]
+url    = "https://marlam.de/msmtp/releases/msmtp-1.8.32.tar.xz"
+sha256 = "20cd58b58dd007acf7b937fa1a1e21f3afb3e9ef5bbcfb8b4f5650deadc64db4"
+
+[steps]
+build = '''
+cd "msmtp-$version"
+./configure --prefix=/usr --sysconfdir=/etc --with-tls=gnutls
+make
+'''
+package = '''
+cd "msmtp-$version"
+make install DESTDIR="$pkgdir"
+# Provide the sendmail-compatible entry point cron/mail tools expect.
+install -d "$pkgdir/usr/sbin"
+ln -sf ../bin/msmtp "$pkgdir/usr/sbin/sendmail"
+'''

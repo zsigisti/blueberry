@@ -1,0 +1,41 @@
+[package]
+name     = "shadow"
+version  = "4.19.4"
+release  = 1
+summary  = "Password/account management (useradd, groupadd) + newuidmap/newgidmap for rootless containers"
+homepage = "https://github.com/shadow-maint/shadow"
+license  = ["BSD-3-Clause"]
+arch     = ["x86_64"]
+
+# newuidmap/newgidmap (setuid) give a non-root user its subordinate uid/gid
+# ranges — the hard requirement for rootless podman. Also brings real
+# useradd/usermod/groupadd (busybox only has adduser).
+depends     = ["glibc", "pam", "libbsd"]
+makedepends = ["pkgconf", "pam", "libbsd"]
+
+[[source]]
+url    = "https://github.com/shadow-maint/shadow/releases/download/4.19.4/shadow-4.19.4.tar.xz"
+sha256 = "ce57a313e315a0a7cb04a8f50cc20753e994e487bbe9b78a2a824ca75cb486c0"
+
+[steps]
+build = '''
+cd "shadow-$version"
+./configure --prefix=/usr --sysconfdir=/etc --disable-static \
+    --without-selinux --with-libpam --enable-subordinate-ids
+make
+'''
+package = '''
+cd "shadow-$version"
+make install DESTDIR="$pkgdir"
+# util-linux/busybox already ship su/login/nologin/passwd — drop shadow's copies
+# (it installs su to /bin, others to /usr/bin) to avoid file conflicts on install.
+for t in su login nologin passwd; do
+    find "$pkgdir" -type f -name "$t" -delete 2>/dev/null || true
+    find "$pkgdir/usr/share/man" -type f -name "$t.[0-9]" -delete 2>/dev/null || true
+done
+# The uid/gid mapping helpers MUST be setuid root for rootless containers.
+chmod 4755 "$pkgdir/usr/bin/newuidmap" "$pkgdir/usr/bin/newgidmap"
+# Subordinate-id maps (empty; useradd auto-assigns ranges per login.defs).
+install -Dm644 /dev/null "$pkgdir/etc/subuid"
+install -Dm644 /dev/null "$pkgdir/etc/subgid"
+'''

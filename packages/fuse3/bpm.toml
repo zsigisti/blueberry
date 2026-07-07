@@ -1,0 +1,32 @@
+[package]
+name     = "fuse3"
+version  = "3.18.2"
+release  = 1
+summary  = "Reference implementation of FUSE (Filesystem in Userspace), version 3"
+homepage = "https://github.com/libfuse/libfuse"
+license  = ["LGPL-2.1-only", "GPL-2.0-only"]
+arch     = ["x86_64"]
+
+# fusermount3 is setuid — it lets an unprivileged user mount a FUSE fs, which is
+# how fuse-overlayfs provides rootless container storage.
+depends     = ["glibc"]
+makedepends = ["meson", "ninja", "python", "pkgconf"]
+
+[[source]]
+url    = "https://github.com/libfuse/libfuse/releases/download/fuse-3.18.2/fuse-3.18.2.tar.gz"
+sha256 = "f01de85717e20adf5f98aff324acd85dd73d61a5ca3834d573dcf0bd6e54a298"
+
+[steps]
+build = '''
+cd "fuse-$version"
+# Disable example fs + init-script install; keep it a library + fusermount3.
+meson setup build --prefix=/usr -Dexamples=false -Duseroot=false
+ninja -C build
+'''
+package = '''
+cd "fuse-$version"
+DESTDIR="$pkgdir" ninja -C build install
+# fusermount3 must be setuid root for unprivileged mounts.
+chmod 4755 "$pkgdir/usr/bin/fusermount3"
+rm -rf "$pkgdir/usr/include" "$pkgdir/usr/lib/pkgconfig"
+'''

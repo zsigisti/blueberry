@@ -1,0 +1,27 @@
+[package]
+name     = "libbsd"
+version  = "0.12.2"
+release  = 1
+summary  = "Common BSD library functions (readpassphrase, strlcpy, …) for portability"
+homepage = "https://libbsd.freedesktop.org/"
+license  = ["BSD-3-Clause", "ISC", "custom:Beerware"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libmd"]
+makedepends = ["pkgconf", "libmd"]
+
+[[source]]
+url    = "https://libbsd.freedesktop.org/releases/libbsd-0.12.2.tar.xz"
+sha256 = "b88cc9163d0c652aaf39a99991d974ddba1c3a9711db8f1b5838af2a14731014"
+
+[steps]
+build = '''
+cd "libbsd-$version"
+./configure --prefix=/usr --disable-static
+make
+'''
+package = '''
+cd "libbsd-$version"
+make install DESTDIR="$pkgdir"
+rm -rf "$pkgdir/usr/include" "$pkgdir/usr/lib/pkgconfig"
+'''

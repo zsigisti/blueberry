@@ -1,0 +1,47 @@
+[package]
+name     = "node_exporter"
+version  = "1.11.1"
+release  = 1
+summary  = "Prometheus exporter for hardware and OS metrics (host observability)"
+homepage = "https://github.com/prometheus/node_exporter"
+license  = ["Apache-2.0"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["go", "git"]
+
+[[source]]
+url    = "https://github.com/prometheus/node_exporter/archive/v1.11.1/node_exporter-1.11.1.tar.gz"
+sha256 = "d2b5a7740b7526543429b41a5d741bc530277f406f7b121fc64cb3ca583f7387"
+
+[steps]
+build = '''
+cd "node_exporter-$version"
+export GOPATH="$srcdir/go" GOCACHE="$srcdir/gocache" GOFLAGS=-trimpath
+CGO_ENABLED=0 go build -ldflags "-s -w -X github.com/prometheus/common/version.Version=$version" \
+    -o node_exporter .
+'''
+package = '''
+cd "node_exporter-$version"
+install -Dm755 node_exporter "$pkgdir/usr/bin/node_exporter"
+# Minimal service: runs unprivileged on :9100. Opt-in enable.
+install -d "$pkgdir/usr/lib/systemd/system"
+cat > "$pkgdir/usr/lib/systemd/system/node_exporter.service" <<'EOF'
+[Unit]
+Description=Prometheus Node Exporter
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=nobody
+Group=nobody
+ExecStart=/usr/bin/node_exporter
+Restart=on-failure
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+'''

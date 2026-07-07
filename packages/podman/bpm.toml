@@ -1,7 +1,7 @@
 [package]
 name     = "podman"
 version  = "6.0.0"
-release  = 1
+release  = 2
 summary  = "Daemonless container engine for OCI containers and pods (root + rootless)"
 homepage = "https://podman.io"
 license  = ["Apache-2.0"]
@@ -14,6 +14,9 @@ arch     = ["x86_64"]
 depends = [
     "glibc", "gcc-libs", "libseccomp", "systemd",
     "crun", "conmon", "netavark", "aardvark-dns", "containers-common", "catatonit",
+    # Rootless: subuid/subgid mapping (shadow), user-mode net uplink (passt/pasta),
+    # and rootless overlay storage (fuse-overlayfs).
+    "shadow", "passt", "fuse-overlayfs",
 ]
 makedepends = ["go", "git", "make", "pkgconf"]
 options     = ["!lto"]
