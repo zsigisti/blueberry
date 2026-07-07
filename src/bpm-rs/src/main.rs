@@ -530,6 +530,10 @@ fn cmd_update(cfg: &Config) -> Result<(), String> {
     }
     let tmp = cfg.index.with_extension("repo");
 
+    // Rollback/replay protection: remember the highest signed serial we've
+    // accepted per repo, and refuse a mirror that serves an older one.
+    let mut serials = index::load_serials(cfg);
+
     let mut combined = String::new();
     for line in conf.lines() {
         let s = line.trim();
@@ -570,8 +574,28 @@ fn cmd_update(cfg: &Config) -> Result<(), String> {
                     continue;
                 }
             }
+            // Downgrade guard: the signed index carries a monotonic serial. A
+            // mirror serving one older than we've already accepted (or none at
+            // all, once we've seen one) is stale or replaying — skip it.
+            let last = serials.get(repo).copied().unwrap_or(0);
+            match index::parse_serial(&body) {
+                Some(s) if s < last => {
+                    eprintln!("bpm: warning: index from {url} is OLDER than last seen \
+                               (serial {s} < {last}) — possible rollback/stale mirror; skipping");
+                    continue;
+                }
+                None if last > 0 => {
+                    eprintln!("bpm: warning: index from {url} has no serial but serial {last} \
+                               was seen — possible rollback/stale mirror; skipping");
+                    continue;
+                }
+                other => {
+                    let s = other.unwrap_or(last).max(last);
+                    serials.insert(repo.to_string(), s);
+                }
+            }
             for l in String::from_utf8_lossy(&body).lines() {
-                if l.is_empty() {
+                if l.is_empty() || l.starts_with("|serial|") {
                     continue;
                 }
                 combined.push_str(l);
@@ -588,9 +612,17 @@ fn cmd_update(cfg: &Config) -> Result<(), String> {
     }
     let _ = std::fs::remove_file(&tmp);
 
+    // Never clobber a good index with an empty one: if every repo failed (all
+    // mirrors down, or a rejected rollback/replay), keep what we already have.
+    if combined.is_empty() && cfg.index.exists() {
+        index::save_serials(cfg, &serials);
+        return Err("no repository could be synced — keeping the existing index".into());
+    }
+
     let itmp = cfg.index.with_extension("tmp");
     std::fs::write(&itmp, &combined).map_err(|e| format!("cannot write index: {e}"))?;
     std::fs::rename(&itmp, &cfg.index).map_err(|e| format!("cannot replace index: {e}"))?;
+    index::save_serials(cfg, &serials);
 
     let count = combined.lines().filter(|l| !l.is_empty()).count();
     println!(":: {count} packages in index");

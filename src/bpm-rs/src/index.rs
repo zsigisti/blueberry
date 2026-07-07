@@ -59,6 +59,51 @@ pub fn lookup(cfg: &Config, name: &str) -> Option<Entry> {
         .find_map(parse_line)
 }
 
+/// The monotonic serial carried in a signed index as `|serial|<epoch>`, if
+/// present. Rollback/replay protection: an untrusted mirror must not be able to
+/// hand us an index older than one we've already accepted. The line has an empty
+/// name field, so every existing parser ignores it as a package entry.
+pub fn parse_serial(body: &[u8]) -> Option<u64> {
+    for line in body.split(|&b| b == b'\n') {
+        if let Some(rest) = line.strip_prefix(b"|serial|") {
+            let s = std::str::from_utf8(rest).ok()?;
+            // Tolerate a trailing "|repo" if it was ever appended.
+            let s = s.split('|').next().unwrap_or(s).trim();
+            return s.parse().ok();
+        }
+    }
+    None
+}
+
+fn serials_path(cfg: &Config) -> std::path::PathBuf {
+    cfg.index.with_file_name("serials")
+}
+
+/// Last-accepted serial per repo (`repo <epoch>` lines). Empty if never seen.
+pub fn load_serials(cfg: &Config) -> std::collections::BTreeMap<String, u64> {
+    let mut m = std::collections::BTreeMap::new();
+    if let Ok(txt) = fs::read_to_string(serials_path(cfg)) {
+        for line in txt.lines() {
+            let mut it = line.split_whitespace();
+            if let (Some(r), Some(s)) = (it.next(), it.next()) {
+                if let Ok(v) = s.parse() {
+                    m.insert(r.to_string(), v);
+                }
+            }
+        }
+    }
+    m
+}
+
+/// Persist the per-repo serials accepted this run.
+pub fn save_serials(cfg: &Config, m: &std::collections::BTreeMap<String, u64>) {
+    let mut out = String::new();
+    for (r, s) in m {
+        out.push_str(&format!("{r} {s}\n"));
+    }
+    let _ = fs::write(serials_path(cfg), out);
+}
+
 /// Mirror URLs for a repo, in order (first is primary).
 pub fn mirrors(cfg: &Config, repo: &str) -> Vec<String> {
     let txt = match fs::read_to_string(&cfg.conf) {

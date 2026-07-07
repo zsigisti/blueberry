@@ -66,11 +66,21 @@ for pkg in "$REPO"/*.bpm; do
         "$name" "$ver" "$(basename "$pkg")" "$sha" "$deps" "$size" "$desc" >> "$tmp"
     n=$((n + 1))
 done
+
+# Monotonic serial (epoch seconds) — lets clients reject a rolled-back or stale
+# index served by an untrusted mirror (replay/downgrade protection). Carried on
+# a line the existing bpm parser IGNORES (empty name field before the first '|'),
+# so it is fully backward compatible with already-deployed clients. It is part
+# of the signed content, so it can't be forged. Never emitted for an empty scan.
+[ "$n" -gt 0 ] && printf '|serial|%s\n' "$(date -u +%s)" >> "$tmp"
+
 sort -o "$tmp" "$tmp"
 
 # ── count floor: never let a broken scan clobber a healthy index ──────────────
 prev=0
-[ -f "$out" ] && prev=$(grep -c '' "$out" 2>/dev/null || echo 0)
+# Count PACKAGE lines only (exclude the |serial| line, which starts with '|').
+[ -f "$out" ] && prev=$(grep -vc '^|serial|' "$out" 2>/dev/null || echo 0)
+prev=${prev:-0}
 if [ "$FORCE" != "1" ]; then
     if [ "$n" -eq 0 ]; then
         echo "bpmrepo: REFUSING to write an empty index (found 0 .bpm in $REPO)." >&2
