@@ -160,6 +160,15 @@ def main():
     log("package()")
     run_step(pkg_step(recipe, "package"), srcdir, env, fakeroot=True)
 
+    # The Texinfo directory index (/usr/share/info/dir) is a generated, shared
+    # index — no package may own it, or any two info-shipping packages collide
+    # on install (e.g. readline vs gdbm). Strip it globally, like makepkg does.
+    for junk in ("usr/share/info/dir", "usr/share/info/dir.gz"):
+        p = os.path.join(pkgdir, junk)
+        if os.path.exists(p):
+            os.remove(p)
+            log(f"pruned shared index: {junk}")
+
     # Declarative systemd enablement: `[package] enable = ["foo.service"]` drops
     # the markers bpm reads (usr/lib/bpm/enable/<unit>) to wire up + start the
     # unit on install. "if the app wants that" → list it in enable.
