@@ -1,0 +1,28 @@
+[package]
+name     = "netavark"
+version  = "2.0.0"
+release  = 1
+summary  = "Rust network stack for podman (bridge, macvlan, port forwarding)"
+homepage = "https://github.com/containers/netavark"
+license  = ["Apache-2.0"]
+arch     = ["x86_64"]
+
+# Shells out to nft/iptables at runtime to program the container firewall.
+depends     = ["glibc", "gcc-libs", "nftables", "iptables"]
+makedepends = ["rust", "git", "protobuf"]
+
+[[source]]
+url    = "https://github.com/containers/netavark/archive/v2.0.0/netavark-2.0.0.tar.gz"
+sha256 = "031aeeacc930382e8635d40a885798eff1da164dfcf9024b698f822e5995d9c8"
+
+[steps]
+build = '''
+cd "netavark-$version"
+export CARGO_HOME="$srcdir/cargo"
+cargo build --release
+'''
+package = '''
+cd "netavark-$version"
+# podman looks for its helpers under /usr/lib/podman.
+install -Dm755 target/release/netavark "$pkgdir/usr/lib/podman/netavark"
+'''

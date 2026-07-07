@@ -1,0 +1,31 @@
+[package]
+name     = "crun"
+version  = "1.28"
+release  = 1
+summary  = "Fast, low-memory OCI container runtime written in C (podman's default)"
+homepage = "https://github.com/containers/crun"
+license  = ["GPL-2.0-or-later", "LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+# Links libseccomp (seccomp filtering), libcap (capabilities) and libsystemd
+# (sd_notify + systemd cgroup driver). yajl is embedded from the vendored
+# libocispec, so there is no external JSON dependency.
+depends     = ["glibc", "libseccomp", "libcap", "systemd"]
+makedepends = ["python", "pkgconf", "libseccomp", "libcap", "systemd", "argp-standalone"]
+
+[[source]]
+url    = "https://github.com/containers/crun/releases/download/1.28/crun-1.28.tar.zst"
+sha256 = "62b82f7db89df3652970d9ad76f635a177d09bcb543c8d1dae13a749cd3e6e35"
+
+[steps]
+build = '''
+cd "crun-$version"
+./configure --prefix=/usr --enable-embedded-yajl
+make
+'''
+package = '''
+cd "crun-$version"
+make install DESTDIR="$pkgdir"
+# Drop the static/dev cruft — we only ship the runtime binaries.
+rm -rf "$pkgdir/usr/lib" "$pkgdir/usr/include"
+'''

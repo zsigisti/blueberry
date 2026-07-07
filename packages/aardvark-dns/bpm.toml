@@ -1,0 +1,26 @@
+[package]
+name     = "aardvark-dns"
+version  = "2.0.0"
+release  = 1
+summary  = "Authoritative DNS server for container names (netavark companion)"
+homepage = "https://github.com/containers/aardvark-dns"
+license  = ["Apache-2.0"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "gcc-libs"]
+makedepends = ["rust", "git"]
+
+[[source]]
+url    = "https://github.com/containers/aardvark-dns/archive/v2.0.0/aardvark-dns-2.0.0.tar.gz"
+sha256 = "d3f5d6b3be3c2d80e8257fb9467e34ff104f299474427979454034dca6dc88cc"
+
+[steps]
+build = '''
+cd "aardvark-dns-$version"
+export CARGO_HOME="$srcdir/cargo"
+cargo build --release
+'''
+package = '''
+cd "aardvark-dns-$version"
+install -Dm755 target/release/aardvark-dns "$pkgdir/usr/lib/podman/aardvark-dns"
+'''

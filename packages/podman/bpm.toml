@@ -1,0 +1,45 @@
+[package]
+name     = "podman"
+version  = "6.0.0"
+release  = 1
+summary  = "Daemonless container engine for OCI containers and pods (root + rootless)"
+homepage = "https://podman.io"
+license  = ["Apache-2.0"]
+arch     = ["x86_64"]
+
+# Runtime closure: OCI runtime (crun), monitor (conmon), networking
+# (netavark + aardvark-dns), default config/policy (containers-common), and the
+# container init (catatonit). Built without gpgme/btrfs/devicemapper (pure-Go
+# openpgp + overlay/vfs storage), so no extra C library deps.
+depends = [
+    "glibc", "gcc-libs", "libseccomp", "systemd",
+    "crun", "conmon", "netavark", "aardvark-dns", "containers-common", "catatonit",
+]
+makedepends = ["go", "git", "make", "pkgconf"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://github.com/containers/podman/archive/v6.0.0/podman-6.0.0.tar.gz"
+sha256 = "f35ac7c40f0fd01bfedfe627c23ff7a577b071d50f2b0726e4734d51810f5a7d"
+
+[steps]
+build = '''
+cd "podman-$version"
+export GOFLAGS="-mod=vendor -trimpath"
+export GOPATH="$srcdir/go" GOCACHE="$srcdir/gocache"
+# Drop the C-linked bits we don't ship: gpgme (use pure-Go openpgp), and the
+# btrfs/devicemapper storage drivers (overlay + vfs are enough).
+make EXTRA_BUILDTAGS="containers_image_openpgp exclude_graphdriver_btrfs exclude_graphdriver_devicemapper" \
+     bin/podman
+'''
+package = '''
+cd "podman-$version"
+install -Dm755 bin/podman "$pkgdir/usr/bin/podman"
+# Ship whatever systemd units the tree provides (podman.socket, auto-update, …).
+for u in contrib/systemd/system/*.service contrib/systemd/system/*.socket; do
+    [ -e "$u" ] || continue
+    install -Dm644 "$u" "$pkgdir/usr/lib/systemd/system/$(basename "$u")"
+done
+# Storage lives here at runtime.
+install -dm755 "$pkgdir/var/lib/containers/storage" "$pkgdir/run/containers"
+'''

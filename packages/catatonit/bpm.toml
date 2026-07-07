@@ -1,0 +1,27 @@
+[package]
+name     = "catatonit"
+version  = "0.2.1"
+release  = 1
+summary  = "Tiny init process for containers (podman --init)"
+homepage = "https://github.com/openSUSE/catatonit"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["autoconf", "automake", "libtool", "make", "pkgconf"]
+
+[[source]]
+url    = "https://github.com/openSUSE/catatonit/releases/download/v0.2.1/catatonit.tar.xz"
+sha256 = "9950425501af862e12f618bdc930ea755c46db6a16072a1462b4fc93b2bd59bc"
+
+[steps]
+build = '''
+cd "catatonit-$version"
+./autogen.sh
+./configure
+make
+'''
+package = '''
+cd "catatonit-$version"
+install -Dm755 catatonit "$pkgdir/usr/lib/podman/catatonit"
+'''

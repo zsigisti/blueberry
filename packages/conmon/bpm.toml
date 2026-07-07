@@ -1,0 +1,25 @@
+[package]
+name     = "conmon"
+version  = "2.2.1"
+release  = 1
+summary  = "OCI container runtime monitor (per-container supervisor for podman)"
+homepage = "https://github.com/containers/conmon"
+license  = ["Apache-2.0"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "glib2", "libseccomp"]
+makedepends = ["pkgconf", "git", "glib2", "libseccomp"]
+
+[[source]]
+url    = "https://github.com/containers/conmon/archive/v2.2.1/conmon-2.2.1.tar.gz"
+sha256 = "814fb5979a3a4b8576b1f901e606b482bebb41cb7e57926e6d5765ee786b96d3"
+
+[steps]
+build = '''
+cd "conmon-$version"
+make GIT_COMMIT="v$version" bin/conmon
+'''
+package = '''
+cd "conmon-$version"
+install -Dm755 bin/conmon "$pkgdir/usr/bin/conmon"
+'''
