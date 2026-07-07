@@ -81,6 +81,42 @@ does not cache unknown extensions by default), add one dashboard Cache Rule —
 header*; see the header comment in the vhost file. The index needs no rule; its
 `no-cache` header is honored automatically.
 
+## Running a downstream mirror (replica)
+
+A mirror is an **untrusted file server**: because the index is ed25519-signed and
+every package is sha256-verified by the client, a mirror only has to serve bytes.
+So replication is a plain read-only `rsync` pull — no secrets on the mirror, no
+push access to the origin, and adding a mirror never weakens trust.
+
+**On the origin**, expose the repo read-only (see
+[`tools/release/mirror/rsyncd-blueberry.conf`](../tools/release/mirror/rsyncd-blueberry.conf)):
+drop it into `/etc/rsyncd.conf`, then `systemctl enable --now rsync`. The module
+excludes `.index-backups/` so mirrors never replicate old signed indexes.
+
+**On the mirror**, run the setup kit
+([`tools/release/mirror/`](../tools/release/mirror/)):
+
+```sh
+ORIGIN_RSYNC=rsync://<origin>/blueberry-repo sh mirror-setup.sh --enable
+```
+
+That installs `mirror-sync.sh` → `/usr/local/bin/blueberry-mirror-sync`, the
+`blueberry-mirror-sync.timer` (every 15 min, jittered), and the nginx vhost,
+then does an initial sync. `mirror-sync.sh` pulls in **three phases** — add new
+packages, swap the index, then prune dropped packages — so a client syncing
+against the mirror mid-transfer never sees an index that references a missing
+`.bpm`.
+
+**Then list the mirror** in clients' `repos.conf` (nearest first); `bpm` fails
+over automatically:
+
+```
+core https://repo.blueberrylinux.org https://your-mirror.example.org
+```
+
+The canonical list lives at
+[`tools/release/mirror/mirrorlist`](../tools/release/mirror/mirrorlist).
+
 ## Pointing clients at it
 
 Edit `/etc/bpm/repos.conf` on the client to list your mirror URL, then:

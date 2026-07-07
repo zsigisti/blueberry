@@ -1,0 +1,12 @@
+# Blueberry bpm mirror list.
+#
+# repos.conf takes one line per repo:   core <url1> [url2 url3 ...]
+# Extra URLs are mirrors; `bpm update` and every package download try each in
+# turn and fail over. Put the geographically nearest mirror first.
+#
+# The index is ed25519-signed and every package is sha256-verified, so a mirror
+# is an untrusted file server — adding one never weakens trust.
+
+https://repo.blueberrylinux.org         # origin (Vienna, AT)
+# https://us.blueberrylinux.org         # (planned) North America
+# https://fr.blueberrylinux.org         # (planned) Europe (FR)

@@ -1,0 +1,15 @@
+[Unit]
+Description=Periodic Blueberry bpm mirror sync
+Documentation=https://github.com/blueberry-linux (wiki: Hosting-a-Mirror)
+
+[Timer]
+# First sync shortly after boot, then every 15 min with jitter so a fleet of
+# mirrors doesn't hammer the origin in lockstep. Persistent catches up a sync
+# missed while the box was off.
+OnBootSec=2min
+OnUnitActiveSec=15min
+RandomizedDelaySec=2min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

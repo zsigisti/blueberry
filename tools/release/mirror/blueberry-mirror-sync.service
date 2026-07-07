@@ -1,0 +1,19 @@
+[Unit]
+Description=Sync the Blueberry bpm repo mirror from the origin
+Documentation=https://github.com/blueberry-linux (wiki: Hosting-a-Mirror)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# Override ORIGIN_RSYNC / REPO_DIR here or in /etc/default/blueberry-mirror.
+EnvironmentFile=-/etc/default/blueberry-mirror
+ExecStart=/usr/local/bin/blueberry-mirror-sync
+# Be a good neighbour: this is bulk background I/O.
+Nice=10
+IOSchedulingClass=idle
+# It only ever writes the repo dir.
+ProtectSystem=strict
+ReadWritePaths=/srv/blueberry-repo
+ProtectHome=yes
+NoNewPrivileges=yes
