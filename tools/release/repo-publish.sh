@@ -67,7 +67,8 @@ echo "==> re-indexing remotely (hardened /root/bpmrepo.sh)"
 _ssh "$REPO_HOST" "sh /root/bpmrepo.sh $REPO_DIR"
 
 echo "==> validating over Cloudflare ($MIRROR)"
-served=$(curl -fsSL -H 'Cache-Control: no-cache' "$MIRROR/bpm.index" | grep -c '' || echo 0)
+# Count package lines only (exclude the |serial| rollback-guard line).
+served=$(curl -fsSL -H 'Cache-Control: no-cache' "$MIRROR/bpm.index" | grep -vc '^|serial|' || echo 0)
 echo "    served index: $served packages"
 [ "$served" -gt 0 ] || { echo "repo-publish: served index is EMPTY — check the mirror!" >&2; exit 1; }
 if [ "$reindex_only" -eq 0 ]; then
