@@ -24,7 +24,16 @@ use std::io::{BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
+
+/// Per-socket I/O timeout — bounds the TLS handshake, the request read, and the
+/// response write, so a slow/idle client can't pin a worker thread (slow-loris).
+const IO_TIMEOUT: Duration = Duration::from_secs(20);
+/// Max concurrent connections; excess are dropped so a flood can't spawn
+/// unbounded threads. Generous for a single-admin console.
+const MAX_CONNS: usize = 128;
 
 use rustls::{ServerConfig, ServerConnection, StreamOwned};
 
@@ -63,6 +72,7 @@ struct State {
     sessions: Sessions,
     throttle: Throttle,
     tls: Arc<ServerConfig>,
+    inflight: AtomicUsize,
 }
 
 fn main() {
@@ -77,7 +87,10 @@ fn main() {
         .unwrap_or_else(|| { eprintln!("bbconsole: cannot load TLS cert/key"); std::process::exit(1); });
 
     let bind = cfg.bind.clone();
-    let state = Arc::new(State { cfg, sessions: Sessions::new(token), throttle: Throttle::new(), tls });
+    let state = Arc::new(State {
+        cfg, sessions: Sessions::new(token), throttle: Throttle::new(), tls,
+        inflight: AtomicUsize::new(0),
+    });
 
     let listener = TcpListener::bind(&bind)
         .unwrap_or_else(|e| { eprintln!("bbconsole: cannot bind {bind}: {e}"); std::process::exit(1); });
@@ -85,9 +98,23 @@ fn main() {
 
     for conn in listener.incoming() {
         let Ok(stream) = conn else { continue };
+        // Shed load past the cap so a connection flood can't exhaust threads/RAM.
+        if state.inflight.load(Ordering::Relaxed) >= MAX_CONNS {
+            drop(stream); // RST/close; the client can retry
+            continue;
+        }
+        state.inflight.fetch_add(1, Ordering::Relaxed);
         let st = Arc::clone(&state);
-        // Thread per connection: simple and isolated.
-        std::thread::spawn(move || handle(st, stream));
+        // Thread per connection: simple and isolated. The counter is released
+        // when the handler returns (even on panic) via the guard below.
+        std::thread::spawn(move || {
+            struct Guard<'a>(&'a AtomicUsize);
+            impl Drop for Guard<'_> {
+                fn drop(&mut self) { self.0.fetch_sub(1, Ordering::Relaxed); }
+            }
+            let _g = Guard(&st.inflight);
+            handle(st.clone(), stream);
+        });
     }
 }
 
@@ -171,6 +198,10 @@ fn load_tls(cert: &Path, key: &Path) -> Option<Arc<ServerConfig>> {
 
 fn handle(st: Arc<State>, tcp: TcpStream) {
     let peer = tcp.peer_addr().map(|a| a.ip().to_string()).unwrap_or_default();
+    // Bound every blocking I/O op (handshake, request read, response write) so a
+    // slow or idle client releases the thread instead of pinning it forever.
+    let _ = tcp.set_read_timeout(Some(IO_TIMEOUT));
+    let _ = tcp.set_write_timeout(Some(IO_TIMEOUT));
     // Wrap the connection in TLS; a client speaking plain HTTP just fails here.
     let Ok(conn) = ServerConnection::new(Arc::clone(&st.tls)) else { return };
     let stream = StreamOwned::new(conn, tcp);
@@ -209,10 +240,14 @@ fn authenticate(st: &State, req: &Request) -> Option<(auth::Session, bool)> {
 }
 
 fn audit(st: &State, ip: &str, line: &str) {
+    use std::os::unix::fs::OpenOptionsExt;
     if let Some(dir) = st.cfg.audit_path.parent() {
         let _ = std::fs::create_dir_all(dir);
     }
-    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&st.cfg.audit_path) {
+    // 0600 on creation — the log holds source IPs and usernames.
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true).append(true).mode(0o600).open(&st.cfg.audit_path)
+    {
         let _ = writeln!(f, "{} {} {}", now(), ip, line);
     }
 }

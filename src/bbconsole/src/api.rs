@@ -90,11 +90,17 @@ pub fn service_action(action: &str, unit: &str) -> Result<Value, String> {
     if !matches!(action, "start" | "stop" | "restart") {
         return Err("unsupported action".into());
     }
-    // Only operate on plausible unit names, never arbitrary args.
-    if unit.is_empty() || !unit.bytes().all(|b| b.is_ascii_alphanumeric() || b"-_.@".contains(&b)) {
+    // Only operate on plausible unit names, never arbitrary args. A leading '-'
+    // would let the name be parsed as a systemctl *option* (argument injection:
+    // e.g. `--version` reports success), so reject it, and pass `--` so the shell
+    // of systemctl treats the name as strictly positional regardless.
+    if unit.is_empty()
+        || unit.starts_with('-')
+        || !unit.bytes().all(|b| b.is_ascii_alphanumeric() || b"-_.@".contains(&b))
+    {
         return Err("invalid unit name".into());
     }
-    let out = Command::new("systemctl").args([action, unit]).output();
+    let out = Command::new("systemctl").args([action, "--", unit]).output();
     match out {
         Ok(o) if o.status.success() => Ok(json!({ "ok": true, "unit": unit, "action": action })),
         Ok(o) => Err(String::from_utf8_lossy(&o.stderr).trim().to_string()),

@@ -63,11 +63,17 @@ the boundary is the whole game:
   usable for headless setup before an admin account exists, or for scripts.
   `POST /api/v1/login {"token": "..."}` instead of username/password. An empty
   configured token never matches (fail closed).
-- **Small surface.** Pure-std HTTP, hard request-size limits, one request per
-  connection, path-traversal guard on static files, security headers + a strict
-  CSP on every response. Two frontends ship: the styled SPA (`/`) and a
-  dependency-free, unstyled **pure HTML/JS client** (`/login.html`) that surfaces
-  raw HTTP status codes — handy for debugging and for minimal environments.
+- **Small surface.** Pure-std HTTP, hard request-size limits (2 MiB body, 8 KiB
+  per line, 32 KiB of headers — each enforced *while* reading, so no unbounded
+  buffer), one request per connection, path-traversal guard on static files,
+  security headers + a strict CSP on every response. Two frontends ship: the
+  styled SPA (`/`) and a dependency-free, unstyled **pure HTML/JS client**
+  (`/login.html`) that surfaces raw HTTP status codes.
+- **DoS resistance.** Every socket has a 20 s I/O timeout (bounds the TLS
+  handshake, request read, and response write) so a slow/idle client can't pin a
+  worker thread (slow-loris); concurrent connections are capped so a flood can't
+  spawn unbounded threads. Service actions pass `--` and reject names starting
+  with `-`, so a unit name can never be parsed as a `systemctl` flag.
 - **Write actions are few, validated, and audited.** Service actions accept only
   `start`/`stop`/`restart` on a validated unit name; every login and write is
   appended to `/var/log/blueberry-console/audit.log`.

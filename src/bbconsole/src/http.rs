@@ -9,6 +9,39 @@ use std::io::{BufRead, Write};
 
 const MAX_HEADERS: usize = 32 * 1024;
 const MAX_BODY: usize = 2 * 1024 * 1024; // 2 MiB request cap
+const MAX_LINE: usize = 8 * 1024; // per-line cap (request line / one header)
+
+/// Read one line (up to and including '\n') without letting a newline-less flood
+/// grow the buffer unbounded — `BufRead::read_line` would allocate the whole
+/// thing before any size check. Returns "" at EOF, None on overflow or error.
+fn read_line_capped<R: BufRead>(r: &mut R, max: usize) -> Option<String> {
+    let mut buf: Vec<u8> = Vec::new();
+    loop {
+        let chunk = match r.fill_buf() {
+            Ok(c) => c,
+            Err(ref e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(_) => return None,
+        };
+        if chunk.is_empty() {
+            break; // EOF
+        }
+        if let Some(i) = chunk.iter().position(|&b| b == b'\n') {
+            buf.extend_from_slice(&chunk[..=i]);
+            r.consume(i + 1);
+            break;
+        }
+        let n = chunk.len();
+        buf.extend_from_slice(chunk);
+        r.consume(n);
+        if buf.len() > max {
+            return None;
+        }
+    }
+    if buf.len() > max {
+        return None;
+    }
+    String::from_utf8(buf).ok()
+}
 
 pub struct Request {
     pub method: String,
@@ -46,9 +79,9 @@ impl Request {
 /// Read exactly one request from any buffered stream (plain TCP or TLS).
 /// Returns None on EOF or a malformed/oversized request.
 pub fn read_request<R: BufRead>(reader: &mut R) -> Option<Request> {
-    let mut line = String::new();
-    if reader.read_line(&mut line).ok()? == 0 {
-        return None;
+    let line = read_line_capped(reader, MAX_LINE)?;
+    if line.is_empty() {
+        return None; // EOF before a request line
     }
     let mut it = line.trim_end().split_whitespace();
     let method = it.next()?.to_string();
@@ -61,12 +94,11 @@ pub fn read_request<R: BufRead>(reader: &mut R) -> Option<Request> {
     let mut headers = HashMap::new();
     let mut total = 0usize;
     loop {
-        let mut h = String::new();
-        let n = reader.read_line(&mut h).ok()?;
-        if n == 0 {
-            break;
+        let h = read_line_capped(reader, MAX_LINE)?;
+        if h.is_empty() {
+            break; // EOF
         }
-        total += n;
+        total += h.len();
         if total > MAX_HEADERS {
             return None;
         }
@@ -133,6 +165,7 @@ impl Response {
             403 => "Forbidden",
             404 => "Not Found",
             405 => "Method Not Allowed",
+            429 => "Too Many Requests",
             500 => "Internal Server Error",
             501 => "Not Implemented",
             _ => "OK",
