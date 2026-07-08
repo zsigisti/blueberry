@@ -2,9 +2,17 @@
 // script (CSP-friendly). Panels are data-driven so far-vision areas (containers,
 // logs, updates/rollback, storage, network) drop in by adding an entry to PANELS.
 
-const api = async (path, opts) => {
-  const r = await fetch("/api/v1/" + path, { credentials: "same-origin", ...opts });
-  if (r.status === 401) { showLogin(); throw new Error("unauthenticated"); }
+// Auth is a bearer token in sessionStorage (see doc/WEBUI.md security model):
+// sent explicitly, so it survives self-signed-cert browsers that drop Secure
+// cookies, and is immune to CSRF.
+const TOK = "bbc_session";
+const tok = () => sessionStorage.getItem(TOK) || "";
+const setTok = (t) => { if (t) sessionStorage.setItem(TOK, t); else sessionStorage.removeItem(TOK); };
+
+const api = async (path, opts = {}) => {
+  const headers = Object.assign({ "Authorization": "Bearer " + tok() }, opts.headers || {});
+  const r = await fetch("/api/v1/" + path, Object.assign({ credentials: "omit" }, opts, { headers }));
+  if (r.status === 401) { setTok(""); showLogin(); throw new Error("unauthenticated"); }
   return r;
 };
 const getJSON = async (path) => (await api(path)).json();
@@ -120,25 +128,40 @@ document.getElementById("login-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const err = document.getElementById("login-error");
   err.hidden = true;
-  const r = await fetch("/api/v1/login", {
-    method: "POST", credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      username: document.getElementById("username").value,
-      password: document.getElementById("password").value,
-    }),
-  });
-  if (r.ok) showApp();
-  else { err.textContent = "Invalid credentials, or account not permitted."; err.hidden = false; }
+  let r;
+  try {
+    r = await fetch("/api/v1/login", {
+      method: "POST", credentials: "omit",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: document.getElementById("username").value,
+        password: document.getElementById("password").value,
+      }),
+    });
+  } catch (netErr) {
+    err.textContent = "Network error: " + ((netErr && netErr.message) || netErr); err.hidden = false; return;
+  }
+  let data = {};
+  try { data = await r.json(); } catch (_) {}
+  if (r.ok && data.session) { setTok(data.session); showApp(); }
+  else {
+    err.textContent = r.status === 429
+      ? "Too many attempts — try again shortly."
+      : "Invalid credentials, or account not permitted. (HTTP " + r.status + ")";
+    err.hidden = false;
+  }
 });
 
 document.getElementById("logout").addEventListener("click", async () => {
-  await fetch("/api/v1/logout", { method: "POST", credentials: "same-origin" });
-  showLogin();
+  try { await api("logout", { method: "POST" }); } catch (_) {}
+  setTok(); showLogin();
 });
 
-// Probe an existing session on load.
+// Probe an existing session on load (only if we hold a token).
 (async () => {
-  const r = await fetch("/api/v1/system", { credentials: "same-origin" });
-  if (r.ok) showApp(); else showLogin();
+  if (!tok()) return showLogin();
+  try {
+    const r = await fetch("/api/v1/system", { headers: { "Authorization": "Bearer " + tok() } });
+    if (r.ok) showApp(); else { setTok(""); showLogin(); }
+  } catch (_) { showLogin(); }
 })();

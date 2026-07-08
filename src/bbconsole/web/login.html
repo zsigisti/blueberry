@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Blueberry Console — Login</title>
+</head>
+<body>
+  <h1>Blueberry Console</h1>
+  <p>Pure HTML/JS client (no styling). Bearer-token auth — works even with the
+     self-signed certificate.</p>
+
+  <section id="login" hidden>
+    <h2>Sign in</h2>
+    <form id="login-form">
+      <p>
+        <label>Username
+          <input id="username" name="username" autocomplete="username" autocapitalize="none">
+        </label>
+      </p>
+      <p>
+        <label>Password
+          <input id="password" name="password" type="password" autocomplete="current-password">
+        </label>
+      </p>
+      <p>
+        <label>or bootstrap token
+          <input id="token" name="token" autocomplete="off">
+        </label>
+        <br><small>(from <code>/etc/blueberry/console/token</code>, for headless setup)</small>
+      </p>
+      <p><button type="submit">Sign in</button></p>
+    </form>
+    <p id="status" role="status"></p>
+  </section>
+
+  <section id="app" hidden>
+    <p>Signed in as <b id="who"></b>. <button id="logout">Sign out</button></p>
+    <h2>System</h2>
+    <pre id="system">…</pre>
+    <h2>Session</h2>
+    <pre id="debug"></pre>
+  </section>
+
+  <script src="/login.js"></script>
+</body>
+</html>

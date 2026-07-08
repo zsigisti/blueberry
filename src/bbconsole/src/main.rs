@@ -185,8 +185,27 @@ fn serve<S: Read + Write>(st: &State, stream: S, peer: &str) {
     resp.write(&mut inner);
 }
 
-fn authed(st: &State, req: &Request) -> bool {
-    req.cookie("bbc_session").and_then(|s| st.sessions.check(&s)).is_some()
+/// Resolve the caller's session. Two accepted credentials, in priority order:
+///   1. `Authorization: Bearer <session>` — the primary path. Explicit, never
+///      sent ambiently, so a cert-error browser can't drop it and CSRF can't
+///      forge it. Returns `via_header = true`.
+///   2. `bbc_session` cookie — convenience for same-site navigation. Ambient, so
+///      state-changing requests using it must also present a matching CSRF token.
+/// Returns the live session plus whether it came from the Bearer header.
+fn authenticate(st: &State, req: &Request) -> Option<(auth::Session, bool)> {
+    if let Some(h) = req.header("authorization") {
+        if let Some(tok) = h.strip_prefix("Bearer ").or_else(|| h.strip_prefix("bearer ")) {
+            if let Some(s) = st.sessions.check(tok.trim()) {
+                return Some((s, true));
+            }
+        }
+    }
+    if let Some(c) = req.cookie("bbc_session") {
+        if let Some(s) = st.sessions.check(&c) {
+            return Some((s, false));
+        }
+    }
+    None
 }
 
 fn audit(st: &State, ip: &str, line: &str) {
@@ -219,44 +238,59 @@ fn route(st: &State, req: &Request, peer: &str) -> Response {
         let body = req.json().unwrap_or(json!({}));
         let field = |k: &str| body.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
         // PAM (username+password) is the primary path; token is the fallback.
-        let (sid, who) = if !field("username").is_empty() {
-            let user = field("username");
-            (
-                st.sessions.login_pam(&user, &field("password"), &st.cfg.admin_group),
-                user,
-            )
+        let issued = if !field("username").is_empty() {
+            st.sessions.login_pam(&field("username"), &field("password"), &st.cfg.admin_group)
         } else {
-            (st.sessions.login_token(&field("token")), "token".to_string())
+            st.sessions.login_token(&field("token"))
         };
-        match sid {
-            Some(sid) => {
+        match issued {
+            Some(iss) => {
                 st.throttle.clear(peer);
-                audit(st, peer, &format!("login ok user={who}"));
-                return Response::json(200, json!({ "ok": true, "user": who })).with_header(
+                audit(st, peer, &format!("login ok user={}", iss.user));
+                // Body carries the bearer token + CSRF token (primary path). The
+                // cookie is a same-site convenience mirror; writes made via the
+                // cookie must echo the CSRF token.
+                return Response::json(200, json!({
+                    "ok": true, "user": iss.user,
+                    "session": iss.session, "csrf": iss.csrf, "expires_in": 3600,
+                })).with_header(
                     "Set-Cookie",
-                    &format!("bbc_session={sid}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=3600"),
+                    &format!("bbc_session={}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=3600", iss.session),
                 );
             }
             None => {
                 st.throttle.record_fail(peer);
-                audit(st, peer, &format!("login FAILED user={who}"));
+                audit(st, peer, "login FAILED");
                 return Response::error(401, "invalid credentials");
             }
         }
     }
     if path == "/api/v1/logout" && req.method == "POST" {
+        if let Some(h) = req.header("authorization").and_then(|h| h.strip_prefix("Bearer ").or_else(|| h.strip_prefix("bearer "))) {
+            st.sessions.logout(h.trim());
+        }
         if let Some(sid) = req.cookie("bbc_session") {
             st.sessions.logout(&sid);
         }
-        return Response::json(200, json!({ "ok": true }));
+        return Response::json(200, json!({ "ok": true }))
+            .with_header("Set-Cookie", "bbc_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0");
     }
 
-    // ── API (all require a session) ───────────────────────────────────────────
+    // ── API (all require a live session) ──────────────────────────────────────
     if let Some(rest) = path.strip_prefix("/api/v1/") {
-        if !authed(st, req) {
+        let Some((sess, via_header)) = authenticate(st, req) else {
             return Response::error(401, "unauthenticated");
+        };
+        // CSRF: a cookie-authed unsafe method must echo the session's CSRF token.
+        // Bearer-authed requests are exempt (the header can't be sent ambiently).
+        if !via_header && req.method != "GET" && req.method != "HEAD" {
+            let ok = req.header("x-bbc-csrf").map(|h| auth::ct_eq(h, &sess.csrf)).unwrap_or(false);
+            if !ok {
+                audit(st, peer, &format!("CSRF reject {} {}", req.method, path));
+                return Response::error(403, "missing or invalid CSRF token");
+            }
         }
-        return api_route(st, req, rest, peer);
+        return api_route(st, req, rest, peer, &sess);
     }
 
     // ── static frontend ───────────────────────────────────────────────────────
@@ -266,8 +300,13 @@ fn route(st: &State, req: &Request, peer: &str) -> Response {
     Response::error(404, "not found")
 }
 
-fn api_route(st: &State, req: &Request, rest: &str, peer: &str) -> Response {
+fn api_route(st: &State, req: &Request, rest: &str, peer: &str, sess: &auth::Session) -> Response {
     match (req.method.as_str(), rest) {
+        // Identity/session probe — the client uses this to confirm its token is
+        // live and to (re)learn its CSRF token after a reload.
+        ("GET", "whoami") => Response::json(200, json!({
+            "user": sess.user, "csrf": sess.csrf, "sessions": st.sessions.active(),
+        })),
         ("GET", "system") => Response::json(200, api::system()),
         ("GET", "services") => Response::json(200, api::services()),
         ("GET", "packages") => Response::json(200, api::packages()),

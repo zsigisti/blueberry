@@ -134,6 +134,8 @@ impl Throttle {
     }
 }
 
+const ABSOLUTE_TTL: Duration = Duration::from_secs(8 * 60 * 60); // 8h hard cap
+
 pub struct Sessions {
     admin_token: String,
     live: Mutex<HashMap<String, Session>>, // session id -> session
@@ -142,7 +144,20 @@ pub struct Sessions {
 #[derive(Clone)]
 pub struct Session {
     pub user: String,
-    pub seen: Instant,
+    pub csrf: String,     // paired anti-CSRF token (for cookie-authed writes)
+    pub created: Instant, // for the absolute-lifetime cap
+    pub seen: Instant,    // for the idle timeout
+}
+
+/// What a successful login hands back: an opaque bearer session token, its paired
+/// CSRF token, and the resolved username. The bearer token is the primary
+/// credential — the client sends it as `Authorization: Bearer <session>`, which
+/// (unlike a cookie) is never attached ambiently, so it can't be dropped by a
+/// cert-error browser and isn't reachable by CSRF.
+pub struct Issued {
+    pub session: String,
+    pub csrf: String,
+    pub user: String,
 }
 
 impl Sessions {
@@ -150,18 +165,19 @@ impl Sessions {
         Sessions { admin_token, live: Mutex::new(HashMap::new()) }
     }
 
-    fn start(&self, user: &str) -> String {
+    fn start(&self, user: &str) -> Issued {
         let sid = random_hex();
-        self.live
-            .lock()
-            .unwrap()
-            .insert(sid.clone(), Session { user: user.to_string(), seen: Instant::now() });
-        sid
+        let csrf = random_hex();
+        let now = Instant::now();
+        self.live.lock().unwrap().insert(
+            sid.clone(),
+            Session { user: user.to_string(), csrf: csrf.clone(), created: now, seen: now },
+        );
+        Issued { session: sid, csrf, user: user.to_string() }
     }
 
-    /// PAM login: authenticate the password, then authorize the user. On success
-    /// returns a new session id.
-    pub fn login_pam(&self, user: &str, pass: &str, admin_group: &str) -> Option<String> {
+    /// PAM login: authenticate the password, then authorize the user.
+    pub fn login_pam(&self, user: &str, pass: &str, admin_group: &str) -> Option<Issued> {
         if pam_authenticate(user, pass) && is_admin(user, admin_group) {
             Some(self.start(user))
         } else {
@@ -169,22 +185,27 @@ impl Sessions {
         }
     }
 
-    /// Bootstrap-token login (automation / first run).
-    pub fn login_token(&self, token: &str) -> Option<String> {
-        if ct_eq(token, &self.admin_token) {
+    /// Bootstrap-token login (automation / first run). An empty configured token
+    /// never matches (fail closed).
+    pub fn login_token(&self, token: &str) -> Option<Issued> {
+        if !self.admin_token.is_empty() && !token.is_empty() && ct_eq(token, &self.admin_token) {
             Some(self.start("token"))
         } else {
             None
         }
     }
 
-    /// The user of a live, non-expired session (refreshes its timestamp), or None.
-    pub fn check(&self, sid: &str) -> Option<String> {
+    /// A live session — idle under SESSION_TTL *and* total age under ABSOLUTE_TTL.
+    /// Refreshes the idle timestamp and returns a snapshot (incl. its CSRF token).
+    pub fn check(&self, sid: &str) -> Option<Session> {
+        if sid.is_empty() {
+            return None;
+        }
         let mut live = self.live.lock().unwrap();
-        live.retain(|_, s| s.seen.elapsed() < SESSION_TTL);
+        live.retain(|_, s| s.seen.elapsed() < SESSION_TTL && s.created.elapsed() < ABSOLUTE_TTL);
         if let Some(s) = live.get_mut(sid) {
             s.seen = Instant::now();
-            Some(s.user.clone())
+            Some(s.clone())
         } else {
             None
         }
@@ -192,5 +213,19 @@ impl Sessions {
 
     pub fn logout(&self, sid: &str) {
         self.live.lock().unwrap().remove(sid);
+    }
+
+    /// Revoke every session belonging to a user (e.g. after a password change).
+    #[allow(dead_code)]
+    pub fn revoke_user(&self, user: &str) {
+        self.live.lock().unwrap().retain(|_, s| s.user != user);
+    }
+
+    /// Number of live sessions (after pruning) — for a future sessions panel.
+    #[allow(dead_code)]
+    pub fn active(&self) -> usize {
+        let mut live = self.live.lock().unwrap();
+        live.retain(|_, s| s.seen.elapsed() < SESSION_TTL && s.created.elapsed() < ABSOLUTE_TTL);
+        live.len()
     }
 }
