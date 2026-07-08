@@ -1,6 +1,6 @@
 [package]
 name     = "blueberry-console"
-version  = "0.2.0"
+version  = "0.2.1"
 release  = 1
 summary  = "First-party web console to manage a Blueberry box (HTTPS, PAM auth)"
 homepage = "https://github.com/zsigisti/blueberry"
@@ -75,7 +75,7 @@ EOF
 install -Dm644 /dev/stdin "$pkgdir/usr/lib/systemd/system/blueberry-console.service" <<'EOF'
 [Unit]
 Description=Blueberry management console
-Documentation=https://github.com/zsigisti/blueberry (doc/WEBUI.md)
+Documentation=https://github.com/zsigisti/blueberry
 After=network.target
 
 [Service]
@@ -84,10 +84,15 @@ After=network.target
 EnvironmentFile=-/etc/default/blueberry-console
 ExecStart=/usr/bin/bbconsole
 Restart=on-failure
-# Modest hardening (must keep the ability to drive systemctl/bpm).
+# Modest hardening (must keep the ability to drive systemctl/bpm). systemd
+# creates these BEFORE setting up the mount namespace and adds them to the
+# read-write set, so ProtectHome can't trip over a missing path on first start:
+#   ConfigurationDirectory → /etc/blueberry/console  (TLS cert/key, token)
+#   LogsDirectory          → /var/log/blueberry-console  (audit log)
 NoNewPrivileges=no
 ProtectHome=yes
-ReadWritePaths=/etc/blueberry /var/log/blueberry-console
+ConfigurationDirectory=blueberry/console
+LogsDirectory=blueberry-console
 
 [Install]
 WantedBy=multi-user.target
