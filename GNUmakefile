@@ -55,7 +55,9 @@ SYSTEMD_BASE_PKGS := systemd util-linux coreutils libseccomp kmod dbus acl \
                      cryptsetup libcap libcap-ng readline file zlib xz zstd lz4 bzip2 expat \
                      pcre2 mpfr gdbm \
                      attr device-mapper json-c openssl popt openssh pam glibc-locales gmp \
-                     iproute2 iputils libmnl wpa_supplicant linux-firmware wireless-regdb networkmanager ufw \
+                     iproute2 iputils libmnl wpa_supplicant libnl linux-firmware wireless-regdb ufw \
+                     python libffi mpdecimal sqlite \
+                     iptables libnftnl libnetfilter_conntrack libnfnetlink \
                      grep sed gawk findutils gzip tar diffutils less which nano vim sudo tzdata kbd \
                      procps-ng psmisc lsof mandoc man-pages
 # procps-ng gives ps/top/free/uptime/vmstat/pgrep/pkill/sysctl (busybox has these
