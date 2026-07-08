@@ -16,7 +16,8 @@ This document describes the **base layer** (`src/bbconsole`, package
 - **API** (`/api/v1`): `system` (host/CPU/swap/processes), `metrics` (live
   per-core CPU%, memory, load — sampled server-side), `services` (list +
   start/stop/restart), `packages` (via `bpm`), `logs` (journald, filterable by
-  priority/unit), `storage` (filesystems + block devices), `network` (interfaces,
+  priority/unit), `storage` (filesystems + block devices), `zfs` (pools/datasets/
+  snapshots + scrub/snapshot actions; degrades to `{available:false}`), `network` (interfaces,
   MACs, addresses, gateway). Remaining far-vision areas (`containers`, `updates`)
   return `501` with a stable shape so the frontend can grow without churn.
 - **Frontend** — a **pure HTML/JS SPA, no CSS/framework/build step**
@@ -147,8 +148,13 @@ router, auth, and audit don't change.
 
 Shipped (0.5.0): **Logs** (journald, priority filter), **Storage** (filesystems +
 block devices), **Network** (interfaces/addresses/gateway), and a **live overview**
-(auto-refreshing per-core CPU / memory / load). Next for each: logs follow/tail +
-per-unit; storage SMART + snapshots; network firewall (nftables) + wireguard.
+(auto-refreshing per-core CPU / memory / load).
+Shipped (0.7.0): **ZFS** in the Storage panel — pools (size/alloc/free/health/cap),
+datasets, and snapshots, with safe **scrub** and **snapshot** actions (validated
+pool/dataset names, no option injection, audited). Needs the `zfs` userland (not
+yet packaged — the panel shows "not installed" until then). Next: dataset
+create/destroy, snapshot rollback/destroy, pool import/export; storage SMART;
+logs follow/tail; network firewall (nftables) + wireguard.
 
 ## Extending
 

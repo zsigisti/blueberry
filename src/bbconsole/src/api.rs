@@ -357,6 +357,107 @@ pub fn packages() -> Value {
     json!({ "packages": list, "manager": "bpm" })
 }
 
+/// A syntactically valid ZFS pool/dataset name (optionally with an `@snapshot`).
+/// No leading '-' (so it can't be read as a zpool/zfs option) and no shell
+/// metacharacters. Names are always passed as argv elements, never a shell string.
+pub fn valid_zfs_name(s: &str) -> bool {
+    !s.is_empty()
+        && s.len() <= 256
+        && !s.starts_with('-')
+        && s.bytes().all(|b| b.is_ascii_alphanumeric() || b"_-.:/@".contains(&b))
+}
+
+/// GET /api/v1/zfs — pools, datasets, snapshots. Returns { available:false } when
+/// the ZFS userland isn't installed, so the frontend degrades gracefully.
+pub fn zfs() -> Value {
+    let po = match Command::new("zpool")
+        .args(["list", "-Hp", "-o", "name,size,alloc,free,health,capacity,fragmentation"])
+        .output()
+    {
+        Ok(o) => o,
+        Err(_) => return json!({ "available": false }), // zpool binary absent
+    };
+    let mut pools = Vec::new();
+    for line in String::from_utf8_lossy(&po.stdout).lines() {
+        let f: Vec<&str> = line.split('\t').collect();
+        if f.len() >= 6 {
+            pools.push(json!({
+                "name": f[0],
+                "size": f[1].parse::<u64>().unwrap_or(0),
+                "alloc": f[2].parse::<u64>().unwrap_or(0),
+                "free": f[3].parse::<u64>().unwrap_or(0),
+                "health": f[4],
+                "capacity": f[5].parse::<u32>().unwrap_or(0),
+                "fragmentation": f.get(6).and_then(|x| x.parse::<u32>().ok()).unwrap_or(0),
+            }));
+        }
+    }
+    let mut datasets = Vec::new();
+    if let Ok(o) = Command::new("zfs")
+        .args(["list", "-Hp", "-t", "filesystem,volume", "-o", "name,used,avail,refer,mountpoint,type"])
+        .output()
+    {
+        for line in String::from_utf8_lossy(&o.stdout).lines() {
+            let f: Vec<&str> = line.split('\t').collect();
+            if f.len() >= 6 {
+                datasets.push(json!({
+                    "name": f[0], "used": f[1].parse::<u64>().unwrap_or(0),
+                    "avail": f[2].parse::<u64>().unwrap_or(0), "refer": f[3].parse::<u64>().unwrap_or(0),
+                    "mountpoint": f[4], "type": f[5],
+                }));
+            }
+        }
+    }
+    let mut snapshots = Vec::new();
+    if let Ok(o) = Command::new("zfs")
+        .args(["list", "-Hp", "-t", "snapshot", "-o", "name,used,refer,creation"])
+        .output()
+    {
+        for line in String::from_utf8_lossy(&o.stdout).lines() {
+            let f: Vec<&str> = line.split('\t').collect();
+            if f.len() >= 4 {
+                snapshots.push(json!({
+                    "name": f[0], "used": f[1].parse::<u64>().unwrap_or(0),
+                    "refer": f[2].parse::<u64>().unwrap_or(0), "creation": f[3].parse::<u64>().unwrap_or(0),
+                }));
+            }
+        }
+    }
+    let mut resp = json!({ "available": true, "pools": pools, "datasets": datasets, "snapshots": snapshots });
+    // zpool present but e.g. the kernel module isn't loaded → surface the reason.
+    if pools.is_empty() && !po.status.success() {
+        let note = String::from_utf8_lossy(&po.stderr).trim().to_string();
+        if !note.is_empty() {
+            resp["note"] = json!(note);
+        }
+    }
+    resp
+}
+
+/// POST /api/v1/zfs/{scrub,snapshot} — the few *safe* ZFS write actions. Destroy
+/// and pool creation are deliberately omitted from the base layer.
+pub fn zfs_action(action: &str, target: &str, snap: Option<&str>) -> Result<Value, String> {
+    if !valid_zfs_name(target) {
+        return Err("invalid pool/dataset name".into());
+    }
+    let out = match action {
+        "scrub" => Command::new("zpool").args(["scrub", target]).output(),
+        "snapshot" => {
+            let s = snap.ok_or("missing snapshot name")?;
+            if !valid_zfs_name(s) || s.contains('/') || s.contains('@') {
+                return Err("invalid snapshot name".into());
+            }
+            Command::new("zfs").args(["snapshot", &format!("{target}@{s}")]).output()
+        }
+        _ => return Err("unsupported action".into()),
+    };
+    match out {
+        Ok(o) if o.status.success() => Ok(json!({ "ok": true, "action": action, "target": target })),
+        Ok(o) => Err(String::from_utf8_lossy(&o.stderr).trim().to_string()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 /// The far-vision surface, stubbed so the shape is stable for the frontend.
 /// Each becomes a real module: containers (podman), logs (journald), updates +
 /// snapshot/rollback (bpm + btrfs), storage (lvm/btrfs), network (nftables).

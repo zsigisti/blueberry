@@ -348,6 +348,21 @@ fn api_route(st: &State, req: &Request, rest: &str, peer: &str, sess: &auth::Ses
         ("GET", "packages") => Response::json(200, api::packages()),
         ("GET", "storage") => Response::json(200, api::storage()),
         ("GET", "network") => Response::json(200, api::network()),
+        ("GET", "zfs") => Response::json(200, api::zfs()),
+
+        // ZFS write actions: /api/v1/zfs/{scrub,snapshot}?pool|dataset=<n>&name=<snap>
+        ("POST", r) if r.starts_with("zfs/") => {
+            let action = &r["zfs/".len()..];
+            let target = query_param(&req.query, "pool")
+                .or_else(|| query_param(&req.query, "dataset"))
+                .unwrap_or_default();
+            let snap = query_param(&req.query, "name");
+            audit(st, peer, &format!("zfs {action} {target}"));
+            match api::zfs_action(action, &target, snap.as_deref()) {
+                Ok(v) => Response::json(200, v),
+                Err(e) => Response::error(400, &e),
+            }
+        }
 
         // Journald logs: ?lines=<1..500>&priority=<0..7>&unit=<name>
         ("GET", "logs") => {
