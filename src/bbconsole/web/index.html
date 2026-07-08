@@ -4,28 +4,24 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Blueberry Console</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23044a40'/%3E%3Ccircle cx='32' cy='34' r='16' fill='%234975c3'/%3E%3Ccircle cx='32' cy='30' r='7' fill='%237095d6'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <div id="login" class="login" hidden>
-    <form id="login-form" class="card login-card">
-      <div class="wordmark"><b>BLUEBERRY</b><span>CONSOLE</span></div>
-      <p class="muted">Sign in with a system account — <code>root</code> or a member of the admin group.</p>
-      <input id="username" type="text" placeholder="username" autocomplete="username" autocapitalize="none" required>
-      <input id="password" type="password" placeholder="password" autocomplete="current-password" required>
-      <button type="submit" class="primary">Sign in</button>
-      <p id="login-error" class="error" hidden></p>
+  <div id="login" hidden>
+    <h1>Blueberry Console</h1>
+    <p>Sign in with a system account — <code>root</code> or a member of the admin group.</p>
+    <form id="login-form">
+      <p><label>Username <input id="username" autocomplete="username" autocapitalize="none"></label></p>
+      <p><label>Password <input id="password" type="password" autocomplete="current-password"></label></p>
+      <p><button type="submit">Sign in</button></p>
+      <p id="login-error" hidden></p>
     </form>
   </div>
 
   <div id="app" hidden>
-    <header>
-      <span class="brand"><b>BLUEBERRY</b><span>CONSOLE</span></span>
-      <span id="hostname" class="host"></span>
-      <button id="logout" class="ghost">Sign out</button>
-    </header>
+    <h1>Blueberry Console — <span id="hostname"></span>
+      <button id="logout">Sign out</button></h1>
     <nav id="nav"></nav>
+    <hr>
     <main id="view"></main>
   </div>
 

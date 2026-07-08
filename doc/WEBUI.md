@@ -19,7 +19,8 @@ This document describes the **base layer** (`src/bbconsole`, package
   priority/unit), `storage` (filesystems + block devices), `network` (interfaces,
   MACs, addresses, gateway). Remaining far-vision areas (`containers`, `updates`)
   return `501` with a stable shape so the frontend can grow without churn.
-- **Frontend** — a dependency-free SPA (`/usr/share/blueberry-console/web`):
+- **Frontend** — a **pure HTML/JS SPA, no CSS/framework/build step**
+  (`/usr/share/blueberry-console/web`):
   a live overview (auto-refreshing CPU/memory/load), plus services, packages,
   logs, storage, and network panels — and a stub tab per remaining roadmap area.
 
@@ -68,9 +69,10 @@ the boundary is the whole game:
 - **Small surface.** Pure-std HTTP, hard request-size limits (2 MiB body, 8 KiB
   per line, 32 KiB of headers — each enforced *while* reading, so no unbounded
   buffer), one request per connection, path-traversal guard on static files,
-  security headers + a strict CSP on every response. Two frontends ship: the
-  styled SPA (`/`) and a dependency-free, unstyled **pure HTML/JS client**
-  (`/login.html`) that surfaces raw HTTP status codes.
+  security headers + a strict CSP on every response. With no inline styles or
+  scripts anywhere, the CSP is tight: `default-src 'self'; frame-ancestors 'none';
+  base-uri 'none'`. Two pure HTML/JS frontends ship: the full console (`/`) and a
+  minimal login-only client (`/login.html`) that surfaces raw HTTP status codes.
 - **DoS resistance.** Every socket has a 20 s I/O timeout (bounds the TLS
   handshake, request read, and response write) so a slow/idle client can't pin a
   worker thread (slow-loris); concurrent connections are capped so a flood can't
@@ -126,8 +128,9 @@ Building out from the current model (Bearer sessions + CSRF + PAM authz):
    configurable for NAT'd setups.
 5. **PAM hardening** — `pam_faillock` in the console PAM stack; account/expiry
    checks; optional `pam_env`.
-6. **CSP tightening** — drop `style-src 'unsafe-inline'` once styles are fully
-   external; add `frame-ancestors 'none'`, `base-uri 'none'`.
+6. ~~**CSP tightening**~~ — *done (0.6.0):* the frontend is pure HTML/JS with no
+   inline styles/scripts, so the CSP is now `default-src 'self'; frame-ancestors
+   'none'; base-uri 'none'`.
 7. **Privilege reduction** — split a thin privileged helper from the HTTP daemon
    so the network-facing process isn't full root.
 

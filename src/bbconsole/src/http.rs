@@ -183,8 +183,10 @@ impl Response {
         head.push_str("Referrer-Policy: no-referrer\r\n");
         // Always-HTTPS: pin the browser to TLS for a year.
         head.push_str("Strict-Transport-Security: max-age=31536000\r\n");
+        // No inline styles/scripts anywhere (pure external app.js, no CSS), so the
+        // CSP can stay tight: self-only, no framing, no base-tag hijack.
         head.push_str(
-            "Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'\r\n",
+            "Content-Security-Policy: default-src 'self'; frame-ancestors 'none'; base-uri 'none'\r\n",
         );
         for (k, v) in &self.extra {
             head.push_str(&format!("{k}: {v}\r\n"));
