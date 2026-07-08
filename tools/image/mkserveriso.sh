@@ -44,6 +44,30 @@ systemd-machine-id-setup --root="$LIVEROOT" >/dev/null 2>&1 \
   || (head -c16 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$LIVEROOT/etc/machine-id")
 ln -sf /dev/null "$LIVEROOT/etc/systemd/system/systemd-firstboot.service"
 echo "blueberry" > "$LIVEROOT/etc/hostname"
+
+# Live-image credentials. agetty autologins root on the consoles (no password),
+# but PAM logins — ssh, su, and the web console — need a real password, and the
+# base ships no /etc/shadow. Generate one here with a *documented default* so the
+# live/demo ISO is usable out of the box. Installed systems set their own root
+# password via the installer; this default is live-only. Override with LIVE_ROOT_PW.
+LIVE_ROOT_PW=${LIVE_ROOT_PW:-blueberry}
+if command -v openssl >/dev/null 2>&1; then
+  ROOT_HASH=$(openssl passwd -6 "$LIVE_ROOT_PW")
+else
+  ROOT_HASH='$6$blueberrylive$Hw2pz1XWymm71QCIM5QwbMS/yj3QzvWDDmD7VKtfzQ.KiWP/CrpHw/ZriCm7zZM/tiyBjg.6zZAVZHrRU5c8m.'  # "blueberry"
+fi
+DAY=$(( $(date +%s) / 86400 ))
+: > "$LIVEROOT/etc/shadow"
+while IFS=: read -r U _; do
+  [ -n "$U" ] || continue
+  if [ "$U" = root ]; then
+    printf 'root:%s:%s:0:99999:7:::\n' "$ROOT_HASH" "$DAY" >> "$LIVEROOT/etc/shadow"
+  else
+    printf '%s:!:%s:0:99999:7:::\n' "$U" "$DAY" >> "$LIVEROOT/etc/shadow"   # locked
+  fi
+done < "$LIVEROOT/etc/passwd"
+cp "$LIVEROOT/etc/shadow" "$LIVEROOT/etc/shadow-"
+chmod 0640 "$LIVEROOT/etc/shadow" "$LIVEROOT/etc/shadow-"
 printf 'LANG=en_US.UTF-8\n' > "$LIVEROOT/etc/locale.conf"
 mkdir -p "$LIVEROOT/etc/systemd/system.conf.d"
 printf '[Manager]\nDefaultEnvironment=LANG=en_US.UTF-8\n' > "$LIVEROOT/etc/systemd/system.conf.d/10-locale.conf"

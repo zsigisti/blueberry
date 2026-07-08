@@ -184,7 +184,9 @@ fn resolve(
     let entry = match index::lookup(cfg, name) {
         Some(e) => e,
         None => {
-            eprintln!("bpm: warning: {name} not in repo index — assuming provided by the base system");
+            if explicit {
+                eprintln!("bpm: {name}: not found in the repo index");
+            }
             return;
         }
     };
@@ -269,7 +271,9 @@ fn install_name(
     let entry = match index::lookup(cfg, name) {
         Some(e) => e,
         None => {
-            eprintln!("bpm: warning: {name} not in repo index — assuming provided by the base system");
+            if explicit {
+                eprintln!("bpm: {name}: not found in the repo index");
+            }
             return Ok(());
         }
     };
