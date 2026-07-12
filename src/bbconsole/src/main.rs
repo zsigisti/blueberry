@@ -364,6 +364,20 @@ fn api_route(st: &State, req: &Request, rest: &str, peer: &str, sess: &auth::Ses
             }
         }
 
+        ("GET", "btrfs") => Response::json(200, api::btrfs()),
+
+        // Btrfs write actions: /api/v1/btrfs/{scrub,snapshot}?mount=<mp>&name=<snap>
+        ("POST", r) if r.starts_with("btrfs/") => {
+            let action = &r["btrfs/".len()..];
+            let mount = query_param(&req.query, "mount").unwrap_or_default();
+            let name = query_param(&req.query, "name");
+            audit(st, peer, &format!("btrfs {action} {mount}"));
+            match api::btrfs_action(action, &mount, name.as_deref()) {
+                Ok(v) => Response::json(200, v),
+                Err(e) => Response::error(400, &e),
+            }
+        }
+
         // Journald logs: ?lines=<1..500>&priority=<0..7>&unit=<name>
         ("GET", "logs") => {
             let lines = query_param(&req.query, "lines").and_then(|s| s.parse().ok()).unwrap_or(150);

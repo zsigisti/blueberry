@@ -458,6 +458,115 @@ pub fn zfs_action(action: &str, target: &str, snap: Option<&str>) -> Result<Valu
     }
 }
 
+// ── Btrfs ────────────────────────────────────────────────────────────────────
+
+/// /proc/mounts escapes space/tab/newline/backslash as octal; undo the common ones.
+fn unescape_mount(s: &str) -> String {
+    s.replace("\\040", " ").replace("\\011", "\t").replace("\\012", "\n").replace("\\134", "\\")
+}
+
+/// Distinct btrfs mountpoints from /proc/mounts, as (mountpoint, source device).
+fn btrfs_mounts() -> Vec<(String, String)> {
+    let mut v: Vec<(String, String)> = Vec::new();
+    if let Ok(m) = fs::read_to_string("/proc/mounts") {
+        for line in m.lines() {
+            let f: Vec<&str> = line.split_whitespace().collect();
+            if f.len() >= 3 && f[2] == "btrfs" {
+                let mp = unescape_mount(f[1]);
+                if !v.iter().any(|(m, _)| m == &mp) {
+                    v.push((mp, f[0].to_string()));
+                }
+            }
+        }
+    }
+    v
+}
+
+/// The trailing `path <p>` field of a `btrfs subvolume list` line.
+fn subvol_path(line: &str) -> Option<String> {
+    line.rsplit_once(" path ").map(|(_, p)| p.trim().to_string())
+}
+
+/// GET /api/v1/btrfs — btrfs filesystems (byte usage), their subvolumes and
+/// snapshots. { available:false } when btrfs-progs isn't installed.
+pub fn btrfs() -> Value {
+    if Command::new("btrfs").arg("--version").output().is_err() {
+        return json!({ "available": false });
+    }
+    let mut filesystems = Vec::new();
+    for (mp, dev) in btrfs_mounts() {
+        let (mut total, mut used) = (0u64, 0u64);
+        if let Ok(o) = Command::new("btrfs").args(["filesystem", "usage", "-b", &mp]).output() {
+            for l in String::from_utf8_lossy(&o.stdout).lines() {
+                let t = l.trim();
+                if let Some(v) = t.strip_prefix("Device size:") {
+                    total = v.split_whitespace().next().and_then(|x| x.parse().ok()).unwrap_or(0);
+                } else if let Some(v) = t.strip_prefix("Used:") {
+                    used = v.split_whitespace().next().and_then(|x| x.parse().ok()).unwrap_or(0);
+                }
+            }
+        }
+        let mut subvolumes = Vec::new();
+        if let Ok(o) = Command::new("btrfs").args(["subvolume", "list", &mp]).output() {
+            for l in String::from_utf8_lossy(&o.stdout).lines() {
+                if let Some(p) = subvol_path(l) {
+                    subvolumes.push(p);
+                }
+            }
+        }
+        let mut snapshots = Vec::new();
+        if let Ok(o) = Command::new("btrfs").args(["subvolume", "list", "-s", &mp]).output() {
+            for l in String::from_utf8_lossy(&o.stdout).lines() {
+                if let Some(p) = subvol_path(l) {
+                    snapshots.push(p);
+                }
+            }
+        }
+        filesystems.push(json!({
+            "mount": mp, "device": dev, "total": total, "used": used,
+            "subvolumes": subvolumes, "snapshots": snapshots,
+        }));
+    }
+    json!({ "available": true, "filesystems": filesystems })
+}
+
+/// A safe snapshot basename: non-empty, no leading '-', no path separators.
+pub fn valid_snap_name(s: &str) -> bool {
+    !s.is_empty()
+        && s.len() <= 128
+        && !s.starts_with('-')
+        && s.bytes().all(|b| b.is_ascii_alphanumeric() || b"_-.".contains(&b))
+}
+
+/// POST /api/v1/btrfs/{scrub,snapshot}. `mount` must be a *current* btrfs
+/// mountpoint (whitelisted from /proc/mounts), never an arbitrary path — so a
+/// caller can't point these at somewhere unexpected. Snapshots are read-only,
+/// created under `<mount>/.snapshots/<name>`.
+pub fn btrfs_action(action: &str, mount: &str, name: Option<&str>) -> Result<Value, String> {
+    if !btrfs_mounts().iter().any(|(m, _)| m == mount) {
+        return Err("not a btrfs mountpoint".into());
+    }
+    let out = match action {
+        "scrub" => Command::new("btrfs").args(["scrub", "start", mount]).output(),
+        "snapshot" => {
+            let n = name.ok_or("missing snapshot name")?;
+            if !valid_snap_name(n) {
+                return Err("invalid snapshot name".into());
+            }
+            let dir = format!("{mount}/.snapshots");
+            let _ = std::fs::create_dir_all(&dir);
+            let dest = format!("{dir}/{n}");
+            Command::new("btrfs").args(["subvolume", "snapshot", "-r", mount, &dest]).output()
+        }
+        _ => return Err("unsupported action".into()),
+    };
+    match out {
+        Ok(o) if o.status.success() => Ok(json!({ "ok": true, "action": action, "mount": mount })),
+        Ok(o) => Err(String::from_utf8_lossy(&o.stderr).trim().to_string()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 /// The far-vision surface, stubbed so the shape is stable for the frontend.
 /// Each becomes a real module: containers (podman), logs (journald), updates +
 /// snapshot/rollback (bpm + btrfs), storage (lvm/btrfs), network (nftables).

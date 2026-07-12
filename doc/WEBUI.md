@@ -17,7 +17,8 @@ This document describes the **base layer** (`src/bbconsole`, package
   per-core CPU%, memory, load — sampled server-side), `services` (list +
   start/stop/restart), `packages` (via `bpm`), `logs` (journald, filterable by
   priority/unit), `storage` (filesystems + block devices), `zfs` (pools/datasets/
-  snapshots + scrub/snapshot actions; degrades to `{available:false}`), `network` (interfaces,
+  snapshots + scrub/snapshot; degrades to `{available:false}`), `btrfs`
+  (filesystems/subvolumes/snapshots + scrub/read-only-snapshot), `network` (interfaces,
   MACs, addresses, gateway). Remaining far-vision areas (`containers`, `updates`)
   return `501` with a stable shape so the frontend can grow without churn.
 - **Frontend** — a **pure HTML/JS SPA, no CSS/framework/build step**
@@ -152,9 +153,15 @@ block devices), **Network** (interfaces/addresses/gateway), and a **live overvie
 Shipped (0.7.0): **ZFS** in the Storage panel — pools (size/alloc/free/health/cap),
 datasets, and snapshots, with safe **scrub** and **snapshot** actions (validated
 pool/dataset names, no option injection, audited). Needs the `zfs` userland (not
-yet packaged — the panel shows "not installed" until then). Next: dataset
-create/destroy, snapshot rollback/destroy, pool import/export; storage SMART;
-logs follow/tail; network firewall (nftables) + wireguard.
+yet packaged — the panel shows "not installed" until then).
+Shipped (0.8.0): **Btrfs** — the recommended fs for the snapshot/rollback
+differentiator, and it works today (`btrfs-progs` is on the mirror). Per btrfs
+filesystem: byte usage, subvolumes, and snapshots, with **scrub** and a
+**read-only snapshot** into `<mount>/.snapshots/<name>`. The `mount` target is
+whitelisted against `/proc/mounts` (never an arbitrary path) and the snapshot name
+is charset-validated. Next: snapshot rollback/delete, subvolume create/delete, and
+wiring btrfs snapshots into the `bpm upgrade` rollback flow; dataset ops for ZFS;
+storage SMART; logs follow/tail; network firewall (nftables) + wireguard.
 
 ## Extending
 

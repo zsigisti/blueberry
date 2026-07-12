@@ -173,63 +173,81 @@ async function storage(view) {
       table(["Name", "Type", "Size", "FS", "Mount"], drows));
   }
 
-  // ── ZFS ───────────────────────────────────────────────────────────────────
-  const z = await getJSON("zfs");
-  const zsec = el("div", {});
-  zsec.append(el("h2", { text: "ZFS" }));
-  if (!z.available) {
-    zsec.append(el("p", { text: "ZFS userland not installed (bpm install zfs)." }));
-    view.append(zsec);
-    return;
-  }
-  if (z.note) zsec.append(el("p", { text: z.note }));
-
+  // POST helper shared by the ZFS + Btrfs actions.
   const post = async (path, okMsg) => {
     const r = await api(path, { method: "POST" });
     if (r.ok) { render("storage"); }
     else { const e = await r.json().catch(() => ({})); alert((okMsg || "action") + " failed: " + (e.error || ("HTTP " + r.status))); }
   };
 
-  // Pools + scrub
-  const prows = z.pools.map((p) => {
-    const b = el("button", { text: "Scrub" });
-    b.addEventListener("click", () => { if (confirm("Start a scrub of pool '" + p.name + "'?")) post("zfs/scrub?pool=" + encodeURIComponent(p.name), "scrub"); });
-    return el("tr", {},
-      el("td", { text: p.name }), el("td", { text: p.health }),
-      el("td", { text: fmtBytes(p.size) }), el("td", { text: fmtBytes(p.alloc) }),
-      el("td", { text: fmtBytes(p.free) }), el("td", { text: p.capacity + "%" }), el("td", {}, b));
-  });
-  zsec.append(el("h3", { text: "Pools" }),
-    z.pools.length ? table(["Pool", "Health", "Size", "Alloc", "Free", "Cap", ""], prows)
-                   : el("p", { text: "No pools imported." }));
-
-  // Datasets + snapshot
-  if (z.datasets && z.datasets.length) {
-    const drows = z.datasets.map((d) => {
-      const b = el("button", { text: "Snapshot" });
-      b.addEventListener("click", () => {
-        const n = prompt("Snapshot name for '" + d.name + "':", "manual");
-        if (n) post("zfs/snapshot?dataset=" + encodeURIComponent(d.name) + "&name=" + encodeURIComponent(n), "snapshot");
-      });
+  // ── ZFS ───────────────────────────────────────────────────────────────────
+  const z = await getJSON("zfs");
+  view.append(el("h2", { text: "ZFS" }));
+  if (!z.available) {
+    view.append(el("p", { text: "ZFS userland not installed." }));
+  } else {
+    if (z.note) view.append(el("p", { text: z.note }));
+    const prows = z.pools.map((p) => {
+      const b = el("button", { text: "Scrub" });
+      b.addEventListener("click", () => { if (confirm("Start a scrub of pool '" + p.name + "'?")) post("zfs/scrub?pool=" + encodeURIComponent(p.name), "scrub"); });
       return el("tr", {},
-        el("td", { text: d.name }), el("td", { text: d.type }),
-        el("td", { text: fmtBytes(d.used) }), el("td", { text: fmtBytes(d.avail) }),
-        el("td", { text: d.mountpoint }), el("td", {}, b));
+        el("td", { text: p.name }), el("td", { text: p.health }),
+        el("td", { text: fmtBytes(p.size) }), el("td", { text: fmtBytes(p.alloc) }),
+        el("td", { text: fmtBytes(p.free) }), el("td", { text: p.capacity + "%" }), el("td", {}, b));
     });
-    zsec.append(el("h3", { text: "Datasets" }),
-      table(["Dataset", "Type", "Used", "Avail", "Mount", ""], drows));
+    view.append(el("h3", { text: "Pools" }),
+      z.pools.length ? table(["Pool", "Health", "Size", "Alloc", "Free", "Cap", ""], prows)
+                     : el("p", { text: "No pools imported." }));
+    if (z.datasets && z.datasets.length) {
+      const drows = z.datasets.map((d) => {
+        const b = el("button", { text: "Snapshot" });
+        b.addEventListener("click", () => {
+          const n = prompt("Snapshot name for '" + d.name + "':", "manual");
+          if (n) post("zfs/snapshot?dataset=" + encodeURIComponent(d.name) + "&name=" + encodeURIComponent(n), "snapshot");
+        });
+        return el("tr", {},
+          el("td", { text: d.name }), el("td", { text: d.type }),
+          el("td", { text: fmtBytes(d.used) }), el("td", { text: fmtBytes(d.avail) }),
+          el("td", { text: d.mountpoint }), el("td", {}, b));
+      });
+      view.append(el("h3", { text: "Datasets" }), table(["Dataset", "Type", "Used", "Avail", "Mount", ""], drows));
+    }
+    if (z.snapshots && z.snapshots.length) {
+      const srows = z.snapshots.map((s) => el("tr", {},
+        el("td", { text: s.name }), el("td", { text: fmtBytes(s.used) }),
+        el("td", { text: fmtBytes(s.refer) }), el("td", { text: fmtTime(s.creation) })));
+      view.append(el("h3", { text: "Snapshots" }), table(["Snapshot", "Used", "Refer", "Created"], srows));
+    }
   }
 
-  // Snapshots
-  if (z.snapshots && z.snapshots.length) {
-    const srows = z.snapshots.map((s) => el("tr", {},
-      el("td", { text: s.name }), el("td", { text: fmtBytes(s.used) }),
-      el("td", { text: fmtBytes(s.refer) }), el("td", { text: fmtTime(s.creation) })));
-    zsec.append(el("h3", { text: "Snapshots" }),
-      table(["Snapshot", "Used", "Refer", "Created"], srows));
+  // ── Btrfs ──────────────────────────────────────────────────────────────────
+  const bt = await getJSON("btrfs");
+  view.append(el("h2", { text: "Btrfs" }));
+  if (!bt.available) {
+    view.append(el("p", { text: "btrfs-progs not installed (bpm install btrfs-progs)." }));
+  } else if (!bt.filesystems.length) {
+    view.append(el("p", { text: "No btrfs filesystems mounted." }));
+  } else {
+    bt.filesystems.forEach((f) => {
+      const scrubB = el("button", { text: "Scrub" });
+      scrubB.addEventListener("click", () => { if (confirm("Start a scrub of '" + f.mount + "'?")) post("btrfs/scrub?mount=" + encodeURIComponent(f.mount), "scrub"); });
+      const snapB = el("button", { text: "Snapshot" });
+      snapB.addEventListener("click", () => {
+        const n = prompt("Read-only snapshot name for '" + f.mount + "' (into .snapshots/):", "manual");
+        if (n) post("btrfs/snapshot?mount=" + encodeURIComponent(f.mount) + "&name=" + encodeURIComponent(n), "snapshot");
+      });
+      view.append(el("h3", { text: f.mount + "  (" + f.device + ")" }),
+        el("p", {}, document.createTextNode(fmtBytes(f.used) + " used of " + fmtBytes(f.total) + "   "), scrubB, document.createTextNode(" "), snapB));
+      if (f.subvolumes && f.subvolumes.length) {
+        view.append(el("h4", { text: "Subvolumes (" + f.subvolumes.length + ")" }),
+          table(["Path"], f.subvolumes.map((p) => el("tr", {}, el("td", { text: p })))));
+      }
+      if (f.snapshots && f.snapshots.length) {
+        view.append(el("h4", { text: "Snapshots (" + f.snapshots.length + ")" }),
+          table(["Path"], f.snapshots.map((p) => el("tr", {}, el("td", { text: p })))));
+      }
+    });
   }
-
-  view.append(zsec);
 }
 
 async function network(view) {
