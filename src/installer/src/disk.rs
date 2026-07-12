@@ -118,6 +118,37 @@ pub fn mkfs_btrfs(dev: &str, label: &str) -> R<()> {
     check(&["mkfs.btrfs", "-f", "-L", label, dev])
 }
 
+/// Lay out btrfs subvolumes for snapshot/rollback: `@` (root) and `@home`
+/// (/home), then make `@` the filesystem's **default** subvolume. Booting the
+/// default subvolume (rather than pinning `subvol=@` in fstab/cmdline) is what
+/// lets the web console roll back later with a plain `btrfs subvolume
+/// set-default`. `dev` is the freshly-mkfs'd btrfs device; `tmp` is a scratch
+/// mountpoint that is unmounted again before returning.
+pub fn btrfs_subvol_layout(dev: &str, tmp: &str) -> R<()> {
+    std::fs::create_dir_all(tmp).ok();
+    check(&["mount", dev, tmp])?;
+    let res = (|| -> R<()> {
+        check(&["btrfs", "subvolume", "create", &format!("{tmp}/@")])?;
+        check(&["btrfs", "subvolume", "create", &format!("{tmp}/@home")])?;
+        let id = btrfs_subvol_id(&format!("{tmp}/@"))?;
+        check(&["btrfs", "subvolume", "set-default", &id, tmp])
+    })();
+    let _ = run(&["umount", tmp]);
+    res
+}
+
+/// The numeric subvolume id of a btrfs path (via `btrfs inspect-internal rootid`).
+fn btrfs_subvol_id(path: &str) -> R<String> {
+    let out = std::process::Command::new("btrfs")
+        .args(["inspect-internal", "rootid", path])
+        .output()
+        .map_err(|e| format!("btrfs rootid: {e}"))?;
+    if !out.status.success() {
+        return Err(format!("btrfs rootid {path}: {}", String::from_utf8_lossy(&out.stderr).trim()));
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+}
+
 /// Put an LVM volume group on `pv_dev` (a raw partition or a LUKS mapper) with
 /// a single root logical volume spanning it. Returns the LV device path.
 pub fn lvm_setup(pv_dev: &str, vg: &str, lv: &str) -> R<String> {

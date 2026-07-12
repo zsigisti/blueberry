@@ -278,9 +278,23 @@ pub fn run_install(cfg: &Config, payload: &Payload, emit: Emit) -> R<()> {
     }
     disk::mkfs_root(&rootfs_dev, "blueberry-root", cfg.fs)?;
 
+    // btrfs: create @ (root) + @home subvolumes and make @ the default, so the
+    // system boots the default subvolume — the layout the console rolls back.
+    let btrfs = matches!(cfg.fs, Filesystem::Btrfs);
+    if btrfs {
+        step(emit, "Creating btrfs subvolumes (@, @home)");
+        disk::btrfs_subvol_layout(&rootfs_dev, MNT)?;
+    }
+
     step(emit, "Mounting target");
     fs::create_dir_all(MNT).ok();
-    check(&["mount", &rootfs_dev, MNT])?;
+    if btrfs {
+        check(&["mount", "-o", "subvol=@", &rootfs_dev, MNT])?;
+        fs::create_dir_all(format!("{MNT}/home")).ok();
+        check(&["mount", "-o", "subvol=@home", &rootfs_dev, &format!("{MNT}/home")])?;
+    } else {
+        check(&["mount", &rootfs_dev, MNT])?;
+    }
     if let Some(e) = &esp {
         fs::create_dir_all(format!("{MNT}/boot/efi")).ok();
         check(&["mount", e, &format!("{MNT}/boot/efi")])?;
@@ -458,6 +472,9 @@ pub fn run_install(cfg: &Config, payload: &Payload, emit: Emit) -> R<()> {
     let _ = sh(&format!("swapoff {MNT}/swapfile 2>/dev/null"));
     if esp.is_some() {
         run(&["umount", &format!("{MNT}/boot/efi")]);
+    }
+    if btrfs {
+        run(&["umount", &format!("{MNT}/home")]); // nested @home mount first
     }
     run(&["umount", MNT]);
     if crypt_uuid.is_some() {
