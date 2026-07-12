@@ -18,9 +18,10 @@ This document describes the **base layer** (`src/bbconsole`, package
   start/stop/restart), `packages` (via `bpm`), `logs` (journald, filterable by
   priority/unit), `storage` (filesystems + block devices), `zfs` (pools/datasets/
   snapshots + scrub/snapshot; degrades to `{available:false}`), `btrfs`
-  (filesystems/subvolumes/snapshots + scrub/read-only-snapshot), `network` (interfaces,
-  MACs, addresses, gateway). Remaining far-vision areas (`containers`, `updates`)
-  return `501` with a stable shape so the frontend can grow without churn.
+  (filesystems/subvolumes/snapshots + scrub/snapshot/subvol-create/delete/rollback),
+  `updates` (bpm outdated + snapshot-and-upgrade), `network` (interfaces,
+  MACs, addresses, gateway). The one remaining far-vision area (`containers`)
+  returns `501` with a stable shape so the frontend can grow without churn.
 - **Frontend** — a **pure HTML/JS SPA, no CSS/framework/build step**
   (`/usr/share/blueberry-console/web`):
   a live overview (auto-refreshing CPU/memory/load), plus services, packages,
@@ -143,9 +144,6 @@ router, auth, and audit don't change.
 
 1. **Containers** — podman (there's already a `podman.socket` REST API to proxy):
    list/start/stop/logs, images, pods; rootless-aware.
-2. **Updates + rollback** — the differentiator. Surface `bpm` updates, and if the
-   root is btrfs: snapshot → `bpm upgrade` → one-click rollback if it broke. No
-   other console does this for a source-built rolling distro.
 
 Shipped (0.5.0): **Logs** (journald, priority filter), **Storage** (filesystems +
 block devices), **Network** (interfaces/addresses/gateway), and a **live overview**
@@ -154,14 +152,19 @@ Shipped (0.7.0): **ZFS** in the Storage panel — pools (size/alloc/free/health/
 datasets, and snapshots, with safe **scrub** and **snapshot** actions (validated
 pool/dataset names, no option injection, audited). Needs the `zfs` userland (not
 yet packaged — the panel shows "not installed" until then).
-Shipped (0.8.0): **Btrfs** — the recommended fs for the snapshot/rollback
-differentiator, and it works today (`btrfs-progs` is on the mirror). Per btrfs
-filesystem: byte usage, subvolumes, and snapshots, with **scrub** and a
-**read-only snapshot** into `<mount>/.snapshots/<name>`. The `mount` target is
-whitelisted against `/proc/mounts` (never an arbitrary path) and the snapshot name
-is charset-validated. Next: snapshot rollback/delete, subvolume create/delete, and
-wiring btrfs snapshots into the `bpm upgrade` rollback flow; dataset ops for ZFS;
-storage SMART; logs follow/tail; network firewall (nftables) + wireguard.
+Shipped (0.8.0): **Btrfs** — per btrfs filesystem: byte usage, subvolumes, and
+snapshots, with **scrub** and a **read-only snapshot** into `<mount>/.snapshots/`.
+Shipped (0.9.0): **Updates + rollback — the differentiator.** The Updates panel
+lists upgradable packages (new `bpm outdated`) and does **snapshot → `bpm upgrade`**
+in one click: if the root is btrfs it takes a read-only pre-upgrade snapshot first.
+The Btrfs panel gained **subvolume create/delete**, **snapshot delete**, and
+**rollback** — rollback clones the chosen snapshot to a writable subvolume and
+`btrfs subvolume set-default`s it, so a reboot boots the pre-upgrade state (the
+running system is untouched until then; requires a default-subvolume root layout).
+All targets are whitelisted against `/proc/mounts` + the live subvolume list;
+names/paths are charset-validated (no leading `-`, no `..`); every action audited.
+Next: wire the pre-upgrade snapshot to a one-click rollback in the Updates panel
+itself; ZFS dataset ops; storage SMART; logs follow/tail; nftables firewall.
 
 ## Extending
 

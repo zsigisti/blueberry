@@ -1,6 +1,6 @@
 [package]
 name = "bpm"
-version = "1.11.1"
+version = "1.11.2"
 edition = "2021"
 description = "Blueberry Package Manager — Rust rewrite"
 license = "GPL-3.0-or-later"

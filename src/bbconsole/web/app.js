@@ -56,8 +56,8 @@ const PANELS = [
   { id: "logs", label: "Logs", render: logs },
   { id: "storage", label: "Storage", render: storage },
   { id: "network", label: "Network", render: network },
+  { id: "updates", label: "Updates", render: updates },
   { id: "containers", label: "Containers", render: stub("Containers") },
-  { id: "updates", label: "Updates", render: stub("Updates") },
 ];
 
 function stub(name) {
@@ -229,25 +229,84 @@ async function storage(view) {
     view.append(el("p", { text: "No btrfs filesystems mounted." }));
   } else {
     bt.filesystems.forEach((f) => {
+      const mq = encodeURIComponent(f.mount);
       const scrubB = el("button", { text: "Scrub" });
-      scrubB.addEventListener("click", () => { if (confirm("Start a scrub of '" + f.mount + "'?")) post("btrfs/scrub?mount=" + encodeURIComponent(f.mount), "scrub"); });
+      scrubB.addEventListener("click", () => { if (confirm("Start a scrub of '" + f.mount + "'?")) post("btrfs/scrub?mount=" + mq, "scrub"); });
       const snapB = el("button", { text: "Snapshot" });
       snapB.addEventListener("click", () => {
         const n = prompt("Read-only snapshot name for '" + f.mount + "' (into .snapshots/):", "manual");
-        if (n) post("btrfs/snapshot?mount=" + encodeURIComponent(f.mount) + "&name=" + encodeURIComponent(n), "snapshot");
+        if (n) post("btrfs/snapshot?mount=" + mq + "&name=" + encodeURIComponent(n), "snapshot");
+      });
+      const newB = el("button", { text: "New subvolume" });
+      newB.addEventListener("click", () => {
+        const n = prompt("New subvolume name under '" + f.mount + "':");
+        if (n) post("btrfs/subvol-create?mount=" + mq + "&name=" + encodeURIComponent(n), "create");
       });
       view.append(el("h3", { text: f.mount + "  (" + f.device + ")" }),
-        el("p", {}, document.createTextNode(fmtBytes(f.used) + " used of " + fmtBytes(f.total) + "   "), scrubB, document.createTextNode(" "), snapB));
+        el("p", {}, document.createTextNode(fmtBytes(f.used) + " used of " + fmtBytes(f.total) + "   "),
+          scrubB, document.createTextNode(" "), snapB, document.createTextNode(" "), newB));
+
+      const delBtn = (p) => {
+        const b = el("button", { text: "Delete" });
+        b.addEventListener("click", () => { if (confirm("Delete subvolume '" + p + "' permanently?")) post("btrfs/subvol-delete?mount=" + mq + "&path=" + encodeURIComponent(p), "delete"); });
+        return b;
+      };
       if (f.subvolumes && f.subvolumes.length) {
         view.append(el("h4", { text: "Subvolumes (" + f.subvolumes.length + ")" }),
-          table(["Path"], f.subvolumes.map((p) => el("tr", {}, el("td", { text: p })))));
+          table(["Path", ""], f.subvolumes.map((p) => el("tr", {}, el("td", { text: p }), el("td", {}, delBtn(p))))));
       }
       if (f.snapshots && f.snapshots.length) {
-        view.append(el("h4", { text: "Snapshots (" + f.snapshots.length + ")" }),
-          table(["Path"], f.snapshots.map((p) => el("tr", {}, el("td", { text: p })))));
+        const rows = f.snapshots.map((p) => {
+          const rb = el("button", { text: "Rollback" });
+          rb.addEventListener("click", async () => {
+            if (!confirm("Roll back to snapshot '" + p + "'?\n\nThis makes it the default subvolume and takes effect after a REBOOT. The running system is unchanged until you reboot.")) return;
+            const r = await api("btrfs/rollback?mount=" + mq + "&path=" + encodeURIComponent(p), { method: "POST" });
+            const d = await r.json().catch(() => ({}));
+            if (r.ok) alert("Rollback prepared — reboot to boot into '" + p + "'.");
+            else alert("rollback failed: " + (d.error || ("HTTP " + r.status)));
+          });
+          return el("tr", {}, el("td", { text: p }), el("td", {}, rb, document.createTextNode(" "), delBtn(p)));
+        });
+        view.append(el("h4", { text: "Snapshots (" + f.snapshots.length + ")" }), table(["Path", ""], rows));
       }
     });
   }
+}
+
+async function updates(view) {
+  const u = await getJSON("updates");
+  view.append(el("h2", { text: "Updates" }));
+  if (!u.count) {
+    view.append(el("p", { text: "Everything is up to date." }));
+  } else {
+    const rows = u.updates.map((p) => el("tr", {},
+      el("td", { text: p.name }), el("td", { text: p.installed }), el("td", { text: "→ " + p.available })));
+    view.append(el("p", { text: u.count + " package(s) can be upgraded." }),
+      table(["Package", "Installed", "Available"], rows));
+  }
+
+  const snapCb = el("input", { type: "checkbox" });
+  if (u.btrfs_root) snapCb.checked = true;
+  const out = el("pre", {});
+  const btn = el("button", { text: "Upgrade all" });
+  btn.addEventListener("click", async () => {
+    const withSnap = snapCb.checked && u.btrfs_root;
+    if (!confirm("Run bpm upgrade now?" + (withSnap ? " A pre-upgrade btrfs snapshot will be taken first." : ""))) return;
+    btn.disabled = true; out.textContent = "Upgrading… (this can take a while)";
+    try {
+      const r = await api("updates/apply?snapshot=" + (snapCb.checked ? "1" : "0"), { method: "POST" });
+      const d = await r.json().catch(() => ({}));
+      out.textContent = r.ok
+        ? (d.snapshot ? "Pre-upgrade snapshot: " + d.snapshot + "\n\n" : "") + (d.output || "(no output)")
+        : "Upgrade failed: " + (d.error || ("HTTP " + r.status));
+    } catch (e) { out.textContent = "Error: " + ((e && e.message) || e); }
+    btn.disabled = false;
+  });
+  const controls = el("p", {});
+  if (u.btrfs_root) controls.append(snapCb, document.createTextNode(" snapshot root before upgrading   "));
+  else controls.append(el("span", { text: "(root is not btrfs — no snapshot/rollback available)   " }));
+  controls.append(btn);
+  view.append(controls, out);
 }
 
 async function network(view) {

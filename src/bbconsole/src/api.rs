@@ -538,16 +538,75 @@ pub fn valid_snap_name(s: &str) -> bool {
         && s.bytes().all(|b| b.is_ascii_alphanumeric() || b"_-.".contains(&b))
 }
 
-/// POST /api/v1/btrfs/{scrub,snapshot}. `mount` must be a *current* btrfs
-/// mountpoint (whitelisted from /proc/mounts), never an arbitrary path — so a
-/// caller can't point these at somewhere unexpected. Snapshots are read-only,
-/// created under `<mount>/.snapshots/<name>`.
-pub fn btrfs_action(action: &str, mount: &str, name: Option<&str>) -> Result<Value, String> {
+/// A relative subvolume path (under a mount): non-empty, no leading '-', no
+/// `.`/`..`/empty components, restricted charset.
+fn valid_subvol_rel(p: &str) -> bool {
+    !p.is_empty()
+        && !p.starts_with('-')
+        && p.len() <= 512
+        && p.split('/').all(|c| {
+            !c.is_empty() && c != "." && c != ".." && c.bytes().all(|b| b.is_ascii_alphanumeric() || b"_-.@".contains(&b))
+        })
+}
+
+/// Subvolume paths currently present under a btrfs mount (for whitelist checks).
+fn btrfs_subvols(mount: &str) -> Vec<String> {
+    let mut v = Vec::new();
+    if let Ok(o) = Command::new("btrfs").args(["subvolume", "list", mount]).output() {
+        for l in String::from_utf8_lossy(&o.stdout).lines() {
+            if let Some(p) = subvol_path(l) {
+                v.push(p);
+            }
+        }
+    }
+    v
+}
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+}
+
+/// Roll back to a snapshot: clone it into a writable subvolume and make that the
+/// filesystem's *default* subvolume. Takes effect on the next boot (and requires
+/// the root to be mounted by default subvolume, not a pinned `subvol=`). We never
+/// touch the live subvolume, so a running system stays intact until it reboots.
+fn btrfs_rollback(mount: &str, snap_path: &str) -> Result<Value, String> {
+    let dir = format!("{mount}/.snapshots");
+    let _ = std::fs::create_dir_all(&dir);
+    let rw = format!("{dir}/rollback-{}", now_secs());
+    let src = format!("{mount}/{snap_path}");
+    let clone = Command::new("btrfs").args(["subvolume", "snapshot", &src, &rw]).output().map_err(|e| e.to_string())?;
+    if !clone.status.success() {
+        return Err(String::from_utf8_lossy(&clone.stderr).trim().to_string());
+    }
+    let show = Command::new("btrfs").args(["subvolume", "show", &rw]).output().map_err(|e| e.to_string())?;
+    let id = String::from_utf8_lossy(&show.stdout)
+        .lines()
+        .find_map(|l| l.trim().strip_prefix("Subvolume ID:").map(|v| v.trim().to_string()))
+        .ok_or("could not determine the new subvolume id")?;
+    let sd = Command::new("btrfs").args(["subvolume", "set-default", &id, mount]).output().map_err(|e| e.to_string())?;
+    if !sd.status.success() {
+        return Err(String::from_utf8_lossy(&sd.stderr).trim().to_string());
+    }
+    Ok(json!({ "ok": true, "rollback_subvol": rw, "default_id": id, "reboot_required": true }))
+}
+
+/// POST /api/v1/btrfs/{scrub,snapshot,subvol-create,subvol-delete,rollback}.
+/// `mount` must be a *current* btrfs mountpoint (whitelisted from /proc/mounts).
+/// Delete/rollback targets must be real subvolumes of that mount (whitelisted).
+pub fn btrfs_action(action: &str, mount: &str, name: Option<&str>, path: Option<&str>) -> Result<Value, String> {
     if !btrfs_mounts().iter().any(|(m, _)| m == mount) {
         return Err("not a btrfs mountpoint".into());
     }
-    let out = match action {
-        "scrub" => Command::new("btrfs").args(["scrub", "start", mount]).output(),
+    let run = |args: &[&str]| -> Result<Value, String> {
+        match Command::new("btrfs").args(args).output() {
+            Ok(o) if o.status.success() => Ok(json!({ "ok": true, "action": action, "mount": mount })),
+            Ok(o) => Err(String::from_utf8_lossy(&o.stderr).trim().to_string()),
+            Err(e) => Err(e.to_string()),
+        }
+    };
+    match action {
+        "scrub" => run(&["scrub", "start", mount]),
         "snapshot" => {
             let n = name.ok_or("missing snapshot name")?;
             if !valid_snap_name(n) {
@@ -556,15 +615,76 @@ pub fn btrfs_action(action: &str, mount: &str, name: Option<&str>) -> Result<Val
             let dir = format!("{mount}/.snapshots");
             let _ = std::fs::create_dir_all(&dir);
             let dest = format!("{dir}/{n}");
-            Command::new("btrfs").args(["subvolume", "snapshot", "-r", mount, &dest]).output()
+            run(&["subvolume", "snapshot", "-r", mount, &dest])
         }
-        _ => return Err("unsupported action".into()),
-    };
-    match out {
-        Ok(o) if o.status.success() => Ok(json!({ "ok": true, "action": action, "mount": mount })),
-        Ok(o) => Err(String::from_utf8_lossy(&o.stderr).trim().to_string()),
-        Err(e) => Err(e.to_string()),
+        "subvol-create" => {
+            let n = name.ok_or("missing name")?;
+            if !valid_snap_name(n) {
+                return Err("invalid subvolume name".into());
+            }
+            let dest = format!("{mount}/{n}");
+            run(&["subvolume", "create", &dest])
+        }
+        "subvol-delete" => {
+            let p = path.ok_or("missing subvolume path")?;
+            if !valid_subvol_rel(p) || !btrfs_subvols(mount).iter().any(|s| s == p) {
+                return Err("unknown subvolume".into());
+            }
+            // btrfs itself refuses to delete a mounted subvolume, so the live
+            // root/home can't be removed out from under us.
+            run(&["subvolume", "delete", &format!("{mount}/{p}")])
+        }
+        "rollback" => {
+            let p = path.ok_or("missing snapshot path")?;
+            if !valid_subvol_rel(p) || !btrfs_subvols(mount).iter().any(|s| s == p) {
+                return Err("unknown snapshot".into());
+            }
+            btrfs_rollback(mount, p)
+        }
+        _ => Err("unsupported action".into()),
     }
+}
+
+// ── Updates (bpm + optional btrfs pre-upgrade snapshot) ──────────────────────
+
+/// Is the root filesystem btrfs? (offer a pre-upgrade snapshot if so).
+fn root_is_btrfs() -> bool {
+    btrfs_mounts().iter().any(|(mp, _)| mp == "/")
+}
+
+/// GET /api/v1/updates — upgradable packages (via `bpm outdated`) + whether the
+/// root is btrfs (so the UI can offer a pre-upgrade snapshot).
+pub fn updates() -> Value {
+    let mut list = Vec::new();
+    if let Ok(o) = Command::new("bpm").arg("outdated").output() {
+        for l in String::from_utf8_lossy(&o.stdout).lines() {
+            let f: Vec<&str> = l.split('\t').collect();
+            if f.len() >= 3 {
+                list.push(json!({ "name": f[0], "installed": f[1], "available": f[2] }));
+            }
+        }
+    }
+    let count = list.len();
+    json!({ "updates": list, "count": count, "btrfs_root": root_is_btrfs() })
+}
+
+/// POST /api/v1/updates/apply?snapshot=1 — take a read-only btrfs snapshot of the
+/// root first (if root is btrfs and requested), then `bpm upgrade`. Synchronous;
+/// returns bpm's combined output. The snapshot is the rollback point.
+pub fn updates_apply(snapshot: bool) -> Result<Value, String> {
+    let mut snap = Value::Null;
+    if snapshot && root_is_btrfs() {
+        let _ = std::fs::create_dir_all("/.snapshots");
+        let dest = format!("/.snapshots/pre-upgrade-{}", now_secs());
+        match Command::new("btrfs").args(["subvolume", "snapshot", "-r", "/", &dest]).output() {
+            Ok(r) if r.status.success() => snap = json!(dest),
+            Ok(r) => return Err(format!("pre-upgrade snapshot failed: {}", String::from_utf8_lossy(&r.stderr).trim())),
+            Err(e) => return Err(format!("pre-upgrade snapshot failed: {e}")),
+        }
+    }
+    let up = Command::new("bpm").arg("upgrade").output().map_err(|e| e.to_string())?;
+    let out = format!("{}{}", String::from_utf8_lossy(&up.stdout), String::from_utf8_lossy(&up.stderr));
+    Ok(json!({ "ok": up.status.success(), "snapshot": snap, "output": out.trim() }))
 }
 
 /// The far-vision surface, stubbed so the shape is stable for the frontend.

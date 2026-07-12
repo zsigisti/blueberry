@@ -32,6 +32,7 @@ fn main() -> ExitCode {
         "autoremove" => cmd_autoremove(&cfg, rest),
         "update" | "up" => cmd_update(&cfg),
         "upgrade" => cmd_upgrade(&cfg),
+        "outdated" => cmd_outdated(&cfg),
         "rollback" | "rb" => cmd_rollback(&cfg, rest),
         "downgrade" | "dg" => cmd_downgrade(&cfg, rest),
         "clean" => cmd_clean(&cfg, rest),
@@ -73,6 +74,7 @@ fn usage() {
          \x20 bpm autoremove                           remove orphaned dependencies\n\
          \x20 bpm update                               sync repo indices\n\
          \x20 bpm upgrade                              upgrade all installed packages\n\
+         \x20 bpm outdated                             list upgradable packages (no changes)\n\
          \x20 bpm rollback <name>                      revert a package to the previous cached version\n\
          \x20 bpm downgrade <name>[=<ver>]             install a specific older cached version\n\
          \x20 bpm search  <term>                       search the repo index\n\
@@ -634,6 +636,21 @@ fn cmd_update(cfg: &Config) -> Result<(), String> {
 }
 
 // ── upgrade ──────────────────────────────────────────────────────────────────
+/// List packages with a newer version available, one per line as
+/// `name<TAB>installed<TAB>available` — a dry run of `upgrade` for tooling
+/// (e.g. the web console) and users who want to see what would change.
+fn cmd_outdated(cfg: &Config) -> Result<(), String> {
+    for name in db::installed_names(cfg) {
+        let Some(have) = db::installed_version(cfg, &name) else { continue };
+        if let Some(e) = index::lookup(cfg, &name) {
+            if vercmp::vercmp(&e.version, &have) == Ordering::Greater {
+                println!("{name}\t{have}\t{}", e.version);
+            }
+        }
+    }
+    Ok(())
+}
+
 fn cmd_upgrade(cfg: &Config) -> Result<(), String> {
     let mut plan: Vec<(String, String, String, index::Entry)> = Vec::new();
     for name in db::installed_names(cfg) {

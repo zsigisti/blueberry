@@ -366,13 +366,27 @@ fn api_route(st: &State, req: &Request, rest: &str, peer: &str, sess: &auth::Ses
 
         ("GET", "btrfs") => Response::json(200, api::btrfs()),
 
-        // Btrfs write actions: /api/v1/btrfs/{scrub,snapshot}?mount=<mp>&name=<snap>
+        // Btrfs write actions:
+        //   /api/v1/btrfs/{scrub,snapshot,subvol-create}?mount=<mp>&name=<n>
+        //   /api/v1/btrfs/{subvol-delete,rollback}?mount=<mp>&path=<subvol>
         ("POST", r) if r.starts_with("btrfs/") => {
             let action = &r["btrfs/".len()..];
             let mount = query_param(&req.query, "mount").unwrap_or_default();
             let name = query_param(&req.query, "name");
-            audit(st, peer, &format!("btrfs {action} {mount}"));
-            match api::btrfs_action(action, &mount, name.as_deref()) {
+            let path = query_param(&req.query, "path");
+            audit(st, peer, &format!("btrfs {action} {mount} {}", path.as_deref().unwrap_or("")));
+            match api::btrfs_action(action, &mount, name.as_deref(), path.as_deref()) {
+                Ok(v) => Response::json(200, v),
+                Err(e) => Response::error(400, &e),
+            }
+        }
+
+        // Updates: list upgradable packages, and apply (optional pre-upgrade snapshot).
+        ("GET", "updates") => Response::json(200, api::updates()),
+        ("POST", "updates/apply") => {
+            let snap = query_param(&req.query, "snapshot").as_deref() == Some("1");
+            audit(st, peer, &format!("updates apply snapshot={snap}"));
+            match api::updates_apply(snap) {
                 Ok(v) => Response::json(200, v),
                 Err(e) => Response::error(400, &e),
             }
@@ -400,7 +414,6 @@ fn api_route(st: &State, req: &Request, rest: &str, peer: &str, sess: &auth::Ses
 
         // Far-vision stubs — stable shape, not built yet.
         ("GET", "containers") => Response::json(501, api::not_implemented("containers")),
-        ("GET", "updates") => Response::json(501, api::not_implemented("updates")),
 
         _ => Response::error(404, "no such endpoint"),
     }
