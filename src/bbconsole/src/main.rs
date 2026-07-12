@@ -16,6 +16,7 @@
 mod api;
 mod auth;
 mod http;
+mod installer;
 
 use auth::{Sessions, Throttle};
 use http::{Request, Response};
@@ -25,7 +26,7 @@ use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 /// Per-socket I/O timeout — bounds the TLS handshake, the request read, and the
@@ -73,6 +74,7 @@ struct State {
     throttle: Throttle,
     tls: Arc<ServerConfig>,
     inflight: AtomicUsize,
+    install: Arc<Mutex<installer::InstallJob>>,
 }
 
 fn main() {
@@ -90,6 +92,7 @@ fn main() {
     let state = Arc::new(State {
         cfg, sessions: Sessions::new(token), throttle: Throttle::new(), tls,
         inflight: AtomicUsize::new(0),
+        install: Arc::new(Mutex::new(installer::InstallJob::default())),
     });
 
     let listener = TcpListener::bind(&bind)
@@ -388,6 +391,24 @@ fn api_route(st: &State, req: &Request, rest: &str, peer: &str, sess: &auth::Ses
             audit(st, peer, &format!("updates apply snapshot={snap}"));
             match api::updates_apply(snap) {
                 Ok(v) => Response::json(200, v),
+                Err(e) => Response::error(400, &e),
+            }
+        }
+
+        // Web installer (live environment only — erases a disk).
+        ("GET", "installer") => Response::json(200, installer::info()),
+        ("GET", "installer/status") => Response::json(200, st.install.lock().unwrap().snapshot()),
+        ("POST", "installer/start") => {
+            let body = req.json().unwrap_or(json!({}));
+            match installer::build_env(&body) {
+                Ok(env) => {
+                    let target = env.iter().find(|(k, _)| k == "BLUEBERRY_TARGET").map(|(_, v)| v.clone()).unwrap_or_default();
+                    audit(st, peer, &format!("INSTALL start target={target}"));
+                    match installer::start(Arc::clone(&st.install), env) {
+                        Ok(()) => Response::json(200, json!({ "ok": true, "started": true })),
+                        Err(e) => Response::error(409, &e),
+                    }
+                }
                 Err(e) => Response::error(400, &e),
             }
         }

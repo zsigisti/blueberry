@@ -57,8 +57,11 @@ const PANELS = [
   { id: "storage", label: "Storage", render: storage },
   { id: "network", label: "Network", render: network },
   { id: "updates", label: "Updates", render: updates },
+  { id: "install", label: "Install", render: installer },
   { id: "containers", label: "Containers", render: stub("Containers") },
 ];
+
+let installTimer = null; // installer status poller
 
 function stub(name) {
   return async (view) => view.append(el("p", { text: name + " — planned; not built yet." }));
@@ -309,6 +312,82 @@ async function updates(view) {
   view.append(controls, out);
 }
 
+async function installer(view) {
+  const inf = await getJSON("installer");
+  view.append(el("h2", { text: "Install Blueberry to a disk" }));
+  if (!inf.available) {
+    view.append(el("p", { text: inf.live
+      ? "The installer program isn't present in this environment."
+      : "Only available when booted from the live installer medium — this system is already installed." }));
+    return;
+  }
+  view.append(el("p", { text: "⚠ This ERASES the selected disk and installs Blueberry onto it." }));
+
+  const disk = el("select", {});
+  inf.disks.forEach((d) => {
+    const o = el("option", { value: d.dev });
+    o.textContent = d.dev + "   " + (d.bytes / 1073741824).toFixed(1) + " GiB   " + (d.model || "");
+    disk.append(o);
+  });
+  const fs = el("select", {});
+  inf.filesystems.forEach((f) => {
+    const o = el("option", { value: f }); o.textContent = f + (f === "btrfs" ? "  (snapshots / rollback)" : ""); fs.append(o);
+  });
+  const boot = el("select", {});
+  ["uefi", "bios"].forEach((b) => {
+    const o = el("option", { value: b }); o.textContent = b.toUpperCase(); if (b === inf.firmware) o.selected = true; boot.append(o);
+  });
+  const hostname = el("input", { value: "blueberry" });
+  const rootpw = el("input", { type: "password" });
+  const user = el("input", {});
+  const userpw = el("input", { type: "password" });
+  const row = (label, node) => el("p", {}, el("label", {}, document.createTextNode(label + " "), node));
+  view.append(
+    row("Target disk:", disk), row("Filesystem:", fs), row("Bootloader:", boot),
+    row("Hostname:", hostname), row("Root password:", rootpw),
+    row("New user (optional):", user), row("User password:", userpw));
+
+  const out = el("pre", {});
+  const btn = el("button", { text: "ERASE & INSTALL" });
+  view.append(el("p", {}, btn), out);
+
+  const poll = async () => {
+    try {
+      const s = await getJSON("installer/status");
+      out.textContent = s.log || "…";
+      if (s.done) {
+        if (installTimer) { clearInterval(installTimer); installTimer = null; }
+        out.textContent = (s.ok ? "✅ INSTALL COMPLETE — reboot into the installed system.\n\n" : "❌ INSTALL FAILED.\n\n") + (s.log || "");
+        btn.disabled = false;
+      }
+    } catch (_) {}
+  };
+
+  btn.addEventListener("click", async () => {
+    if (!rootpw.value) { alert("Set a root password first."); return; }
+    if (!confirm("This will ERASE " + disk.value + " and install Blueberry. This cannot be undone. Continue?")) return;
+    btn.disabled = true; out.textContent = "Starting install…";
+    const r = await api("installer/start", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        target: disk.value, fs: fs.value, bootloader: boot.value,
+        hostname: hostname.value, rootpw: rootpw.value, user: user.value, userpw: userpw.value,
+      }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { out.textContent = "Could not start: " + (d.error || ("HTTP " + r.status)); btn.disabled = false; return; }
+    if (installTimer) clearInterval(installTimer);
+    installTimer = setInterval(poll, 2000); poll();
+  });
+
+  // Resume polling if an install is already running (navigated away and back).
+  const s0 = await getJSON("installer/status");
+  if (s0.running || s0.done) {
+    out.textContent = s0.log || "";
+    if (s0.running) { btn.disabled = true; installTimer = setInterval(poll, 2000); }
+  }
+}
+
 async function network(view) {
   const { interfaces, gateway } = await getJSON("network");
   view.append(el("h2", { text: "Network" }), el("p", { text: "Default gateway: " + (gateway || "—") }));
@@ -333,6 +412,7 @@ function buildNav() {
 
 async function render(id) {
   if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+  if (installTimer) { clearInterval(installTimer); installTimer = null; }
   const panel = PANELS.find((p) => p.id === id) || PANELS[0];
   const view = document.getElementById("view");
   view.replaceChildren(el("p", { text: "Loading…" }));
@@ -348,6 +428,7 @@ function showApp() {
 }
 function showLogin() {
   if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+  if (installTimer) { clearInterval(installTimer); installTimer = null; }
   document.getElementById("app").hidden = true;
   document.getElementById("login").hidden = false;
 }

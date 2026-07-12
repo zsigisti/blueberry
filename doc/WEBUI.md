@@ -20,7 +20,9 @@ This document describes the **base layer** (`src/bbconsole`, package
   snapshots + scrub/snapshot; degrades to `{available:false}`), `btrfs`
   (filesystems/subvolumes/snapshots + scrub/snapshot/subvol-create/delete/rollback),
   `updates` (bpm outdated + snapshot-and-upgrade), `network` (interfaces,
-  MACs, addresses, gateway). The one remaining far-vision area (`containers`)
+  MACs, addresses, gateway), `installer` (info + status + start — drive the
+  unattended `blueberry-install` to install to a disk from the browser; gated to
+  the live environment). The one remaining far-vision area (`containers`)
   returns `501` with a stable shape so the frontend can grow without churn.
 - **Frontend** — a **pure HTML/JS SPA, no CSS/framework/build step**
   (`/usr/share/blueberry-console/web`):
@@ -163,6 +165,17 @@ The Btrfs panel gained **subvolume create/delete**, **snapshot delete**, and
 running system is untouched until then; requires a default-subvolume root layout).
 All targets are whitelisted against `/proc/mounts` + the live subvolume list;
 names/paths are charset-validated (no leading `-`, no `..`); every action audited.
+Shipped (0.10.0): **Web installer.** An Install panel that drives the unattended
+`blueberry-install` from the browser (pick disk / filesystem / bootloader /
+hostname / passwords → erase + install, with a live streaming log). Runs the
+install on a background thread and polls a status endpoint. **Gated to the live
+environment** — `available` is only true when `/` is a live/RAM filesystem and
+`blueberry-install` is present, so it can never format a disk on an installed
+box. Target disk is whitelisted against `/sys/block`; hostname/username
+charset-validated; the start action is audited. Pairs with the installer's new
+**bootable btrfs `@`/`@home` subvolume root** (`/@/boot/…` + `rootflags=subvol=@`,
+verified via the QEMU install+boot test) so a fresh install lands on a
+snapshot-friendly layout.
 Next: wire the pre-upgrade snapshot to a one-click rollback in the Updates panel
 itself; ZFS dataset ops; storage SMART; logs follow/tail; nftables firewall.
 
