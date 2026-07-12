@@ -118,6 +118,24 @@ pub fn mkfs_btrfs(dev: &str, label: &str) -> R<()> {
     check(&["mkfs.btrfs", "-f", "-L", label, dev])
 }
 
+/// Create the standard snapshot-friendly btrfs layout: `@` (mounted /) and
+/// `@home` (mounted /home). We do NOT change the default subvolume — the boot
+/// chain pins `subvol=@` explicitly (grub loads `/@/boot/...` and the kernel
+/// gets `rootflags=subvol=@`), which is the layout Ubuntu/Debian use and which
+/// boots reliably (GRUB reads the top-level subvolume, so the `/@` path resolves
+/// regardless of any default-subvolume). `dev` is the freshly-mkfs'd device;
+/// `tmp` is a scratch mountpoint, unmounted again before returning.
+pub fn btrfs_subvol_layout(dev: &str, tmp: &str) -> R<()> {
+    std::fs::create_dir_all(tmp).ok();
+    check(&["mount", dev, tmp])?;
+    let res = (|| -> R<()> {
+        check(&["btrfs", "subvolume", "create", &format!("{tmp}/@")])?;
+        check(&["btrfs", "subvolume", "create", &format!("{tmp}/@home")])
+    })();
+    let _ = run(&["umount", tmp]);
+    res
+}
+
 /// Put an LVM volume group on `pv_dev` (a raw partition or a LUKS mapper) with
 /// a single root logical volume spanning it. Returns the LV device path.
 pub fn lvm_setup(pv_dev: &str, vg: &str, lv: &str) -> R<String> {

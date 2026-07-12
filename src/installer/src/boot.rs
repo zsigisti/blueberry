@@ -70,21 +70,28 @@ pub fn install_grub_uefi(mnt: &str, esp: &str, payload: &str) -> R<()> {
 
 /// Write /boot/grub/grub.cfg. `root_uuid` is the root filesystem's UUID;
 /// `cryptarg` is an optional `cryptdevice=…` prefix for encrypted installs.
-pub fn write_grub_cfg(mnt: &str, root_uuid: &str, root_spec: &str, cryptarg: &str) -> R<()> {
+pub fn write_grub_cfg(mnt: &str, root_uuid: &str, root_spec: &str, cryptarg: &str, btrfs: bool) -> R<()> {
     let dir = format!("{mnt}/boot/grub");
     fs::create_dir_all(&dir).map_err(|e| format!("mkdir {dir}: {e}"))?;
+    // On btrfs the rootfs lives in the @ subvolume: GRUB reads the top-level
+    // subvolume, so the kernel/initramfs are at /@/boot/…, and the kernel needs
+    // rootflags=subvol=@ so it mounts @ (not the empty top-level) as /.
+    let (boot, rootflags) = if btrfs { ("/@/boot", "rootflags=subvol=@ ") } else { ("/boot", "") };
     let cfg = format!(
         "set timeout=3\n\
          insmod all_video\n\
          insmod lvm\n\
+         insmod btrfs\n\
          menuentry 'Blueberry Linux' {{\n\
          \x20   search --no-floppy --fs-uuid --set=root {uuid}\n\
-         \x20   linux /boot/vmlinuz {crypt}root={root} rw console=tty0 console=ttyS0,115200\n\
-         \x20   initrd /boot/initramfs.cpio.zst\n\
+         \x20   linux {boot}/vmlinuz {crypt}root={root} rw {rootflags}console=tty0 console=ttyS0,115200\n\
+         \x20   initrd {boot}/initramfs.cpio.zst\n\
          }}\n",
         uuid = root_uuid,
         crypt = cryptarg,
         root = root_spec,
+        boot = boot,
+        rootflags = rootflags,
     );
     fs::write(format!("{dir}/grub.cfg"), cfg).map_err(|e| format!("write grub.cfg: {e}"))
 }
@@ -105,7 +112,13 @@ pub fn write_fstab(mnt: &str, root_spec: &str, rootfs: &str, esp_uuid: Option<&s
     // xfs/btrfs have no fsck pass; ext4 gets pass 1. (fsck.xfs is a no-op and
     // btrfs is checked online, so a non-zero pass would just log a warning.)
     let pass = if rootfs == "ext4" { 1 } else { 0 };
-    let mut fstab = format!("{root_spec}  /      {rootfs}  rw,relatime  0 {pass}\n");
+    // btrfs root is the @ subvolume; /home is @home so a root rollback keeps user
+    // data. Both pin subvol= to match the boot chain (grub /@, rootflags=subvol=@).
+    let root_opts = if rootfs == "btrfs" { "rw,relatime,subvol=@" } else { "rw,relatime" };
+    let mut fstab = format!("{root_spec}  /      {rootfs}  {root_opts}  0 {pass}\n");
+    if rootfs == "btrfs" {
+        fstab.push_str(&format!("{root_spec}  /home  btrfs  rw,relatime,subvol=@home  0 0\n"));
+    }
     if let Some(u) = esp_uuid {
         fstab.push_str(&format!("UUID={u}  /boot/efi  vfat  rw,relatime  0 2\n"));
     }
