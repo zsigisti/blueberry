@@ -86,3 +86,10 @@ find.
 
 GPL-3.0-or-later — see `LICENSE`. Bundled components keep their own licenses
 (Linux kernel GPL-2.0 + syscall-note, glibc LGPL-2.1, busybox GPL-2.0, …).
+
+## Discord 
+
+Our developers use discord every day, so please join it if you want to contribute, 
+or if you just want to be updated about Blueberry Linux.
+
+[Discord](https://discord.gg/GPfBnbDPHE)
