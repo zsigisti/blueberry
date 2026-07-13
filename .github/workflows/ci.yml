@@ -1,0 +1,77 @@
+name: ci
+
+# Lightweight gate that runs on stock GitHub runners. It deliberately does NOT
+# build the world — that needs an Arch build container and produces multi-GB
+# ISOs, which happens on the project's own build box (see doc/CI.md). What runs
+# here is everything that can be checked WITHOUT a full image build:
+#   * the recipe dependency graph is closed          (check-closure)
+#   * bpm compiles, and its unit + lifecycle tests pass
+#   * the .bpm builder round-trips and its --check catches tampering
+# check-base (base-image DT_NEEDED closure) needs a built rootfs, so it stays on
+# the build box, not here.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  recipes:
+    name: recipe closure + bpmbuild
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fakeroot zstd
+      - name: Recipe dependency closure is complete
+        run: python3 tools/pkg/check-closure.py
+      - name: bpmbuild parses
+        run: python3 -c "compile(open('tools/pkg/bpmbuild').read(), 'bpmbuild', 'exec')"
+      - name: bpmbuild builds a package and --check verifies it
+        run: |
+          set -eux
+          work=$(mktemp -d); src="$work/src"; mkdir -p "$src"
+          printf 'hello\n' > "$src/hello.txt"
+          cat > "$src/bpm.toml" <<'TOML'
+          [package]
+          name = "citest"
+          version = "1.0"
+          release = 1
+          summary = "ci smoke package"
+          arch = ["x86_64"]
+          [[source]]
+          url = "hello.txt"
+          [steps]
+          package = '''
+          install -Dm644 "$srcdir/hello.txt" "$pkgdir/usr/share/citest/hello.txt"
+          '''
+          TOML
+          python3 tools/pkg/bpmbuild "$src" "$work/out"
+          bpm="$work/out/citest-1.0-1-x86_64.bpm"
+          python3 tools/pkg/bpmbuild --check "$bpm"          # must pass
+          # tamper the payload but keep the manifest -> --check must reject
+          cd "$work"; zstd -dcq "$bpm" > a.tar; mkdir ex; tar -xf a.tar -C ex
+          echo EVIL >> ex/usr/share/citest/hello.txt
+          ( cd ex && tar -cf ../evil.tar .BPM $(tar -tf ../a.tar | grep -v '\.BPM$') )
+          zstd -19 -q -c evil.tar > evil.bpm
+          if python3 "$GITHUB_WORKSPACE/tools/pkg/bpmbuild" --check evil.bpm; then
+            echo "FAIL: --check accepted a tampered payload"; exit 1
+          fi
+          echo "ok: --check rejected the tampered payload"
+
+  bpm:
+    name: bpm unit + integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fakeroot zstd
+      - name: Cargo unit tests
+        working-directory: src/bpm-rs
+        run: cargo test --release --locked
+      - name: Build bpm
+        working-directory: src/bpm-rs
+        run: cargo build --release --locked
+      - name: End-to-end lifecycle suite
+        run: sh tools/test/bpm-integration.sh
