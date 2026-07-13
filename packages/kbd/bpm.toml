@@ -1,7 +1,7 @@
 [package]
 name     = "kbd"
 version  = "2.10.0"
-release  = 1
+release  = 2
 summary  = "Console keyboard tools (loadkeys) + the keymap database"
 homepage = "https://kbd-project.org/"
 license  = ["GPL-2.0-or-later"]
@@ -21,8 +21,12 @@ sha256 = "96f8b60f9136e9e0b9261b9e63b8b4b456a2f817901e90349453387a5aa1d41c"
 build = '''
 cd "$name-$version"
 ./autogen.sh
+# --disable-xkb: --enable-xkb defaults to "auto", so loadkeys links libxkbcommon
+# whenever the build container happens to ship it — but Blueberry has no
+# libxkbcommon, breaking loadkeys at runtime. The xkb feature only generates
+# keymaps from the xkb database; console keymap loading doesn't need it.
 ./configure --prefix=/usr --sysconfdir=/etc --datadir=/usr/share/kbd \
-    --disable-vlock --disable-tests --disable-nls
+    --disable-vlock --disable-tests --disable-nls --disable-xkb
 make -j"$(nproc)"
 '''
 package = '''
