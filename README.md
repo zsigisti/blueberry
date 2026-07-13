@@ -43,7 +43,18 @@ Start with `doc/BUILD.md`. In short:
 - `doc/ARCHITECTURE.md` — how the system fits together
 - `doc/BPM.md` — the package manager and package format
 - `doc/KERNEL.md` — the LTS pinned-kernel model
+- `doc/CI.md` — the CI gate and how releases are cut
+- `doc/ROADMAP.md` — what's solid, what's open, what's out of scope
 - `wiki/` — user-facing guides (installing, networking, mirrors)
+
+## Status
+
+Beta, and usable: a bootable systemd server, ~190 source-built packages, a
+signed-repo package manager (`bpm`) with rollback, an installer, a web console,
+and a community recipe repo (BUR). Every push runs a CI gate (recipe closure,
+bpm unit + lifecycle tests, `.bpm` tamper detection, an advisory freshness
+report). Known-open items — Secure Boot, aarch64, BUR server-side rebuilds — and
+the full picture are in [`doc/ROADMAP.md`](doc/ROADMAP.md).
 
 ## Installing
 

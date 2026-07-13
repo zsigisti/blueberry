@@ -1,65 +1,76 @@
 # CI/CD
 
-Blueberry has **one** GitHub workflow: `.github/workflows/release.yml`. There is
-no per-push build or test pipeline — building the world happens on the project's
-own build box, not on GitHub runners (GitHub can't build an Arch container full
-of packages cheaply, and git rejects the 100 MB+ ISOs). Instead, the ISOs are
-built and staged locally, and CI only **publishes a GitHub Release**.
+Blueberry splits its automation in two: a **lightweight GitHub Actions gate**
+that runs on every push, and a **manual release** cut from the project's own
+build box. Building the world (an Arch build container full of packages, plus
+multi-GB ISOs) is far too heavy and too large for GitHub runners, so that stays
+local — GitHub only runs the checks that don't need a full image build.
 
-## The release workflow
+## The CI gate — `.github/workflows/ci.yml`
 
-`release.yml` triggers on a push to `master` whose commit message contains
-`[RELEASE]`. It:
+Runs on every push and pull request to `master`, on stock `ubuntu-latest`
+runners (no Arch container). Three jobs:
 
-1. **Derives the tag + flags** from the commit subject: the first `vX…` token
-   becomes the tag (else `beta-<date>-<shortsha>`), and the release is marked
-   **pre-release** unless the message contains `[RELEASE:stable]`.
-2. **Fetches the images** listed in `release/isos.sha256` from the mirror
-   (`https://repo.blueberrylinux.org/isos/<name>`) and **verifies** them against that
-   committed manifest (`sha256sum -c`). A tampered or truncated image fails the
-   build.
-3. **Creates the release** with `gh release create`, attaching the verified
-   ISOs and using `release/NOTES.md` as the body.
+- **recipe closure + bpmbuild** — `check-closure.py` asserts the recipe
+  dependency graph is closed (every `depends` resolves to a recipe or a
+  host-provided name), then builds a fixture package with `bpmbuild` and proves
+  `bpmbuild --check` accepts it and rejects a payload tampered after packaging.
+- **bpm unit + integration tests** — `cargo test` (version compare, manifest
+  parsing) plus `tools/test/bpm-integration.sh`, the end-to-end
+  install/upgrade/rollback/downgrade/remove + config-preservation lifecycle
+  against real `.bpm` fixtures.
+- **package freshness (advisory)** — `check-updates.py` reports which recipes
+  are behind upstream. `continue-on-error`, so it never blocks a merge —
+  upstream releases are not our regressions.
+
+What CI deliberately does **not** do: build the base image, run `check-base`
+(needs a built rootfs), or boot an ISO. Those run on the build box (below).
+
+## Cutting a release
+
+Releases are **manual** and cut from the build box, where the ISOs are built.
+ISOs are attached **directly to the GitHub release** as assets (up to 2 GB each)
+— they are never uploaded to the project mirror, which carries only `.bpm`
+packages and the pinned kernel/glibc.
 
 ```sh
-# cut a release
-make release-stage                       # build ISOs, upload to the mirror,
-                                         # write release/isos.sha256 + NOTES.md
-git commit -am "[RELEASE] v0.3.0-beta — <summary>"
-git push origin master                   # → the workflow publishes the release
+# 1. build the images
+make server-iso            # systemd live CLI ISO (the primary artifact)
+make iso                   # busybox rescue ISO (optional)
+
+# 2. gate them
+make test-server           # headless boot: assert multi-user.target
+
+# 3. write the notes, then cut the release
+$EDITOR release/NOTES.md   # plain text, no emoji headers
+make release TAG=v0.7.1-beta TITLE="v0.7.1-beta — <summary>"
 ```
 
-Use `[RELEASE:stable]` in the subject to publish a non-prerelease.
+`tools/release/stage-release.sh` (invoked by `make release`) attaches every
+non-desktop `iso/*.iso` to a new GitHub release, uses `release/NOTES.md` as the
+body, and marks it a pre-release when the tag contains `-beta`/`-rc`/`-alpha`.
 
-## Why images live on the mirror, not in git
+## Local / build-box checks
 
-GitHub rejects files over 100 MB in a git push, and ISOs are far larger. So the
-build artifacts are uploaded to the mirror by `make release-stage`, and only a
-small **checksum manifest** (`release/isos.sha256`) and **notes**
-(`release/NOTES.md`) are committed. CI re-downloads and re-verifies the images
-before attaching them, so the published release still matches the committed
-hashes.
-
-## Local checks (run by hand or on the build box)
-
-There is no GitHub job for these; run them yourself before a release:
+Run these before a release (CI runs the first four automatically):
 
 ```sh
-make _check_tools                 # verify the build toolchain is present
-python3 tools/pkg/check-closure.py    # every recipe's depends resolve (closed graph)
-make world && make test           # build the base + headless boot self-test
-make test-install                 # unattended install to a disk image, assert boot
-make repo-build                   # build every packages/*/bpm.toml
+python3 tools/pkg/check-closure.py     # recipe dependency graph is closed
+cd src/bpm-rs && cargo test            # bpm unit tests
+sh tools/test/bpm-integration.sh       # bpm lifecycle end-to-end
+python3 tools/pkg/check-updates.py     # which recipes are behind upstream
+
+make world && make test-server         # build base + headless boot self-test
+make test-install                      # unattended install to a disk image, assert boot
+make check-base                        # base binaries' DT_NEEDED are all provided
+make repo-build                        # build every packages/*/bpm.toml
 ```
 
 ## The boot self-test
 
-The checks live in `src/initramfs/selftest` and run inside the guest as part of
-`/init` when the kernel is booted with `bbtest` on its command line. They verify
-the live CLI is functional: busybox/`sh` work, core applets work, `/proc`/`/sys`/
-`/dev` are mounted and populated, PID 1 is visible, `/tmp` is writable, the
-hostname was applied. `make test` boots this headless and asserts
-`BLUEBERRY_TEST=PASS`.
-
-To add a check, edit `src/initramfs/selftest`, rebuild the initramfs (automatic
-on `make test`), and confirm the new `PASS:` line appears.
+`make test-server` boots the server ISO headless and asserts it reaches
+`multi-user.target` (systemd). The older busybox smoke path (`make test`) boots
+the initramfs self-test in `src/initramfs/selftest`, which runs inside the guest
+from `/init` when the kernel command line contains `bbtest`: it verifies the live
+CLI is functional (`sh` + core applets, `/proc`/`/sys`/`/dev` mounted, PID 1
+visible, `/tmp` writable, hostname applied) and prints `BLUEBERRY_TEST=PASS`.
