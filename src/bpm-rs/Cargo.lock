@@ -37,7 +37,7 @@ dependencies = [
 
 [[package]]
 name = "bpm"
-version = "1.11.3"
+version = "1.11.4"
 dependencies = [
  "ed25519-dalek",
  "libc",

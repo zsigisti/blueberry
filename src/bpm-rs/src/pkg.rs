@@ -39,6 +39,17 @@ fn strip_dot(rel: &str) -> &str {
     rel.strip_prefix("./").unwrap_or(rel)
 }
 
+/// If a value opens a TOML multi-line string, return its delimiter (`'''`/`"""`).
+fn triple_delim(v: &str) -> Option<&'static str> {
+    if v.starts_with("'''") {
+        Some("'''")
+    } else if v.starts_with("\"\"\"") {
+        Some("\"\"\"")
+    } else {
+        None
+    }
+}
+
 /// Translate a native `.BPM` TOML manifest into the internal (.PKGINFO, .INSTALL)
 /// pair the rest of the installer already understands, so the streaming install
 /// path is identical for both `.pkg.tar.zst` and `.bpm`. Parses only the small,
@@ -74,8 +85,11 @@ fn bpm_manifest_to_pkginfo(toml: &str) -> (String, Option<String>) {
     let mut ver: Option<String> = None;
     let mut rel: Option<String> = None;
 
-    for line in toml.lines() {
-        let l = line.trim();
+    let lines: Vec<&str> = toml.lines().collect();
+    let mut i = 0;
+    while i < lines.len() {
+        let l = lines[i].trim();
+        i += 1;
         if l.is_empty() || l.starts_with('#') {
             continue;
         }
@@ -88,7 +102,35 @@ fn bpm_manifest_to_pkginfo(toml: &str) -> (String, Option<String>) {
             None => continue,
         };
         if in_scripts {
-            scripts.push((k.to_string(), unquote(v)));
+            // Install scripts are emitted as TOML multi-line strings ('''…''' or
+            // """…"""). Gather the body until the closing delimiter; a single-line
+            // value (legacy `key = "cmd"`) still works via unquote.
+            let val = if let Some(delim) = triple_delim(v) {
+                let mut body = String::new();
+                // Leading newline right after the opening delim is not content.
+                let first = &v[3..];
+                let mut closed = false;
+                if let Some(end) = first.find(delim) {
+                    body.push_str(&first[..end]);
+                    closed = true;
+                }
+                while !closed && i < lines.len() {
+                    let raw = lines[i];
+                    i += 1;
+                    if let Some(end) = raw.find(delim) {
+                        body.push_str(&raw[..end]);
+                        closed = true;
+                    } else {
+                        body.push_str(raw);
+                        body.push('\n');
+                    }
+                }
+                // A leading blank line (the newline after ''') carries no meaning.
+                body.strip_prefix('\n').unwrap_or(&body).to_string()
+            } else {
+                unquote(v)
+            };
+            scripts.push((k.to_string(), val));
             continue;
         }
         match k {
@@ -599,4 +641,47 @@ fn run_hook(
 
 fn err(msg: &str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, msg.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // A multi-line install script must survive the .BPM manifest round-trip
+    // byte-for-byte: it runs as root on the installing machine, and the BUR
+    // publish validator compares it against the reviewed recipe. Regression for
+    // the old single-line parser that truncated everything after the first line.
+    #[test]
+    fn multiline_scriptlet_round_trips() {
+        let manifest = "\
+format = 1
+name = \"demo\"
+version = \"1.0\"
+release = 2
+arch = \"x86_64\"
+installed_size = 10
+
+[scripts]
+post_install = '''
+echo one
+echo \"two\" a\\b
+echo three
+'''
+";
+        let (pkginfo, script) = bpm_manifest_to_pkginfo(manifest);
+        assert!(pkginfo.contains("pkgver = 1.0-2"), "pkgver: {pkginfo}");
+        let s = script.expect("scriptlet present");
+        // The synthesised function body is the exact script, all three lines.
+        assert!(s.contains("echo one"), "missing line 1: {s}");
+        assert!(s.contains("echo \"two\" a\\b"), "quotes/backslash mangled: {s}");
+        assert!(s.contains("echo three"), "missing line 3: {s}");
+        assert!(s.contains("post_install()"), "not wrapped as a hook fn: {s}");
+    }
+
+    #[test]
+    fn single_line_scriptlet_still_parses() {
+        let manifest = "name = \"x\"\nversion = \"1\"\n[scripts]\npost_remove = \"rm -f /x\"\n";
+        let (_pi, script) = bpm_manifest_to_pkginfo(manifest);
+        assert!(script.unwrap().contains("rm -f /x"));
+    }
 }

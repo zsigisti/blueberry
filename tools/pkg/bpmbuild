@@ -46,6 +46,21 @@ def toml_str(v):
     return '"' + str(v).replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
+def toml_multiline(v):
+    """Serialise a (possibly multi-line) script as a TOML string. Install scripts
+    are shell — full of backslashes and quotes — so a single-line basic string
+    with \\n escapes is unreadable and error-prone. A '''literal''' block needs no
+    escaping and round-trips through any conformant TOML parser (bpm's installer
+    and the BUR publish validator both re-read this). The leading newline right
+    after ''' is stripped by TOML, so it is added back on read; a literal ''' in
+    the body can't appear in a literal block, so fall back to escaped basic."""
+    s = str(v)
+    if "'''" not in s:
+        return "'''\n" + s + "'''"
+    esc = s.replace("\\", "\\\\").replace('"""', '""\\"')
+    return '"""\n' + esc + '"""'
+
+
 # Blueberry ships its CA trust as a single bundle file and does NOT create the
 # hashed CApath (or the /etc/ssl/cert.pem CAfile) that OpenSSL's default verify
 # paths look for, so Python's stock SSL context trusts nothing and every https
@@ -290,7 +305,7 @@ def bpm_manifest(recipe, pkg, name, version, release, arch_tag, size, payload_sh
         lines.append("[scripts]")
         for k in ("post_install", "post_upgrade", "post_remove"):
             if scripts.get(k):
-                lines.append(f"{k} = {toml_str(scripts[k])}")
+                lines.append(f"{k} = {toml_multiline(scripts[k])}")
     return "\n".join(lines) + "\n"
 
 
