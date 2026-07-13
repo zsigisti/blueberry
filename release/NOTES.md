@@ -5,7 +5,7 @@ A hardening release: HTTPS actually works for everything now (not just bpm),
 serving an unreviewed package, and install scripts survive packaging. New ISOs
 carry the base trust-store fix; the rest is `bpm update && bpm upgrade`.
 
-### 🔒 Real CA trust store (HTTPS worked only for bpm before)
+### Real CA trust store (HTTPS worked only for bpm before)
 
 The base only copied the host's CA **bundle** to
 `/etc/ssl/certs/ca-certificates.crt` and marked the dep satisfied — but that
@@ -21,7 +21,7 @@ with `CERTIFICATE_VERIFY_FAILED`.
   they point an explicit SSL context at the bundle, so a source fetch works on
   any layout.
 
-### 🔁 `bpm upgrade` converges
+### `bpm upgrade` converges
 
 The `.BPM` manifest keeps `version` and `release` separate, but the repo index
 publishes them fused as `ver-rel`. bpm's runtime installer dropped `release`, so
@@ -30,7 +30,7 @@ equal and **every `bpm upgrade` re-offered the same packages forever**. Fixed;
 the first upgrade after this lands rewrites the stale versions, so existing
 installs self-heal. **bpm 1.11.3 → 1.11.4.**
 
-### 📜 Install scripts survive packaging
+### Install scripts survive packaging
 
 `post_install`/`post_upgrade`/`post_remove` hooks — the highest-risk part of a
 community package, run as root — never round-tripped: `bpmbuild` emitted them as
@@ -40,7 +40,7 @@ parsed as multi-line values on both sides, covered by unit tests (including
 embedded quotes/backslashes). No packaged recipe used scripts yet, so nothing in
 the wild was affected — but community recipes now can.
 
-### 🧰 BUR: publishing can't be tricked, plus CLI staples
+### BUR: publishing can't be tricked, plus CLI staples
 
 The community publish endpoint used to write **any** upload into the repo under
 the approved recipe's canonical name — approve one recipe, publish a different
@@ -60,7 +60,7 @@ not-a-`.bpm` attacks.
   of (uses bpm's exact version comparison).
 - **`bur info <unknown>`** now says "not found" instead of a decode error.
 
-### ⌨️ `loadkeys` fixed
+### `loadkeys` fixed
 
 `kbd` linked `libxkbcommon` whenever the build container happened to ship it, but
 Blueberry packages none — so `loadkeys` died at runtime with
