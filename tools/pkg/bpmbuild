@@ -12,6 +12,7 @@ synthesises the `.BPM` TOML manifest, and emits `name-ver-rel-arch.bpm`
 (zstd-compressed tar with `.BPM` as the first member).
 """
 import hashlib
+import io
 import os
 import shutil
 import subprocess
@@ -19,8 +20,10 @@ import sys
 import tarfile
 import tempfile
 import time
-import tomllib
 import urllib.request
+# NOTE: `tomllib` (recipe parsing) is imported lazily inside main() so the
+# `--check` path runs on Python 3.10 too (tomllib is 3.11+). The BUR web server
+# is 3.10 and only ever needs `--check`.
 
 ARCH = os.environ.get("BPM_ARCH", "x86_64")
 SDE = int(os.environ.get("SOURCE_DATE_EPOCH", "1767225600"))
@@ -120,9 +123,80 @@ def run_step(script, cwd, env, fakeroot=False):
     subprocess.run(argv, cwd=cwd, env=env, check=True)
 
 
+def _manifest_field(text, key):
+    """Read one scalar from a .BPM manifest (simple `key = value` lines) without
+    a TOML parser — so `--check` runs on Python 3.10 (no tomllib)."""
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith("[") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        if k.strip() == key:
+            v = v.strip()
+            if len(v) >= 2 and v[0] == '"' and v[-1] == '"':
+                v = v[1:-1]
+            return v
+    return None
+
+
+def _safe_member(name):
+    """A payload path that stays under the extraction root (no abs / .. escape)."""
+    n = name.lstrip("./")
+    return name not in (".BPM", "./.BPM") and not name.startswith("/") \
+        and ".." not in n.split("/")
+
+
+def check_bpm(bpm_path):
+    """Verify a .bpm's payload against the manifest INSIDE it: recompute
+    payload_sha256 + installed_size from the actual payload and compare. Proves
+    the artifact is internally consistent (the manifest can't lie about what it
+    ships), without any rebuild. Exit 0 on match, non-zero with a reason."""
+    if not os.path.isfile(bpm_path):
+        die(f"no such file: {bpm_path}")
+    work = tempfile.mkdtemp(prefix="bpmcheck.")
+    try:
+        rawtar = os.path.join(work, "a.tar")
+        with open(bpm_path, "rb") as fi, open(rawtar, "wb") as fo:
+            if subprocess.run(["zstd", "-dcq"], stdin=fi, stdout=fo).returncode != 0:
+                die("not a .bpm: could not zstd-decompress")
+        pkgdir = os.path.join(work, "pkg")
+        os.makedirs(pkgdir)
+        manifest = None
+        with tarfile.open(rawtar, "r") as t:
+            for m in t.getmembers():
+                if m.name in (".BPM", "./.BPM"):
+                    manifest = t.extractfile(m).read().decode()
+                    continue
+                if not _safe_member(m.name):
+                    die(f"unsafe payload path: {m.name}")
+                t.extract(m, pkgdir)
+        if manifest is None:
+            die("not a .bpm: no .BPM manifest member")
+        want_sha = _manifest_field(manifest, "payload_sha256")
+        want_size = _manifest_field(manifest, "installed_size")
+        sha, size = payload_digest(pkgdir)
+        problems = []
+        if want_sha and want_sha != sha:
+            problems.append(f"payload_sha256: manifest {want_sha}, actual {sha}")
+        if want_size and str(want_size) != str(size):
+            problems.append(f"installed_size: manifest {want_size}, actual {size}")
+        if problems:
+            for p in problems:
+                print(f"bpmbuild: {p}", file=sys.stderr)
+            sys.exit(1)
+        print(f"ok: payload matches manifest (sha256 {sha[:16]}…, {size} bytes)")
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
 def main():
+    if len(sys.argv) == 3 and sys.argv[1] == "--check":
+        check_bpm(os.path.abspath(sys.argv[2]))
+        return
     if len(sys.argv) != 3:
-        die("usage: bpmbuild <recipe-dir> <out-dir>")
+        die("usage: bpmbuild <recipe-dir> <out-dir>\n"
+            "       bpmbuild --check <file.bpm>")
+    import tomllib  # lazy: 3.11+; the build path needs it, --check does not
     recipe_dir, out_dir = os.path.abspath(sys.argv[1]), os.path.abspath(sys.argv[2])
     recipe_path = os.path.join(recipe_dir, "bpm.toml")
     if not os.path.isfile(recipe_path):
@@ -233,11 +307,17 @@ def pkg_step(recipe, key):
     return (recipe.get("steps", {}) or {}).get(key, "") or ""
 
 
-def write_bpm(recipe, pkg, name, version, release, arch_tag, pkgdir, out_dir):
-    os.makedirs(out_dir, exist_ok=True)
-    out = os.path.join(out_dir, f"{name}-{version}-{release}-{arch_tag}.bpm")
+def _reset(ti):
+    """Normalise a tar entry so the payload is reproducible: fixed mtime, root
+    owner. Mode is intentionally preserved (setuid bits matter)."""
+    ti.mtime = SDE
+    ti.uid = ti.gid = 0
+    ti.uname = ti.gname = "root"
+    return ti
 
-    # installed size + reproducible payload tar (sorted, fixed mtime/owner).
+
+def _payload_members(pkgdir):
+    """Staged files in the deterministic order the payload tar uses."""
     members = []
     for root, dirs, files in os.walk(pkgdir):
         dirs.sort()
@@ -245,24 +325,33 @@ def write_bpm(recipe, pkg, name, version, release, arch_tag, pkgdir, out_dir):
             members.append(os.path.join(root, d))
         for fn in sorted(files):
             members.append(os.path.join(root, fn))
-    installed_size = sum(
+    return members
+
+
+def payload_digest(pkgdir):
+    """(payload_sha256, installed_size) for a staged package dir. This is the
+    single source of truth for both keys, so a .bpm re-extracted and re-walked
+    reproduces the same digest — which is what `--check` relies on to bind a
+    published artifact to the manifest inside it, without a rebuild."""
+    import io
+    members = _payload_members(pkgdir)
+    installed = sum(
         os.path.getsize(m) for m in members if os.path.isfile(m) and not os.path.islink(m)
     )
-
-    def reset(ti):
-        ti.mtime = SDE
-        ti.uid = ti.gid = 0
-        ti.uname = ti.gname = "root"
-        return ti
-
-    # payload tar (for the sha) then the final .bpm tar with .BPM first.
-    import io
-    payload = io.BytesIO()
-    with tarfile.open(fileobj=payload, mode="w") as t:
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w") as t:
         for m in members:
             arc = "./" + os.path.relpath(m, pkgdir)
-            t.add(m, arcname=arc, recursive=False, filter=reset)
-    payload_sha = hashlib.sha256(payload.getvalue()).hexdigest()
+            t.add(m, arcname=arc, recursive=False, filter=_reset)
+    return hashlib.sha256(buf.getvalue()).hexdigest(), installed
+
+
+def write_bpm(recipe, pkg, name, version, release, arch_tag, pkgdir, out_dir):
+    os.makedirs(out_dir, exist_ok=True)
+    out = os.path.join(out_dir, f"{name}-{version}-{release}-{arch_tag}.bpm")
+
+    payload_sha, installed_size = payload_digest(pkgdir)
+    reset = _reset  # the final .bpm tar reuses the same normalisation
 
     meta = bpm_manifest(recipe, pkg, name, version, release, arch_tag,
                         installed_size, payload_sha)
@@ -274,7 +363,7 @@ def write_bpm(recipe, pkg, name, version, release, arch_tag, pkgdir, out_dir):
         info.size = len(data)
         reset(info)
         t.addfile(info, io.BytesIO(data))
-        for m in members:
+        for m in _payload_members(pkgdir):
             arc = "./" + os.path.relpath(m, pkgdir)
             t.add(m, arcname=arc, recursive=False, filter=reset)
     # zstd-compress (level 19) to the final .bpm
