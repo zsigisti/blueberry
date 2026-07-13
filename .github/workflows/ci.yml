@@ -75,3 +75,16 @@ jobs:
         run: cargo build --release --locked
       - name: End-to-end lifecycle suite
         run: sh tools/test/bpm-integration.sh
+
+  # Advisory only: reports which recipes are behind upstream. Never blocks a
+  # merge (upstream releases are not our regressions), but keeps "rolling" honest.
+  freshness:
+    name: package freshness (advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Report packages behind upstream
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/pkg/check-updates.py
