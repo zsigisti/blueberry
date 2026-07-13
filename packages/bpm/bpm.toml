@@ -1,6 +1,6 @@
 [package]
 name     = "bpm"
-version  = "1.11.2"
+version  = "1.11.3"
 release  = 1
 summary  = "Blueberry Package Manager — streaming installs, SHA-256 verified, pre/post-install hooks (Rust)"
 homepage = "https://github.com/zsigisti/blueberry"

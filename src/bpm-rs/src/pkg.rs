@@ -66,6 +66,13 @@ fn bpm_manifest_to_pkginfo(toml: &str) -> (String, Option<String>) {
     let mut pkginfo = String::new();
     let mut scripts: Vec<(String, String)> = Vec::new();
     let mut in_scripts = false;
+    // `version` and `release` are separate manifest keys but a single identity
+    // to everything else: the repo index publishes "ver-rel", so the installed
+    // db must record "ver-rel" too. Recording a bare "ver" makes every upgrade
+    // compare 2.10.0 against 2.10.0-2 and re-offer itself forever. Collected
+    // here and emitted as one pkgver after the loop (key order is not fixed).
+    let mut ver: Option<String> = None;
+    let mut rel: Option<String> = None;
 
     for line in toml.lines() {
         let l = line.trim();
@@ -86,10 +93,8 @@ fn bpm_manifest_to_pkginfo(toml: &str) -> (String, Option<String>) {
         }
         match k {
             "name" => pkginfo.push_str(&format!("pkgname = {}\n", unquote(v))),
-            "version" => {
-                // fold release into pkgver as ver-rel when present (set later).
-                pkginfo.push_str(&format!("pkgver = {}\n", unquote(v)));
-            }
+            "version" => ver = Some(unquote(v)),
+            "release" => rel = Some(unquote(v)),
             "installed_size" => pkginfo.push_str(&format!("size = {}\n", v.trim())),
             "arch" => pkginfo.push_str(&format!("arch = {}\n", unquote(v))),
             "summary" => pkginfo.push_str(&format!("pkgdesc = {}\n", unquote(v))),
@@ -110,6 +115,14 @@ fn bpm_manifest_to_pkginfo(toml: &str) -> (String, Option<String>) {
                 }
             }
             _ => {}
+        }
+    }
+
+    // Same "ver-rel" spelling the repo index and the image-build db seeder use.
+    if let Some(v) = ver {
+        match rel.as_deref().filter(|r| !r.is_empty()) {
+            Some(r) => pkginfo.push_str(&format!("pkgver = {v}-{r}\n")),
+            None => pkginfo.push_str(&format!("pkgver = {v}\n")),
         }
     }
 
