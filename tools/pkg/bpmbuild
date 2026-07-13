@@ -46,6 +46,31 @@ def toml_str(v):
     return '"' + str(v).replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
+# Blueberry ships its CA trust as a single bundle file and does NOT create the
+# hashed CApath (or the /etc/ssl/cert.pem CAfile) that OpenSSL's default verify
+# paths look for, so Python's stock SSL context trusts nothing and every https
+# fetch dies with CERTIFICATE_VERIFY_FAILED. Point it at the bundle explicitly.
+CA_BUNDLES = (
+    "/etc/ssl/certs/ca-certificates.crt",   # Blueberry / Debian / Arch
+    "/etc/pki/tls/certs/ca-bundle.crt",     # Fedora / RHEL
+    "/etc/ssl/cert.pem",                    # OpenSSL default CAfile / BSD
+)
+
+
+def ssl_context():
+    import ssl
+
+    ctx = ssl.create_default_context()
+    if ctx.cert_store_stats()["x509_ca"]:
+        return ctx
+    env = os.environ.get("SSL_CERT_FILE")
+    for ca in ([env] if env else []) + list(CA_BUNDLES):
+        if ca and os.path.isfile(ca):
+            ctx.load_verify_locations(cafile=ca)
+            return ctx
+    die("no CA trust store found — install ca-certificates (`bpm install ca-certificates`)")
+
+
 def fetch(url, dest):
     log(f"fetch {url}")
     # curl handles redirects/TLS uniformly; fall back to urllib if absent.
@@ -58,8 +83,9 @@ def fetch(url, dest):
              "--retry-all-errors", "-o", dest, url],
             check=True,
         )
-    else:
-        urllib.request.urlretrieve(url, dest)
+        return
+    with urllib.request.urlopen(url, context=ssl_context()) as r, open(dest, "wb") as f:
+        shutil.copyfileobj(r, f)
 
 
 def sha256_file(path):

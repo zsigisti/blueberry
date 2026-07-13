@@ -6,11 +6,13 @@
 #
 # xz / zstd / lz4 are now proper tracked base packages (they ship their own CLI +
 # liblzma/libzstd/liblz4), so they are NOT listed here anymore — bpm can upgrade
-# them. Only genuinely non-package bits remain:
+# them. ca-certificates left for the same reason: the image used to copy the host's
+# bundle and claim the dep satisfied, but that only produced
+# /etc/ssl/certs/ca-certificates.crt — not /etc/ssl/cert.pem (OpenSSL's default
+# CAfile), so python/pip/bpmbuild trusted nothing. It is a real base package now.
+# Only genuinely non-package bits remain:
 #   libz.so.1  -> zlib  (zlib is also a tracked base package; kept for safety)
-# and the CA bundle at /etc/ssl/certs/ca-certificates.crt -> ca-certificates.
 zlib
-ca-certificates
 # The systemd base package ships libsystemd.so.0 + libudev.so.1 into the rootfs,
 # so anything depending on systemd-libs (libgudev, libpulse, …) is satisfied.
 systemd-libs

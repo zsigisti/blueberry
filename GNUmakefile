@@ -55,6 +55,7 @@ SYSTEMD_BASE_PKGS := systemd util-linux coreutils libseccomp kmod dbus acl \
                      cryptsetup libcap libcap-ng readline file zlib xz zstd lz4 bzip2 expat \
                      pcre2 mpfr gdbm \
                      attr device-mapper json-c openssl popt openssh pam glibc-locales gmp \
+                     ca-certificates \
                      iproute2 iputils libmnl wpa_supplicant libnl linux-firmware wireless-regdb ufw \
                      python libffi mpdecimal sqlite \
                      iptables libnftnl libnetfilter_conntrack libnfnetlink \
@@ -323,7 +324,12 @@ _do_install:
 	@# manager itself (it is built from source here, not extracted from a .bpm).
 	@sh $(TOPDIR)/tools/pkg/seed-installed-db.sh $(STAGEDIR) $(TOPDIR)/packages/bpm/bpm.toml usr/bin/bpm
 	@install -Dm755 $$(command -v zstd) $(STAGEDIR)/usr/bin/zstd
-	@# CA trust store so bpm and curl can verify HTTPS (rustls TLS in bpm).
+	@# Bootstrap CA bundle so bpm can verify HTTPS (rustls) before any package is
+	@# extracted. The ca-certificates PACKAGE (in BASE_PKGS, extracted below) then
+	@# overwrites this with the pinned Mozilla bundle and — crucially — also lays
+	@# down /etc/ssl/cert.pem, OpenSSL's default CAfile. Without that file nothing
+	@# using OpenSSL's default verify paths (python/pip/bpmbuild) trusts anything,
+	@# since the bundle alone gives no hashed CApath. Host-copy is a fallback only.
 	@install -Dm644 $$(readlink -f /etc/ssl/certs/ca-certificates.crt) \
 	    $(STAGEDIR)/etc/ssl/certs/ca-certificates.crt 2>/dev/null \
 	    || echo "WARNING: host CA bundle not found; HTTPS repos won't verify"
