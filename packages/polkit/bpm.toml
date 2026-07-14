@@ -1,6 +1,6 @@
 [package]
 name     = "polkit"
-version  = "126"
+version  = "127"
 release  = 1
 summary  = "Application development toolkit for controlling system-wide privileges"
 homepage = "https://github.com/polkit-org/polkit"
@@ -12,8 +12,8 @@ makedepends = ["meson", "ninja", "gettext", "glib2-devel", "duktape"]
 provides    = ["libpolkit-gobject-1.so", "libpolkit-agent-1.so"]
 
 [[source]]
-url    = "https://github.com/polkit-org/polkit/archive/126/polkit-126.tar.gz"
-sha256 = "2814a7281989f6baa9e57bd33bbc5e148827e2721ccef22aaf28ab2b376068e8"
+url    = "https://github.com/polkit-org/polkit/archive/127/polkit-127.tar.gz"
+sha256 = "9b7bc16f086479dcc626c575976568ba4a85d34297a750d8ab3d2e57f6d8b988"
 
 [steps]
 build = '''
