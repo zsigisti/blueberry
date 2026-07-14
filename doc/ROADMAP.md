@@ -2,7 +2,7 @@
 
 Blueberry is a self-hosted, source-built, rolling **CLI server** distribution.
 This is an honest snapshot of what is solid and what is still open. Updated
-2026-07-13 (v0.7.1-beta).
+2026-07-14.
 
 ## Solid today
 
@@ -54,9 +54,16 @@ This is an honest snapshot of what is solid and what is still open. Updated
 ### Coverage
 
 - **Architecture: x86_64 only.** aarch64 is not started (deliberately deferred).
-- **Package freshness.** `check-updates.py` now reports drift, but version bumps
-  are still applied by hand. Recipes with unusual upstream tag schemes need an
-  `[upstream]` override to be tracked.
+- **Package freshness.** `check-updates.py` reports drift, and the userland was
+  swept up to current upstream in July 2026 (≈45 recipes: the coreutils family,
+  the CLI tools, and the soname-stable shared libraries). Four bumps are held
+  back on purpose because each needs a full `make world` + boot/stack test, not
+  a single-package build: **systemd** (256→261, five majors), **binutils**
+  (toolchain — bump with gcc/glibc/gmp/mpfr/mpc as a set), **nettle** (3→4, a
+  libnettle soname break that also needs gnutls rebuilt), and
+  **containers-common** (0→1, verify against podman). Bumps are still applied by
+  hand; recipes with unusual upstream tag schemes need an `[upstream]` override
+  to be tracked.
 - **BUR end-to-end test.** The publish validator's logic is unit-tested, but the
   full authenticated publish flow can't be self-tested (2FA to the owner's email).
 
