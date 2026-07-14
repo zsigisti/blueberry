@@ -1,6 +1,6 @@
 [package]
 name     = "gdbm"
-version  = "1.24"
+version  = "1.26"
 release  = 1
 summary  = "GNU database library (dbm) with the ndbm/dbm compatibility shim"
 homepage = "https://www.gnu.org/software/gdbm/"
@@ -10,8 +10,8 @@ arch     = ["x86_64"]
 depends     = ["glibc", "readline"]
 
 [[source]]
-url    = "https://ftp.gnu.org/gnu/gdbm/gdbm-1.24.tar.gz"
-sha256 = "695e9827fdf763513f133910bc7e6cfdb9187943a4fec943e57449723d2b8dbf"
+url    = "https://ftp.gnu.org/gnu/gdbm/gdbm-1.26.tar.gz"
+sha256 = "6a24504a14de4a744103dcb936be976df6fbe88ccff26065e54c1c47946f4a5e"
 
 [steps]
 build = '''

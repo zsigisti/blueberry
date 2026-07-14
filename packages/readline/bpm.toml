@@ -1,6 +1,6 @@
 [package]
 name     = "readline"
-version  = "8.2"
+version  = "8.3"
 release  = 1
 summary  = "GNU library for command-line editing and history"
 homepage = "https://tiswww.case.edu/php/chet/readline/rltop.html"
@@ -10,8 +10,8 @@ arch     = ["x86_64"]
 depends     = ["glibc", "ncurses"]
 
 [[source]]
-url    = "https://ftp.gnu.org/gnu/readline/readline-8.2.tar.gz"
-sha256 = "3feb7171f16a84ee82ca18a36d7b9be109a52c04f492a053331d7d1095007c35"
+url    = "https://ftp.gnu.org/gnu/readline/readline-8.3.tar.gz"
+sha256 = "fe5383204467828cd495ee8d1d3c037a7eba1389c22bc6a041f627976f9061cc"
 
 [steps]
 build = '''

@@ -1,6 +1,6 @@
 [package]
 name     = "libunistring"
-version  = "1.2"
+version  = "1.4.2"
 release  = 1
 summary  = "Library for manipulating Unicode strings and C strings"
 homepage = "https://www.gnu.org/software/libunistring/"
@@ -10,8 +10,8 @@ arch     = ["x86_64"]
 depends     = ["glibc"]
 
 [[source]]
-url    = "https://ftp.gnu.org/gnu/libunistring/libunistring-1.2.tar.gz"
-sha256 = "fd6d5662fa706487c48349a758b57bc149ce94ec6c30624ec9fdc473ceabbc8e"
+url    = "https://ftp.gnu.org/gnu/libunistring/libunistring-1.4.2.tar.gz"
+sha256 = "e82664b170064e62331962126b259d452d53b227bb4a93ab20040d846fec01d8"
 
 [steps]
 build = '''
