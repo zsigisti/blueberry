@@ -1,6 +1,6 @@
 [package]
 name     = "pam"
-version  = "1.7.0"
+version  = "1.7.2"
 release  = 1
 summary  = "Pluggable Authentication Modules library"
 homepage = "https://github.com/linux-pam/linux-pam"
@@ -12,12 +12,12 @@ makedepends = ["meson", "ninja", "flex", "bison"]
 provides    = ["libpam.so", "libpamc.so", "libpam_misc.so"]
 
 [[source]]
-url    = "https://github.com/linux-pam/linux-pam/releases/download/v1.7.0/Linux-PAM-1.7.0.tar.xz"
-sha256 = "57dcd7a6b966ecd5bbd95e1d11173734691e16b68692fa59661cdae9b13b1697"
+url    = "https://github.com/linux-pam/linux-pam/releases/download/v1.7.2/Linux-PAM-1.7.2.tar.xz"
+sha256 = "3d86b6383fb5fd9eb9578d2cd47d92801191f4bf3f9bc61419bfefc8aa1e531a"
 
 [steps]
 build = '''
-arch-meson "Linux-PAM-$version" build -D docs=disabled -D selinux=disabled -D nis=disabled -D audit=disabled -D db=gdbm -D econf=disabled;
+arch-meson "Linux-PAM-$version" build -D docs=disabled -D selinux=disabled -D nis=disabled -D audit=disabled -D db=gdbm -D econf=disabled -D pwaccess=disabled -D elogind=disabled;
 meson compile -C build
 '''
 package = '''
