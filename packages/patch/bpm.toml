@@ -1,6 +1,6 @@
 [package]
 name     = "patch"
-version  = "2.7.6"
+version  = "2.8"
 release  = 2
 summary  = "Apply a diff file to an original"
 homepage = "https://savannah.gnu.org/projects/patch/"
@@ -10,8 +10,8 @@ arch     = ["x86_64"]
 depends     = ["glibc", "attr"]
 
 [[source]]
-url    = "https://ftp.gnu.org/gnu/patch/patch-2.7.6.tar.xz"
-sha256 = "ac610bda97abe0d9f6b7c963255a11dcb196c25e337c61f94e4778d632f1d8fd"
+url    = "https://ftp.gnu.org/gnu/patch/patch-2.8.tar.xz"
+sha256 = "f87cee69eec2b4fcbf60a396b030ad6aa3415f192aa5f7ee84cad5e11f7f5ae3"
 
 [steps]
 build = '''

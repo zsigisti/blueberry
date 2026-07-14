@@ -1,6 +1,6 @@
 [package]
 name     = "gawk"
-version  = "5.3.1"
+version  = "5.4.1"
 release  = 1
 summary  = "GNU gawk — core CLI tool (desktop base; busybox covers the server)"
 homepage = "https://www.gnu.org/software/gawk/"
@@ -11,8 +11,8 @@ makedepends = ["gcc", "make", "pkgconf", "mpfr", "gmp", "readline"]
 options     = ["!lto"]
 
 [[source]]
-url    = "https://ftp.gnu.org/gnu/gawk/gawk-5.3.1.tar.xz"
-sha256 = "694db764812a6236423d4ff40ceb7b6c4c441301b72ad502bb5c27e00cd56f78"
+url    = "https://ftp.gnu.org/gnu/gawk/gawk-5.4.1.tar.xz"
+sha256 = "07f6f7342b7febe4313fc2c2542ad93d64fe20ad8717200109f105a826f5fd37"
 
 [steps]
 build = '''
