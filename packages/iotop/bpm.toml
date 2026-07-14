@@ -1,6 +1,6 @@
 [package]
 name     = "iotop"
-version  = "1.27"
+version  = "1.31"
 release  = 1
 summary  = "Monitor per-process I/O usage in real time (iotop-c, ncurses UI)"
 homepage = "https://github.com/Tomas-M/iotop"
@@ -11,8 +11,8 @@ depends     = ["glibc", "ncurses"]
 makedepends = ["pkgconf"]
 
 [[source]]
-url    = "https://github.com/Tomas-M/iotop/archive/v1.27/iotop-1.27.tar.gz"
-sha256 = "ca643a9d11fb398158decd2094dcf74c3e4625d06c54300073a69f1e92c721ea"
+url    = "https://github.com/Tomas-M/iotop/archive/v1.31/iotop-1.31.tar.gz"
+sha256 = "658a615eb1def9dddcf0c325efebb4f78b101a040fff33ef7afaaa39c2471669"
 
 [steps]
 build = '''

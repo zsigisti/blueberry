@@ -1,6 +1,6 @@
 [package]
 name     = "vim"
-version  = "9.1.0863"
+version  = "9.2.0782"
 release  = 1
 summary  = "Vi Improved, a highly configurable text editor"
 homepage = "https://www.vim.org/"
@@ -11,8 +11,8 @@ depends     = ["glibc", "ncurses", "acl", "libgcrypt"]
 makedepends = ["gpm"]
 
 [[source]]
-url    = "vim-9.1.0863.tar.gz::https://github.com/vim/vim/archive/refs/tags/v9.1.0863.tar.gz"
-sha256 = "07a0f185b9327b0e9cc383dd3706cec469fd5376a0b2eeb733c17b353aefa20a"
+url    = "vim-9.2.0782.tar.gz::https://github.com/vim/vim/archive/refs/tags/v9.2.0782.tar.gz"
+sha256 = "148ad1c29555e0cf6430570730d8b9fc97151a814866e6f549e5e73e4ad0a612"
 
 [steps]
 build = '''

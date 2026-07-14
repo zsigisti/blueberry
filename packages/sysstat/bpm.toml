@@ -1,6 +1,6 @@
 [package]
 name     = "sysstat"
-version  = "12.7.6"
+version  = "12.7.9"
 release  = 1
 summary  = "System performance tools (sar, iostat, mpstat, pidstat)"
 homepage = "https://github.com/sysstat/sysstat"
@@ -10,8 +10,8 @@ arch     = ["x86_64"]
 depends     = ["glibc"]
 
 [[source]]
-url    = "https://github.com/sysstat/sysstat/archive/refs/tags/v12.7.6.tar.gz"
-sha256 = "dc77a08871f8e8813448ea31048833d4acbab7276dd9a456cd2526c008bd5301"
+url    = "https://github.com/sysstat/sysstat/archive/refs/tags/v12.7.9.tar.gz"
+sha256 = "e48fc69401135dc08d2cd4ff58dbdbfce9b7485f76fc9049d97848e313c08dda"
 
 [steps]
 build = '''

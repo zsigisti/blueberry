@@ -1,6 +1,6 @@
 [package]
 name     = "whois"
-version  = "5.5.23"
+version  = "5.6.6"
 release  = 1
 summary  = "Intelligent WHOIS client (+ mkpasswd)"
 homepage = "https://github.com/rfc1036/whois"
@@ -12,8 +12,8 @@ makedepends = ["make", "gcc", "pkgconf", "libidn2", "gettext", "perl"]
 provides    = ["whois", "mkpasswd"]
 
 [[source]]
-url    = "https://github.com/rfc1036/whois/archive/refs/tags/v5.5.23.tar.gz"
-sha256 = "dcfc08f3362c74ec8ae30691941909ebccf0cb3d27da04236f7e2790dbc7757c"
+url    = "https://github.com/rfc1036/whois/archive/refs/tags/v5.6.6.tar.gz"
+sha256 = "43d3b3cc64c75e8bd10aee6feff3906e9488ed335076d206e70f3b25bf644969"
 
 [steps]
 build = '''

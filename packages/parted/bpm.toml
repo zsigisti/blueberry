@@ -1,6 +1,6 @@
 [package]
 name     = "parted"
-version  = "3.6"
+version  = "3.7"
 release  = 1
 summary  = "GNU Parted disk partitioning tool + libparted.so.2 (Calamares installer)"
 homepage = "https://www.gnu.org/software/parted/"
@@ -10,8 +10,8 @@ depends     = ["device-mapper", "util-linux", "readline", "glibc"]
 makedepends = ["gcc", "make", "pkgconf", "device-mapper", "util-linux", "readline"]
 options     = ["!lto"]
 [[source]]
-url    = "https://ftp.gnu.org/gnu/parted/parted-3.6.tar.xz"
-sha256 = "3b43dbe33cca0f9a18601ebab56b7852b128ec1a3df3a9b30ccde5e73359e612"
+url    = "https://ftp.gnu.org/gnu/parted/parted-3.7.tar.xz"
+sha256 = "008de57561a4f3c25a0648e66ed11e7b30be493889b64334a6d70f2c1951ef7b"
 [steps]
 build = '''
 cd "parted-$version"

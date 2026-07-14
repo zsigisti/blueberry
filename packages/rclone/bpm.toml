@@ -1,6 +1,6 @@
 [package]
 name     = "rclone"
-version  = "1.68.2"
+version  = "1.74.4"
 release  = 1
 summary  = "Sync files and directories to and from major cloud storage providers"
 homepage = "https://rclone.org/"
@@ -11,15 +11,15 @@ depends     = ["glibc"]
 makedepends = ["go", "git"]
 
 [[source]]
-url    = "https://github.com/rclone/rclone/archive/v1.68.2/rclone-1.68.2.tar.gz"
-sha256 = "6c4c1a1702633c7a8f8755a9cfb951c3ae0b7bcc2e210b92e191250b6aae2e9f"
+url    = "https://github.com/rclone/rclone/archive/v1.74.4/rclone-1.74.4.tar.gz"
+sha256 = "b8279a31a5249e4aecf04acff744ace4a2e3a169e4539a24aa67a9994f645d3b"
 
 [steps]
 build = '''
 cd "$name-$version";
 export GOPATH="$srcdir/gopath" GOCACHE="$srcdir/gocache" GOFLAGS="-mod=mod" CGO_ENABLED=0;
 go build -tags noselfupdate -trimpath \
-  -ldflags "-s -w -X github.com/rclone/rclone/fs.Version=v1.68.2" -o rclone .;
+  -ldflags "-s -w -X github.com/rclone/rclone/fs.Version=v1.74.4" -o rclone .;
 ./rclone genautocomplete bash rclone.bash || true;
 ./rclone genautocomplete zsh rclone.zsh || true;
 mkdir -p man; ./rclone --help >/dev/null 2>&1 || true

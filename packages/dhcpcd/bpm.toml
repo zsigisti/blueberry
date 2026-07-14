@@ -1,7 +1,7 @@
 [package]
 name     = "dhcpcd"
-version  = "10.1.0"
-release  = 4
+version  = "10.3.2"
+release  = 1
 summary  = "RFC2131 compliant DHCP client daemon"
 homepage = "https://roy.marples.name/projects/dhcpcd"
 license  = ["BSD-2-Clause"]
@@ -10,8 +10,8 @@ arch     = ["x86_64"]
 depends     = ["glibc", "eudev", "openssl"]
 
 [[source]]
-url    = "https://github.com/NetworkConfiguration/dhcpcd/releases/download/v10.1.0/dhcpcd-10.1.0.tar.xz"
-sha256 = "abc307c63853da3199baa5c1e15fd5ede9d68d068b2a59ca14c5a6768e9cc3b7"
+url    = "https://github.com/NetworkConfiguration/dhcpcd/releases/download/v10.3.2/dhcpcd-10.3.2.tar.xz"
+sha256 = "b6aa46932074906a9badef1bfe142b8aff9d041c2689e1ef8b74c12e9fd942bd"
 
 [steps]
 build = '''

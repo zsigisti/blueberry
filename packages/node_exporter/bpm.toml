@@ -1,6 +1,6 @@
 [package]
 name     = "node_exporter"
-version  = "1.11.1"
+version  = "1.12.1"
 release  = 1
 summary  = "Prometheus exporter for hardware and OS metrics (host observability)"
 homepage = "https://github.com/prometheus/node_exporter"
@@ -11,8 +11,8 @@ depends     = ["glibc"]
 makedepends = ["go", "git"]
 
 [[source]]
-url    = "https://github.com/prometheus/node_exporter/archive/v1.11.1/node_exporter-1.11.1.tar.gz"
-sha256 = "d2b5a7740b7526543429b41a5d741bc530277f406f7b121fc64cb3ca583f7387"
+url    = "https://github.com/prometheus/node_exporter/archive/v1.12.1/node_exporter-1.12.1.tar.gz"
+sha256 = "a90f1df0fde58d216d4a7d342e64831d2e3257db8084deadbe69754d34b15142"
 
 [steps]
 build = '''

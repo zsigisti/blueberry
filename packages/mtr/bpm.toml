@@ -1,6 +1,6 @@
 [package]
 name     = "mtr"
-version  = "0.95"
+version  = "0.96"
 release  = 1
 summary  = "Combines the functionality of traceroute and ping into a single network diagnostic tool"
 homepage = "https://www.bitwizard.nl/mtr/"
@@ -11,8 +11,8 @@ depends     = ["glibc", "ncurses", "libcap"]
 makedepends = ["autoconf", "automake", "libtool", "pkgconf"]
 
 [[source]]
-url    = "https://github.com/traviscross/mtr/archive/v0.95/mtr-0.95.tar.gz"
-sha256 = "12490fb660ba5fb34df8c06a0f62b4f9cbd11a584fc3f6eceda0a99124e8596f"
+url    = "https://github.com/traviscross/mtr/archive/v0.96/mtr-0.96.tar.gz"
+sha256 = "73e6aef3fb6c8b482acb5b5e2b8fa7794045c4f2420276f035ce76c5beae632d"
 
 [steps]
 build = '''

@@ -1,6 +1,6 @@
 [package]
 name     = "fzf"
-version  = "0.57.0"
+version  = "0.74.0"
 release  = 1
 summary  = "A command-line fuzzy finder"
 homepage = "https://github.com/junegunn/fzf"
@@ -11,14 +11,14 @@ depends     = ["glibc"]
 makedepends = ["go", "git"]
 
 [[source]]
-url    = "https://github.com/junegunn/fzf/archive/v0.57.0/fzf-0.57.0.tar.gz"
-sha256 = "d4e8e25fad2d3f75943b403c40b61326db74b705bf629c279978fdd0ceb1f97c"
+url    = "https://github.com/junegunn/fzf/archive/v0.74.0/fzf-0.74.0.tar.gz"
+sha256 = "55ab5f2256edd8890f81d407b63d3a3e81cffe10e318cd196031dc85efdeb079"
 
 [steps]
 build = '''
 cd "$name-$version";
 export GOPATH="$srcdir/gopath" GOCACHE="$srcdir/gocache" GOFLAGS="-mod=mod" CGO_ENABLED=0;
-go build -ldflags "-s -w -X main.version=0.57.0 -X main.revision=tarball" -o fzf .
+go build -ldflags "-s -w -X main.version=0.74.0 -X main.revision=tarball" -o fzf .
 '''
 package = '''
 cd "$name-$version";

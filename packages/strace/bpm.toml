@@ -1,7 +1,7 @@
 [package]
 name     = "strace"
-version  = "6.13"
-release  = 2
+version  = "7.1"
+release  = 1
 summary  = "A diagnostic, debugging and instructional userspace tracer"
 homepage = "https://strace.io/"
 license  = ["LGPL-2.1-or-later"]
@@ -11,8 +11,8 @@ depends     = ["glibc", "elfutils"]
 options     = ["!lto"]
 
 [[source]]
-url    = "https://github.com/strace/strace/releases/download/v6.13/strace-6.13.tar.xz"
-sha256 = "e209daf0ee038ca5adcc4c277e9273b4d51f46a2ff86da575d36742ac3508a17"
+url    = "https://github.com/strace/strace/releases/download/v7.1/strace-7.1.tar.xz"
+sha256 = "81743ecf2a5b44186b2f5038afdc8beda7e5c70aed15b4fbfbcc6e9ece24490f"
 
 [steps]
 build = '''
