@@ -1,0 +1,27 @@
+[package]
+name     = "libpng"
+version  = "1.6.45"
+release  = 1
+summary  = "PNG reference library"
+homepage = "http://www.libpng.org/pub/png/libpng.html"
+license  = ["libpng-2.0"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "zlib"]
+provides    = ["libpng16.so", "libpng.so"]
+makedepends = ["gcc", "make"]
+
+[[source]]
+url    = "https://download.sourceforge.net/libpng/libpng-1.6.45.tar.xz"
+sha256 = "926485350139ffb51ef69760db35f78846c805fef3d59bfdcb2fba704663f370"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --disable-static;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install
+'''
