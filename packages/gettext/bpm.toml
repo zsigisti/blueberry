@@ -1,0 +1,35 @@
+[package]
+name     = "gettext"
+version  = "0.26"
+release  = 1
+summary  = "GNU internationalization tools (msgfmt, xgettext, gettextize)"
+homepage = "https://www.gnu.org/software/gettext/"
+license  = ["GPL-3.0-or-later", "LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "libunistring", "ncurses", "libxml2"]
+provides    = ["libtextstyle.so", "libintl.so", "libasprintf.so"]
+makedepends = ["gcc", "make"]
+
+[[source]]
+url    = "https://ftp.gnu.org/gnu/gettext/gettext-0.26.tar.xz"
+sha256 = "d1fb86e260cfe7da6031f94d2e44c0da55903dbae0a2fa0fae78c91ae1b56f00"
+
+# GCC16's glibc declares the const-correct string/wide/stdlib lookup functions as
+# C23 _Generic type-generic macros. gnulib still emits raw redeclarations of them
+# (to attach nonnull_if_nonzero), so the macro expands mid-declaration and the
+# header fails to parse ("expected identifier before '_Generic'"). #undef each of
+# those functions right before gnulib's redeclaration in every *.in.h — the real
+# libc symbol still links; we only drop glibc's compile-time const-correctness hint.
+[steps]
+build = '''
+cd "$name-$version";
+F='memchr|memrchr|rawmemchr|memmem|strchr|strchrnul|strpbrk|strrchr|strstr|strcasestr|wmemchr|wmemset|wmemcmp|wcsncmp|wcschr|wcspbrk|wcsrchr|wcsstr|bsearch';
+find . -name '*.in.h' -exec sed -Ei "s/^(_GL_EXTERN_C [^(]*[ *])($F)( \()/#undef \2\n\1\2\3/" {} +;
+./configure --prefix=/usr --disable-static --enable-shared --without-emacs;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install
+'''
