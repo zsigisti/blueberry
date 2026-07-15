@@ -17,7 +17,10 @@ sha256 = "4a10391aab0b8ce1f539e82a1966693b2a6cf225972a6504ebb7ec4fa71675de"
 [steps]
 build = '''
 cd "$name-$version"
-./configure --prefix=/usr
+# --without-libtirpc: lsof 4.99.7 auto-links libtirpc when present (RPC/NFS
+# program-name decoding), but libtirpc is not in the base, so it breaks the
+# base DT_NEEDED closure. Disable it to keep lsof self-contained in the base.
+./configure --prefix=/usr --without-libtirpc
 make -j"$(nproc)"
 '''
 package = '''
