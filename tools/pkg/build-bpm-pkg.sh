@@ -65,7 +65,7 @@ for p in '"$need"'; do
     done
     rm -f /out/$p-[0-9]*.bpm
     if ! su builder -c "cd /tmp/b && SOURCE_DATE_EPOCH=$SDE BPM_ARCH=x86_64 python3 tools/pkg/bpmbuild packages/$p /out" >/tmp/$p.log 2>&1; then
-        echo "!! FAILED: $p"; tail -8 /tmp/$p.log; fail="$fail $p"
+        echo "!! FAILED: $p"; tail -40 /tmp/$p.log; fail="$fail $p"
     else
         echo "build-bpm: built $p"
     fi
