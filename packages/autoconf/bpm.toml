@@ -1,0 +1,26 @@
+[package]
+name     = "autoconf"
+version  = "2.73"
+release  = 1
+summary  = "GNU configure-script generator"
+homepage = "https://www.gnu.org/software/autoconf/"
+license  = ["GPL-3.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["bash", "m4", "perl"]
+makedepends = ["m4", "perl", "make"]
+
+[[source]]
+url    = "https://ftp.gnu.org/gnu/autoconf/autoconf-2.73.tar.xz"
+sha256 = "9fd672b1c8425fac2fa67fa0477b990987268b90ff36d5f016dae57be0d6b52e"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install
+'''

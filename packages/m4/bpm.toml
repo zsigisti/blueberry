@@ -1,0 +1,26 @@
+[package]
+name     = "m4"
+version  = "1.4.21"
+release  = 1
+summary  = "GNU macro processor — the m4 the autotools are built on"
+homepage = "https://www.gnu.org/software/m4/"
+license  = ["GPL-3.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["gcc", "make"]
+
+[[source]]
+url    = "https://ftp.gnu.org/gnu/m4/m4-1.4.21.tar.xz"
+sha256 = "f25c6ab51548a73a75558742fb031e0625d6485fe5f9155949d6486a2408ab66"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install
+'''

@@ -1,0 +1,26 @@
+[package]
+name     = "automake"
+version  = "1.18.1"
+release  = 1
+summary  = "GNU Makefile.in generator (works with autoconf)"
+homepage = "https://www.gnu.org/software/automake/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["bash", "autoconf", "perl"]
+makedepends = ["autoconf", "perl", "make"]
+
+[[source]]
+url    = "https://ftp.gnu.org/gnu/automake/automake-1.18.1.tar.xz"
+sha256 = "168aa363278351b89af56684448f525a5bce5079d0b6842bd910fdd3f1646887"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install
+'''
