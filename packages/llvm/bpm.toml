@@ -1,0 +1,40 @@
+[package]
+name     = "llvm"
+version  = "22.1.8"
+release  = 1
+summary  = "LLVM compiler infrastructure + Clang (libLLVM, libclang, clang)"
+homepage = "https://llvm.org/"
+license  = ["Apache-2.0"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "gcc-libs", "zlib", "zstd", "libffi", "ncurses"]
+provides    = ["libLLVM.so", "libclang.so", "libclang-cpp.so", "clang"]
+makedepends = ["cmake", "ninja", "python", "gcc", "make", "zlib", "zstd", "libffi", "ncurses"]
+
+[[source]]
+url    = "https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.8/llvm-project-22.1.8.src.tar.xz"
+sha256 = "922f1817a0df7b1489272d18134ee0087a8b068828f87ac63b9861b1a9965888"
+
+# All targets (rust wants them), a shared libLLVM dylib (rust links it
+# dynamically), RTTI on (rust needs it). Single link job: linking the all-targets
+# libLLVM.so is very RAM-heavy and OOMs with parallel linkers.
+[steps]
+build = '''
+cmake -G Ninja -S "llvm-project-$version.src/llvm" -B build \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DLLVM_ENABLE_PROJECTS=clang \
+    -DLLVM_TARGETS_TO_BUILD=all \
+    -DLLVM_BUILD_LLVM_DYLIB=ON \
+    -DLLVM_LINK_LLVM_DYLIB=ON \
+    -DLLVM_ENABLE_RTTI=ON \
+    -DLLVM_ENABLE_FFI=ON \
+    -DLLVM_INSTALL_UTILS=ON \
+    -DLLVM_ENABLE_WERROR=OFF \
+    -DLLVM_PARALLEL_LINK_JOBS=1 \
+    -DLLVM_HOST_TRIPLE=x86_64-pc-linux-gnu;
+ninja -C build
+'''
+package = '''
+DESTDIR="$pkgdir" ninja -C build install
+'''
