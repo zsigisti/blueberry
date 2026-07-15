@@ -1,0 +1,33 @@
+[package]
+name     = "go"
+version  = "1.26.5"
+release  = 1
+summary  = "The Go programming language toolchain"
+homepage = "https://go.dev/"
+license  = ["BSD-3-Clause"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+# Bootstrapped from an existing Go (the container's now; Blueberry's own once the
+# builder image is self-hosted). cgo needs a C compiler.
+makedepends = ["go", "gcc", "bash"]
+
+[[source]]
+url    = "https://go.dev/dl/go1.26.5.src.tar.gz"
+sha256 = "495be4bc87176ac567392e5b4116abd98466d33d7b49d41e764ccc6976b2dc42"
+
+[steps]
+build = '''
+cd go/src;
+export GOROOT_BOOTSTRAP="${GOROOT_BOOTSTRAP:-/usr/lib/go}";
+export GOROOT_FINAL=/usr/lib/go;
+export CGO_ENABLED=1;
+./make.bash
+'''
+package = '''
+install -d "$pkgdir/usr/lib/go" "$pkgdir/usr/bin";
+cp -a go/bin go/pkg go/src go/lib go/api go/go.env go/VERSION "$pkgdir/usr/lib/go/";
+rm -rf "$pkgdir/usr/lib/go/pkg/obj" "$pkgdir/usr/lib/go/.git";
+ln -sf ../lib/go/bin/go    "$pkgdir/usr/bin/go";
+ln -sf ../lib/go/bin/gofmt "$pkgdir/usr/bin/gofmt"
+'''
