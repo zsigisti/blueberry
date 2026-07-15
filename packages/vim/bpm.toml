@@ -8,7 +8,7 @@ license  = ["Vim"]
 arch     = ["x86_64"]
 
 depends     = ["glibc", "ncurses", "acl", "libgcrypt"]
-makedepends = ["gpm"]
+makedepends = []
 
 [[source]]
 url    = "vim-9.2.0782.tar.gz::https://github.com/vim/vim/archive/refs/tags/v9.2.0782.tar.gz"
