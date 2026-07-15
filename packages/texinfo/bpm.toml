@@ -1,0 +1,26 @@
+[package]
+name     = "texinfo"
+version  = "7.3"
+release  = 1
+summary  = "GNU documentation system (makeinfo, info, texi2any)"
+homepage = "https://www.gnu.org/software/texinfo/"
+license  = ["GPL-3.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "perl", "ncurses"]
+makedepends = ["perl", "ncurses", "make", "gcc"]
+
+[[source]]
+url    = "https://ftp.gnu.org/gnu/texinfo/texinfo-7.3.tar.xz"
+sha256 = "51f74eb0f51cfa9873b85264dfdd5d46e8957ec95b88f0fb762f63d9e164c72e"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install
+'''

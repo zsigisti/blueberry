@@ -1,0 +1,25 @@
+[package]
+name     = "ninja"
+version  = "1.12.1"
+release  = 1
+summary  = "Small, fast build system used by meson"
+homepage = "https://ninja-build.org/"
+license  = ["Apache-2.0"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "gcc-libs"]
+makedepends = ["python", "gcc", "make"]
+
+[[source]]
+url    = "https://github.com/ninja-build/ninja/archive/v1.12.1/ninja-1.12.1.tar.gz"
+sha256 = "821bdff48a3f683bc4bb3b6f0b5fe7b2d647cf65d52aeb63328c91a6c6df285a"
+
+[steps]
+build = '''
+cd "$name-$version";
+python3 configure.py --bootstrap
+'''
+package = '''
+cd "$name-$version";
+install -Dm755 ninja "$pkgdir/usr/bin/ninja"
+'''
