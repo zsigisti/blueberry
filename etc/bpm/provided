@@ -16,3 +16,6 @@ zlib
 # The systemd base package ships libsystemd.so.0 + libudev.so.1 into the rootfs,
 # so anything depending on systemd-libs (libgudev, libpulse, …) is satisfied.
 systemd-libs
+
+# glibc provides argp (argp.h / argp_parse); argp-standalone is a musl-only shim.
+argp-standalone

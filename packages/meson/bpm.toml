@@ -1,0 +1,27 @@
+[package]
+name     = "meson"
+version  = "1.11.2"
+release  = 1
+summary  = "High-productivity build system (drives ninja)"
+homepage = "https://mesonbuild.com/"
+license  = ["Apache-2.0"]
+arch     = ["any"]
+
+depends     = ["python", "ninja"]
+
+[[source]]
+url    = "https://github.com/mesonbuild/meson/releases/download/1.11.2/meson-1.11.2.tar.gz"
+sha256 = "698feae069cef3ecd4d7aaf281d7df359bdfcf555a9a1564383d3b913fa8a736"
+
+# Pure-Python: install the mesonbuild package into site-packages and meson.py as
+# the entry point — no setuptools/PEP517 build backend needed.
+[steps]
+package = '''
+cd "$name-$version";
+pyver=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')");
+site="$pkgdir/usr/lib/python$pyver/site-packages";
+install -d "$site";
+cp -r mesonbuild "$site/";
+install -Dm755 meson.py "$pkgdir/usr/bin/meson";
+install -Dm644 man/meson.1 "$pkgdir/usr/share/man/man1/meson.1"
+'''
