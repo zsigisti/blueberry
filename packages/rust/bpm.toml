@@ -1,0 +1,40 @@
+[package]
+name     = "rust"
+version  = "1.97.0"
+release  = 1
+summary  = "The Rust compiler and Cargo package manager"
+homepage = "https://www.rust-lang.org/"
+license  = ["Apache-2.0", "MIT"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "gcc-libs", "llvm"]
+provides    = ["cargo"]
+# Bootstrapped from an existing rustc/cargo (stage0) and the container's LLVM
+# (statically linked into rustc, so no runtime LLVM dep). Needs cmake/ninja for
+# the LLVM C++ glue, python + curl for the build system.
+makedepends = ["rust", "cargo", "llvm", "clang", "cmake", "ninja", "python", "curl", "gcc", "make", "pkgconf", "libffi", "zlib"]
+
+[[source]]
+url    = "https://static.rust-lang.org/dist/rustc-1.97.0-src.tar.xz"
+sha256 = "de002ee301c1b7422b0a7b09d7c4cb4924cd3224e6cfb24f065dad786dd3ed12"
+
+[steps]
+build = '''
+cd "rustc-$version-src";
+./configure \
+    --prefix=/usr --sysconfdir=/etc \
+    --release-channel=stable \
+    --enable-extended --tools=cargo \
+    --disable-docs \
+    --set build.rustc=/usr/bin/rustc \
+    --set build.cargo=/usr/bin/cargo \
+    --set rust.channel=stable \
+    --set llvm.link-shared=true \
+    --set target.x86_64-unknown-linux-gnu.llvm-config=/usr/bin/llvm-config;
+python3 x.py build --stage 2
+'''
+package = '''
+cd "rustc-$version-src";
+DESTDIR="$pkgdir" python3 x.py install;
+rm -f "$pkgdir/usr/lib/rustlib/"{install.log,manifest-*,components,rust-installer-version,uninstall.sh}
+'''

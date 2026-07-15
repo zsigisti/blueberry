@@ -63,6 +63,11 @@ for p in '"$need"'; do
     for d in $deps; do
         pacman -S --noconfirm --needed "$d" >/dev/null 2>&1 || true
     done
+    # Some deps ship setuid/setgid helpers that are not other-readable (the dbus
+    # daemon-launch helper). rust bootstraps by copying the system rustc sysroot
+    # (/usr/lib) as the unprivileged builder and fails to read them. Make them
+    # readable here — this is a throwaway build container.
+    find /usr/lib /usr/bin -xdev -type f -perm /6000 -exec chmod o+r {} + 2>/dev/null || true
     rm -f /out/$p-[0-9]*.bpm
     if ! su builder -c "cd /tmp/b && SOURCE_DATE_EPOCH=$SDE BPM_ARCH=x86_64 python3 tools/pkg/bpmbuild packages/$p /out" >/tmp/$p.log 2>&1; then
         echo "!! FAILED: $p"; tail -40 /tmp/$p.log; fail="$fail $p"
