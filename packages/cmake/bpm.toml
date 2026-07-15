@@ -1,0 +1,29 @@
+[package]
+name     = "cmake"
+version  = "4.3.3"
+release  = 1
+summary  = "Cross-platform build-system generator"
+homepage = "https://cmake.org/"
+license  = ["BSD-3-Clause"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "gcc-libs", "ncurses"]
+makedepends = ["gcc", "make"]
+
+# Bootstrap with bundled third-party libs (CMAKE_USE_SYSTEM_LIBRARIES=OFF) so the
+# result depends only on the base — no need to package curl/libarchive/jsoncpp/…
+[[source]]
+url    = "https://github.com/Kitware/CMake/releases/download/v4.3.3/cmake-4.3.3.tar.gz"
+sha256 = "cba4bb7a44edf2877bb6f059932896383babe435b3a8c3b5df48b4aa41c9bb85"
+
+[steps]
+build = '''
+cd "$name-$version";
+./bootstrap --prefix=/usr --parallel="$(nproc)" --no-qt-gui \
+    -- -DCMAKE_USE_SYSTEM_LIBRARIES=OFF -DCMAKE_BUILD_TYPE=Release;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install
+'''
