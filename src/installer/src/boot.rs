@@ -77,6 +77,13 @@ pub fn write_grub_cfg(mnt: &str, root_uuid: &str, root_spec: &str, cryptarg: &st
     // subvolume, so the kernel/initramfs are at /@/boot/…, and the kernel needs
     // rootflags=subvol=@ so it mounts @ (not the empty top-level) as /.
     let (boot, rootflags) = if btrfs { ("/@/boot", "rootflags=subvol=@ ") } else { ("/boot", "") };
+    // On btrfs, pull in the snapshot rollback menu (grub-btrfs-style entries that
+    // blueberry-snapshot generates before each upgrade), if present.
+    let snapshots = if btrfs {
+        "if [ -f /@/boot/grub/snapshots.cfg ]; then source /@/boot/grub/snapshots.cfg; fi\n"
+    } else {
+        ""
+    };
     let cfg = format!(
         "set timeout=3\n\
          insmod all_video\n\
@@ -86,12 +93,14 @@ pub fn write_grub_cfg(mnt: &str, root_uuid: &str, root_spec: &str, cryptarg: &st
          \x20   search --no-floppy --fs-uuid --set=root {uuid}\n\
          \x20   linux {boot}/vmlinuz {crypt}root={root} rw {rootflags}console=tty0 console=ttyS0,115200\n\
          \x20   initrd {boot}/initramfs.cpio.zst\n\
-         }}\n",
+         }}\n\
+         {snapshots}",
         uuid = root_uuid,
         crypt = cryptarg,
         root = root_spec,
         boot = boot,
         rootflags = rootflags,
+        snapshots = snapshots,
     );
     fs::write(format!("{dir}/grub.cfg"), cfg).map_err(|e| format!("write grub.cfg: {e}"))
 }
@@ -118,6 +127,12 @@ pub fn write_fstab(mnt: &str, root_spec: &str, rootfs: &str, esp_uuid: Option<&s
     let mut fstab = format!("{root_spec}  /      {rootfs}  {root_opts}  0 {pass}\n");
     if rootfs == "btrfs" {
         fstab.push_str(&format!("{root_spec}  /home  btrfs  rw,relatime,subvol=@home  0 0\n"));
+        // nofail: a missing/broken @snapshots must never drop boot to emergency.
+        fstab.push_str(&format!(
+            "{root_spec}  /.snapshots  btrfs  rw,relatime,subvol=@snapshots,nofail  0 0\n"
+        ));
+        // the /.snapshots mountpoint must exist inside @ for the mount to attach
+        let _ = fs::create_dir_all(format!("{mnt}/.snapshots"));
     }
     if let Some(u) = esp_uuid {
         fstab.push_str(&format!("UUID={u}  /boot/efi  vfat  rw,relatime  0 2\n"));

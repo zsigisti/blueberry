@@ -60,7 +60,8 @@ SYSTEMD_BASE_PKGS := systemd util-linux coreutils libseccomp kmod dbus acl \
                      python libffi mpdecimal sqlite \
                      iptables libnftnl libnetfilter_conntrack libnfnetlink \
                      grep sed gawk findutils gzip tar diffutils less which nano vim sudo tzdata kbd \
-                     procps-ng psmisc lsof mandoc man-pages
+                     procps-ng psmisc lsof mandoc man-pages \
+                     btrfs-progs blueberry-snapshot
 # procps-ng gives ps/top/free/uptime/vmstat/pgrep/pkill/sysctl (busybox has these
 # only in the live initramfs; the installed systemd rootfs would have none).
 # psmisc = killall/pstree/fuser, lsof = open-file/port inspection. mandoc is the

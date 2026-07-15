@@ -10,6 +10,9 @@
 set -u
 
 ISO=${1:?usage: $0 <installer.iso>}
+# Optional: pick the target filesystem (ext4 default | xfs | btrfs). Setting
+# BLUEBERRY_TEST_FS=btrfs exercises the @/@home/@snapshots subvolume layout.
+FSARG=""; [ -n "${BLUEBERRY_TEST_FS:-}" ] && FSARG="blueberry.fs=${BLUEBERRY_TEST_FS}"
 BOOTDIR=${BOOTDIR:-$(dirname "$0")/../../../blueberry-build/boot}
 WORK=${WORK:-$(dirname "$ISO")/../../blueberry-build/installtest}
 [ -f "$ISO" ] || { echo "FAIL: ISO not found: $ISO"; exit 1; }
@@ -24,7 +27,7 @@ ACCEL="-enable-kvm -cpu host"; [ -w /dev/kvm ] || ACCEL="-cpu max"
 echo "[install-test] unattended install ($ISO)…"
 timeout 900 qemu-system-x86_64 $ACCEL -m 3072 -smp 2 \
     -kernel "$VMLINUZ" -initrd "$INITRD" \
-    -append "bbinstall blueberry.target=/dev/vda blueberry.bootloader=bios blueberry.rootpw=blueberry blueberry.hostname=bbtest blueberry.user=blueberry blueberry.userpw=blueberry console=ttyS0,115200" \
+    -append "bbinstall blueberry.target=/dev/vda blueberry.bootloader=bios $FSARG blueberry.rootpw=blueberry blueberry.hostname=bbtest blueberry.user=blueberry blueberry.userpw=blueberry console=ttyS0,115200" \
     -cdrom "$ISO" -drive "file=$DISK,if=virtio,format=qcow2" \
     -nic user,model=virtio-net-pci \
     -serial "file:$ILOG" -display none -no-reboot

@@ -1,0 +1,19 @@
+[package]
+name     = "blueberry-snapshot"
+version  = "0.1.0"
+release  = 1
+summary  = "btrfs snapshot + boot-level rollback for Blueberry (grub-btrfs style)"
+homepage = "https://github.com/zsigisti/blueberry"
+license  = ["GPL-3.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["btrfs-progs", "util-linux"]
+
+[upstream]
+skip   = true
+reason = "first-party component, versioned with the distro"
+
+[steps]
+package = '''
+install -Dm755 "$startdir/../../src/snapshot/blueberry-snapshot" "$pkgdir/usr/bin/blueberry-snapshot"
+'''

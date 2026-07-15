@@ -130,7 +130,10 @@ pub fn btrfs_subvol_layout(dev: &str, tmp: &str) -> R<()> {
     check(&["mount", dev, tmp])?;
     let res = (|| -> R<()> {
         check(&["btrfs", "subvolume", "create", &format!("{tmp}/@")])?;
-        check(&["btrfs", "subvolume", "create", &format!("{tmp}/@home")])
+        check(&["btrfs", "subvolume", "create", &format!("{tmp}/@home")])?;
+        // @snapshots holds pre-upgrade snapshots (mounted at /.snapshots); keeping
+        // it a sibling of @ means a root rollback doesn't touch it.
+        check(&["btrfs", "subvolume", "create", &format!("{tmp}/@snapshots")])
     })();
     let _ = run(&["umount", tmp]);
     res

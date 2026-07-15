@@ -50,6 +50,13 @@ This is an honest snapshot of what is solid and what is still open. Updated
   only because nothing is published yet — not a bug.)
 - **Secure Boot.** GRUB is present but the boot chain is unsigned (no shim /
   sbsign). Open.
+- **Boot-level rollback — `blueberry-snapshot` (done).** On btrfs installs the
+  layout now includes `@snapshots`; `bpm upgrade` takes a writable pre-upgrade
+  snapshot and `blueberry-snapshot grub` adds a grub-btrfs-style boot entry per
+  snapshot (each self-contained: its own `/boot` kernel + `rootflags=subvol=@snapshots/…`).
+  If an upgrade won't boot, pick the snapshot in GRUB and run
+  `blueberry-snapshot rollback <name>` to swap `@`. Package-level `bpm rollback`
+  still handles the single-package case.
 - **CVE awareness — `bpm audit` (done).** `bpm audit` reports known CVEs against
   the installed versions (NVD for C/system software, OSV for Go/Rust), with an
   advisory CI job (`bpm-audit.py --recipes`) auditing what the tree ships. It is

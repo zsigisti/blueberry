@@ -721,6 +721,7 @@ fn cmd_upgrade(cfg: &Config) -> Result<(), String> {
     for (n, from, to, _) in &plan {
         println!("    {n:<20} {from} -> {to}");
     }
+    pre_upgrade_snapshot(cfg);
     let mut seen = HashSet::new();
     let mut ok = 0;
     for (_, _, _, e) in &plan {
@@ -746,6 +747,43 @@ fn cmd_upgrade(cfg: &Config) -> Result<(), String> {
     pkg::refresh(cfg);
     println!(":: upgraded {ok}/{} package(s)", plan.len());
     Ok(())
+}
+
+/// Best-effort pre-upgrade btrfs snapshot: on a live btrfs root with
+/// blueberry-snapshot installed, take a restore point (and refresh the GRUB
+/// snapshot menu) so a bad upgrade can be rolled back at boot. Never blocks the
+/// upgrade — if it fails or doesn't apply, we just proceed without a snapshot.
+fn pre_upgrade_snapshot(cfg: &Config) {
+    if cfg.rooted() {
+        return; // installing into a staging root, not the running system
+    }
+    if !root_is_btrfs() || !Path::new("/usr/bin/blueberry-snapshot").exists() {
+        return;
+    }
+    println!(":: taking a pre-upgrade btrfs snapshot (rollback point)");
+    let _ = std::process::Command::new("/usr/bin/blueberry-snapshot")
+        .args(["create", "pre-upgrade"])
+        .status();
+}
+
+/// True if the live root ("/") is a btrfs mount (per /proc/self/mountinfo).
+fn root_is_btrfs() -> bool {
+    let Ok(txt) = std::fs::read_to_string("/proc/self/mountinfo") else {
+        return false;
+    };
+    for line in txt.lines() {
+        // "<...> <mountpoint@field5> <...> - <fstype> <source> <opts>"
+        let mut halves = line.split(" - ");
+        let (Some(pre), Some(post)) = (halves.next(), halves.next()) else {
+            continue;
+        };
+        if pre.split_whitespace().nth(4) == Some("/")
+            && post.split_whitespace().next() == Some("btrfs")
+        {
+            return true;
+        }
+    }
+    false
 }
 
 // ── query commands ───────────────────────────────────────────────────────────
