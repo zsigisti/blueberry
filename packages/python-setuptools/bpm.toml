@@ -1,0 +1,24 @@
+[package]
+name     = "python-setuptools"
+version  = "83.0.0"
+release  = 1
+summary  = "Python packaging build backend (setuptools)"
+homepage = "https://setuptools.pypa.io/"
+license  = ["MIT"]
+arch     = ["any"]
+
+depends     = ["python"]
+
+# The wheel is a zip of pure-python modules — unpack it into site-packages; no
+# build backend is needed to install the build backend itself.
+[[source]]
+url    = "https://files.pythonhosted.org/packages/5d/40/e1e72872c6354b306daef1703549e8e83b4d43cfea356311bf722a043752/setuptools-83.0.0-py3-none-any.whl"
+sha256 = "29b23c360f22f414dc7336bb39178cc7bcbf6021ed2733cde173f09dba19abb3"
+
+[steps]
+package = '''
+pyver=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')");
+site="$pkgdir/usr/lib/python$pyver/site-packages";
+install -d "$site";
+python3 -c "import zipfile; zipfile.ZipFile([f for f in __import__('glob').glob('$srcdir/setuptools-*.whl')][0]).extractall('$site')"
+'''

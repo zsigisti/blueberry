@@ -9,7 +9,7 @@ arch     = ["x86_64"]
 
 depends     = ["pcre2", "libffi", "zlib", "util-linux"]
 makedepends = ["meson", "ninja", "python", "gettext"]
-provides    = ["libglib-2.0.so", "libgobject-2.0.so", "libgio-2.0.so", "libgmodule-2.0.so", "libgthread-2.0.so"]
+provides    = ["glib2-devel", "libglib-2.0.so", "libgobject-2.0.so", "libgio-2.0.so", "libgmodule-2.0.so", "libgthread-2.0.so"]
 
 [[source]]
 url    = "https://download.gnome.org/sources/glib/2.82/glib-2.82.4.tar.xz"
