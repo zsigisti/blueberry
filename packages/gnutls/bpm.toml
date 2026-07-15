@@ -1,7 +1,10 @@
 [package]
 name     = "gnutls"
 version  = "3.8.13"
-release  = 1
+# release 2: rebuilt against nettle 4.0 (libnettle.so.8→.so.9, libhogweed.so.6
+# →.so.7). gnutls's own soname (libgnutls.so.30) is unchanged, so gnupg/msmtp
+# are unaffected; this rebuild just keeps the repo's nettle/gnutls pair matched.
+release  = 2
 summary  = "Secure communications library implementing SSL, TLS and DTLS"
 homepage = "https://www.gnutls.org/"
 license  = ["LGPL-2.1-or-later", "GPL-3.0-or-later"]
