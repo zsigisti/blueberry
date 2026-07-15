@@ -1,76 +1,68 @@
-## Blueberry Linux — v0.7.1-beta
+## Blueberry Linux — v0.8.0-beta
 
-A hardening release: HTTPS actually works for everything now (not just bpm),
-`bpm upgrade` stops looping, community publishing can no longer be tricked into
-serving an unreviewed package, and install scripts survive packaging. New ISOs
-carry the base trust-store fix; the rest is `bpm update && bpm upgrade`.
+A "catch the whole tree up" release. Every package that was behind upstream was
+bumped to current — about 50 recipes — headlined by **systemd 256.7 → 261.1**, a
+current GNU userland, and a refreshed toolchain and crypto stack. The ISOs are
+rebuilt on the new base and pass the full end-to-end gate (server ISO boots to
+multi-user; an unattended install boots with sshd and networkd up and no failed
+units). On an existing system it is `bpm update && bpm upgrade`.
 
-### Real CA trust store (HTTPS worked only for bpm before)
+### systemd 256.7 → 261.1
 
-The base only copied the host's CA **bundle** to
-`/etc/ssl/certs/ca-certificates.crt` and marked the dep satisfied — but that
-single file is not a trust store to OpenSSL, whose default CAfile is
-`/etc/ssl/cert.pem`. So `bpm` (rustls) and `curl` worked, while **anything using
-OpenSSL's defaults trusted nothing**: `python`, `pip`, and `bur build` all died
-with `CERTIFICATE_VERIFY_FAILED`.
+Five major versions forward. The one recipe change needed was dropping
+`-Ddefault-hierarchy=unified` (removed upstream in 261 now that cgroup v1 support
+is gone — unified is the only hierarchy). Built into the base and boot-tested:
+the freshly assembled server ISO reaches `multi-user.target`, and an unattended
+install of it comes up clean.
 
-- **`ca-certificates` is now a real, tracked base package** that installs
-  `/etc/ssl/cert.pem` as well as the bundle — no more host-copy leaking into the
-  image (same class of bug as the recent `loadkeys`/libxkbcommon fix).
-- **`bur build` / `bpmbuild`** no longer rely on the default verify paths at all;
-  they point an explicit SSL context at the bundle, so a source fetch works on
-  any layout.
+### The userland is current
 
-### `bpm upgrade` converges
+About 50 recipes moved to their latest upstream release. Highlights:
 
-The `.BPM` manifest keeps `version` and `release` separate, but the repo index
-publishes them fused as `ver-rel`. bpm's runtime installer dropped `release`, so
-it recorded `2.10.0` while the index advertised `2.10.0-2` — they never compared
-equal and **every `bpm upgrade` re-offered the same packages forever**. Fixed;
-the first upgrade after this lands rewrites the stale versions, so existing
-installs self-heal. **bpm 1.11.3 → 1.11.4.**
+- **GNU core:** coreutils 9.7 → 9.11, bash 5.2.37 → 5.3, grep 3.11 → 3.12,
+  sed 4.9 → 4.10, gawk 5.3.1 → 5.4.1, findutils, diffutils, gzip, patch, which.
+- **CLI tools:** vim 9.1 → 9.2, tmux 3.5a → 3.7b, htop 3.5.1, fzf 0.74.0,
+  rclone 1.74.4, strace 7.1, and a dozen more (lsof, mtr, iotop, whois, p7zip,
+  fastfetch, node_exporter, sysstat, dhcpcd, tree, screen, parted).
+- **Shared libraries:** ncurses 6.6, readline 8.3, libffi 3.7.1, zlib 1.3.2,
+  zstd 1.5.7, libseccomp 2.6.1, plus gdbm, brotli, jansson, libpsl, libtasn1,
+  libunistring, libusb, p11-kit. Every library's soname was checked in its built
+  payload and confirmed unchanged, so nothing that links them had to be rebuilt.
 
-### Install scripts survive packaging
+### Toolchain and crypto
 
-`post_install`/`post_upgrade`/`post_remove` hooks — the highest-risk part of a
-community package, run as root — never round-tripped: `bpmbuild` emitted them as
-invalid TOML (a literal newline in a basic string), which bpm's own reader would
-have truncated to the first line. Now emitted as TOML `'''literal'''` blocks and
-parsed as multi-line values on both sides, covered by unit tests (including
-embedded quotes/backslashes). No packaged recipe used scripts yet, so nothing in
-the wild was affected — but community recipes now can.
+- **binutils 2.44 → 2.46.1.**
+- **nettle 3.10 → 4.0** (`libnettle.so.8 → .so.9`). This also closes a latent
+  mismatch: the build environment already provided nettle 4.0, so the shipped
+  gnutls was already linking `.so.9` while the nettle recipe still said 3.10.
+  **gnutls** is rebuilt against it (release 2); its own soname is unchanged, so
+  gnupg and msmtp are unaffected.
+- **podman 6.0.0 → 6.0.1**, **containers-common 0.64.1 → 1.0.1**,
+  **polkit 126 → 127**, **pam 1.7.0 → 1.7.2** (the newer pam needs `libpwaccess`
+  and `elogind` explicitly disabled at configure time).
 
-### BUR: publishing can't be tricked, plus CLI staples
+### lsof stays inside the base
 
-The community publish endpoint used to write **any** upload into the repo under
-the approved recipe's canonical name — approve one recipe, publish a different
-artifact (different deps, or a root scriptlet nobody reviewed). It now recomputes
-what the `.bpm` manifest must say from the reviewed recipe and rejects any
-mismatch: package identity, `depends`/`provides`/`backup`, install scripts (exact
-match), and payload paths (must stay in `usr,etc,opt,srv,var` — no `..`/absolute
-escapes). Proven against smuggled-script, swapped-dep, path-escape and
-not-a-`.bpm` attacks.
+`check-base` (the base DT_NEEDED closure gate) caught that lsof 4.99.7 had begun
+auto-linking `libtirpc`, which the base does not ship. lsof is now built
+`--without-libtirpc` so it stays self-contained; the base closure is clean.
 
-**`bur` 0.1.1 → 0.1.3** also adds:
+### CI, and BUR publishing verifies the payload
 
-- **`bur build`** — the subcommand the docs already told you to run; wraps the
-  bundled `bpmbuild`, with a **makedepends preflight** that names missing build
-  tools up front instead of failing deep in a compile.
-- **`bur upgrade`** — upgrades installed community packages BUR has a newer build
-  of (uses bpm's exact version comparison).
-- **`bur info <unknown>`** now says "not found" instead of a decode error.
-
-### `loadkeys` fixed
-
-`kbd` linked `libxkbcommon` whenever the build container happened to ship it, but
-Blueberry packages none — so `loadkeys` died at runtime with
-`libxkbcommon.so.0: cannot open shared object file`. Built with `--disable-xkb`
-(console keymaps don't need it); the binary now needs only `libc`. **kbd
-2.10.0-2.**
+- **A GitHub Actions gate** now runs on every push: recipe dependency closure,
+  bpm unit + end-to-end lifecycle tests, a `bpmbuild --check` tamper test, and an
+  advisory package-freshness report.
+- **BUR publishing now unpacks the uploaded `.bpm` and checks it against the
+  manifest inside it** — `payload_sha256` and `installed_size` — on top of the
+  existing recipe-vs-manifest checks. No server-side rebuild; an artifact that
+  does not match its own manifest is rejected.
+- **bpm** gained an end-to-end lifecycle test suite (install / upgrade / rollback
+  / downgrade / remove + config-file preservation), and there is now a
+  `check-updates.py` freshness tracker that reports which recipes are behind
+  upstream (it is what drove this release).
 
 ---
 
-**Upgrade:** `bpm update && bpm upgrade` picks up bpm 1.11.4, kbd 2.10.0-2 and
-`ca-certificates`. On an existing install, run `bpm install ca-certificates`
-explicitly the first time (a fresh install from these ISOs already has it).
-`bpm install bur` for the 0.1.3 client.
+**Upgrade:** `bpm update && bpm upgrade`. Because nettle changed soname, the
+upgrade pulls the matched nettle 4.0 + gnutls pair together. Fresh installs from
+these ISOs already have everything. `bpm install bur` for the community client.
