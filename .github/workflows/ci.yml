@@ -88,3 +88,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 tools/pkg/check-updates.py
+
+  # Advisory only: reports known CVEs affecting the versions the distro ships
+  # (queries NVD + OSV, so it can be slow/flaky and must never block a merge).
+  # Set the NVD_API_KEY repo secret to lift NVD's anonymous rate limit.
+  audit:
+    name: CVE audit (advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Report known CVEs in shipped package versions
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: python3 tools/pkg/bpm-audit.py --recipes packages

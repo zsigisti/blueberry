@@ -33,6 +33,7 @@ fn main() -> ExitCode {
         "update" | "up" => cmd_update(&cfg),
         "upgrade" => cmd_upgrade(&cfg),
         "outdated" => cmd_outdated(&cfg),
+        "audit" => cmd_audit(&cfg, rest),
         "rollback" | "rb" => cmd_rollback(&cfg, rest),
         "downgrade" | "dg" => cmd_downgrade(&cfg, rest),
         "clean" => cmd_clean(&cfg, rest),
@@ -75,6 +76,7 @@ fn usage() {
          \x20 bpm update                               sync repo indices\n\
          \x20 bpm upgrade                              upgrade all installed packages\n\
          \x20 bpm outdated                             list upgradable packages (no changes)\n\
+         \x20 bpm audit                                report known CVEs affecting installed packages\n\
          \x20 bpm rollback <name>                      revert a package to the previous cached version\n\
          \x20 bpm downgrade <name>[=<ver>]             install a specific older cached version\n\
          \x20 bpm search  <term>                       search the repo index\n\
@@ -649,6 +651,53 @@ fn cmd_outdated(cfg: &Config) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+/// `bpm audit` — report known CVEs affecting the installed packages. Thin
+/// wrapper around the bundled Python engine (tools/pkg/bpm-audit.py), which does
+/// the NVD/OSV lookups; python3 ships in the base. Extra args pass through
+/// (e.g. `bpm audit --json`, `bpm audit --fail-on high`). Exits with the
+/// engine's own status so scripts/CI can gate on it.
+fn cmd_audit(cfg: &Config, args: &[String]) -> Result<(), String> {
+    let script = audit_script().ok_or(
+        "audit engine not found (expected /usr/share/bpm/bpm-audit.py); \
+         on a dev checkout run tools/pkg/bpm-audit.py directly",
+    )?;
+    let root = if cfg.root.is_empty() { "/" } else { cfg.root.as_str() };
+    let status = std::process::Command::new("python3")
+        .arg(&script)
+        .arg("--root")
+        .arg(root)
+        .args(args)
+        .status()
+        .map_err(|e| format!("cannot run python3 (needed for audit): {e}"))?;
+    std::process::exit(status.code().unwrap_or(1));
+}
+
+/// Locate the audit engine: env override, the installed path, a dev checkout,
+/// then next to the bpm binary.
+fn audit_script() -> Option<std::path::PathBuf> {
+    if let Ok(p) = std::env::var("BPM_AUDIT_PY") {
+        let pb = std::path::PathBuf::from(p);
+        if pb.is_file() {
+            return Some(pb);
+        }
+    }
+    for cand in ["/usr/share/bpm/bpm-audit.py", "tools/pkg/bpm-audit.py"] {
+        let pb = std::path::PathBuf::from(cand);
+        if pb.is_file() {
+            return Some(pb);
+        }
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            let pb = dir.join("../share/bpm/bpm-audit.py");
+            if pb.is_file() {
+                return Some(pb);
+            }
+        }
+    }
+    None
 }
 
 fn cmd_upgrade(cfg: &Config) -> Result<(), String> {

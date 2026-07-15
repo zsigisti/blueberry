@@ -50,6 +50,13 @@ This is an honest snapshot of what is solid and what is still open. Updated
   only because nothing is published yet — not a bug.)
 - **Secure Boot.** GRUB is present but the boot chain is unsigned (no shim /
   sbsign). Open.
+- **CVE awareness — `bpm audit` (done).** `bpm audit` reports known CVEs against
+  the installed versions (NVD for C/system software, OSV for Go/Rust), with an
+  advisory CI job (`bpm-audit.py --recipes`) auditing what the tree ships. It is
+  triage, not gospel: NVD's CPE data over-reports, so the tool drops open-ended
+  ranges (a match is kept only when the CVE records a fix version or names the
+  exact version). Not every package is mapped yet — unmapped ones are reported as
+  untracked, never silently passed.
 
 ### Coverage
 

@@ -1,6 +1,6 @@
 [package]
 name     = "bpm"
-version  = "1.11.4"
+version  = "1.11.5"
 release  = 1
 summary  = "Blueberry Package Manager — streaming installs, SHA-256 verified, pre/post-install hooks (Rust)"
 homepage = "https://github.com/zsigisti/blueberry"
@@ -23,5 +23,6 @@ package = '''
 install -Dm755 "$srcdir/bpmsrc/target/release/bpm" "$pkgdir/usr/bin/bpm";
 install -Dm644 "$srcdir/bpmsrc/bpm.1" "$pkgdir/usr/share/man/man1/bpm.1";
 install -Dm644 "$startdir/../../etc/bpm/repos.conf" "$pkgdir/usr/share/bpm/repos.conf";
-install -Dm644 "$startdir/../../etc/bpm/provided" "$pkgdir/usr/share/bpm/provided"
+install -Dm644 "$startdir/../../etc/bpm/provided" "$pkgdir/usr/share/bpm/provided";
+install -Dm644 "$startdir/../../tools/pkg/bpm-audit.py" "$pkgdir/usr/share/bpm/bpm-audit.py"
 '''

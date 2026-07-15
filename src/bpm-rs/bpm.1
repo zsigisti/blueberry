@@ -38,6 +38,17 @@ Sync the repository indices (fetch and verify the signed
 .It Cm upgrade
 Upgrade every installed package to the newest available version. The kernel is a
 pinned artifact and is not part of this.
+.It Cm audit
+Report known CVEs affecting the installed packages. Each mapped package's
+installed version is checked against NVD (C/system software) or OSV (Go/Rust
+components); packages with no mapping are listed as untracked. Extra arguments
+pass through to the engine, e.g.
+.Fl Fl json
+or
+.Fl Fl fail-on Cm high
+(exit non-zero when a CVE at that severity or above is found). Set
+.Ev NVD_API_KEY
+to lift NVD's anonymous rate limit.
 .It Cm rollback Ar name
 Reinstall the previous cached version of a package (the newest cached version
 older than the one installed).
