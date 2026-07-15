@@ -9,7 +9,7 @@ local — GitHub only runs the checks that don't need a full image build.
 ## The CI gate — `.github/workflows/ci.yml`
 
 Runs on every push and pull request to `master`, on stock `ubuntu-latest`
-runners (no Arch container). Three jobs:
+runners (no Arch container). Four jobs:
 
 - **recipe closure + bpmbuild** — `check-closure.py` asserts the recipe
   dependency graph is closed (every `depends` resolves to a recipe or a
@@ -22,6 +22,15 @@ runners (no Arch container). Three jobs:
 - **package freshness (advisory)** — `check-updates.py` reports which recipes
   are behind upstream. `continue-on-error`, so it never blocks a merge —
   upstream releases are not our regressions.
+- **CVE audit (advisory)** — `bpm-audit.py --recipes` reports known CVEs against
+  the versions the tree ships (NVD + OSV). Also `continue-on-error`; set the
+  `NVD_API_KEY` secret to lift NVD's rate limit.
+
+A separate **`auto-bump`** workflow (`.github/workflows/auto-bump.yml`) runs
+weekly (and on demand): it finds recipes behind upstream and opens one PR per
+package with the bump already applied (version, URL, fresh checksum, release
+reset). It never pushes to `master` — you review, `bbdev`-build-verify, and
+merge. A `BUMP_TOKEN` PAT secret makes the CI gate run on those PRs.
 
 What CI deliberately does **not** do: build the base image, run `check-base`
 (needs a built rootfs), or boot an ISO. Those run on the build box (below).
@@ -59,9 +68,12 @@ python3 tools/pkg/check-closure.py     # recipe dependency graph is closed
 cd src/bpm-rs && cargo test            # bpm unit tests
 sh tools/test/bpm-integration.sh       # bpm lifecycle end-to-end
 python3 tools/pkg/check-updates.py     # which recipes are behind upstream
+python3 tools/pkg/bpm-audit.py --recipes packages   # known CVEs in shipped versions
 
 make world && make test-server         # build base + headless boot self-test
 make test-install                      # unattended install to a disk image, assert boot
+BLUEBERRY_TEST_FS=btrfs make test-install   # exercise the @snapshots layout + boot
+make test-services                     # each server service starts and serves
 make check-base                        # base binaries' DT_NEEDED are all provided
 make repo-build                        # build every packages/*/bpm.toml
 ```

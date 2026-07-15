@@ -554,6 +554,13 @@ help:
 test-bpm:
 	@sh $(TOPDIR)/tools/test/test-bpm.sh
 
+# Functional smoke test of the server services: build each service .bpm, start
+# the daemon and probe it (redis PING, HTTP GET, SQL SELECT). Proves the software
+# runs, which a boot test can't. Optional: test-services SERVICES="redis nginx".
+.PHONY: test-services
+test-services:
+	@sh $(TOPDIR)/tools/test/service-smoke.sh $(SERVICES)
+
 # Unattended install of the server ISO in QEMU, then boot the installed disk
 # and assert it reaches multi-user with a login prompt.
 .PHONY: test-install

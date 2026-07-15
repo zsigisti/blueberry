@@ -31,7 +31,11 @@ This is an honest snapshot of what is solid and what is still open. Updated
 - **Mirror + release infra** — signed repo, keep-last-3 pruning, ISOs attached
   directly to GitHub releases (never the mirror).
 - **CI** — `check-closure`, bpm unit + integration tests, `bpmbuild --check`
-  tamper test, and an advisory package-freshness report, on every push.
+  tamper test, and advisory package-freshness + CVE-audit reports, on every push;
+  a weekly `auto-bump` job opens per-package update PRs.
+- **Functional tests** — `make test-services` starts each server service
+  (redis/nginx/postgresql/…) and probes it (PING, HTTP GET, SQL SELECT), so
+  "it installed" is backed by "it runs". Complements the boot + install tests.
 
 ## Open / decided
 
