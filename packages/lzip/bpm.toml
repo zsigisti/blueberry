@@ -1,0 +1,26 @@
+[package]
+name     = "lzip"
+version  = "1.25"
+release  = 1
+summary  = "Lossless data compressor (LZMA .lz) — used to unpack tzdata"
+homepage = "https://www.nongnu.org/lzip/"
+license  = ["GPL-2.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "gcc-libs"]
+makedepends = ["gcc", "make"]
+
+[[source]]
+url    = "https://download.savannah.gnu.org/releases/lzip/lzip-1.25.tar.gz"
+sha256 = "09418a6d8fb83f5113f5bd856e09703df5d37bae0308c668d0f346e3d3f0a56f"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr CXX=g++;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install
+'''
