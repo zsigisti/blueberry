@@ -1,0 +1,28 @@
+[package]
+name     = "protobuf"
+version  = "35.1"
+release  = 1
+summary  = "Protocol Buffers — protoc compiler + libprotobuf (netavark build dep)"
+homepage = "https://protobuf.dev/"
+license  = ["BSD-3-Clause"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "gcc-libs", "zlib", "abseil-cpp"]
+provides    = ["libprotobuf.so", "libprotoc.so"]
+makedepends = ["cmake", "ninja", "abseil-cpp", "zlib", "gcc", "make"]
+
+[[source]]
+url    = "https://github.com/protocolbuffers/protobuf/releases/download/v35.1/protobuf-35.1.tar.gz"
+sha256 = "f0b6838e7522a8da96126d487068c959bc624926368f3024ac8fd03abd0a1ac4"
+
+[steps]
+build = '''
+cmake -G Ninja -S "protobuf-$version" -B build \
+    -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
+    -Dprotobuf_BUILD_TESTS=OFF -Dprotobuf_ABSL_PROVIDER=package \
+    -DBUILD_SHARED_LIBS=ON -DCMAKE_CXX_STANDARD=17;
+ninja -C build
+'''
+package = '''
+DESTDIR="$pkgdir" ninja -C build install
+'''

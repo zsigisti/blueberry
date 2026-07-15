@@ -1,0 +1,27 @@
+[package]
+name     = "abseil-cpp"
+version  = "20260526.0"
+release  = 1
+summary  = "Abseil C++ common libraries (protobuf dependency)"
+homepage = "https://abseil.io/"
+license  = ["Apache-2.0"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "gcc-libs"]
+makedepends = ["cmake", "ninja", "gcc", "make"]
+
+[[source]]
+url    = "https://github.com/abseil/abseil-cpp/releases/download/20260526.0/abseil-cpp-20260526.0.tar.gz"
+sha256 = "6e1aee535473414164bf83e4ebc40240dec71a4701f8a642d906e95bea1aea0c"
+
+[steps]
+build = '''
+cmake -G Ninja -S "abseil-cpp-$version" -B build \
+    -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
+    -DBUILD_SHARED_LIBS=ON -DABSL_PROPAGATE_CXX_STD=ON \
+    -DABSL_BUILD_TESTING=OFF -DCMAKE_CXX_STANDARD=17;
+ninja -C build
+'''
+package = '''
+DESTDIR="$pkgdir" ninja -C build install
+'''
