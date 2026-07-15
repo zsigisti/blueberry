@@ -1,0 +1,66 @@
+name: auto-bump
+
+# Weekly (and on demand) it finds recipes behind upstream and opens ONE pull
+# request per package with the mechanical bump already applied — version, source
+# URL, a freshly-computed sha256, release reset, and any hard-coded version in
+# the build steps. It never pushes to master: every bump is a PR you review and
+# merge. Build-verify with bbdev before merging (CI can't build the world).
+#
+# Note: PRs opened with the default GITHUB_TOKEN do not themselves trigger CI
+# (a GitHub safeguard). Set a BUMP_TOKEN repo secret (a fine-grained PAT with
+# contents+pull-requests write) if you want the CI gate to run on these PRs.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"      # Mondays 06:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    name: open bump PRs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Configure git
+        run: |
+          git config user.name  "blueberry-auto-bump"
+          git config user.email "auto-bump@users.noreply.github.com"
+      - name: Find outdated recipes and open a PR per package
+        env:
+          GH_TOKEN: ${{ secrets.BUMP_TOKEN || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          outdated=$(python3 tools/pkg/check-updates.py --json \
+            | python3 -c "import sys,json;[print(r['name'],r['latest']) for r in json.load(sys.stdin) if r.get('status')=='OUTDATED']")
+          [ -n "$outdated" ] || { echo "nothing behind upstream"; exit 0; }
+
+          echo "$outdated" | while read -r pkg ver; do
+            [ -n "$pkg" ] || continue
+            branch="auto-bump/${pkg}-${ver}"
+            if gh pr list --head "$branch" --state all --json number --jq 'length' | grep -qv '^0$'; then
+              echo ":: $pkg -> $ver already has a PR/branch, skipping"; continue
+            fi
+            git checkout -q master
+            git checkout -qB "$branch"
+            if ! summary=$(python3 tools/pkg/auto-bump.py "$pkg" --new-version "$ver" 2>&1); then
+              echo ":: $pkg needs a human ($ver): $summary"
+              git checkout -q -- . ; continue
+            fi
+            git commit -qam "pkg: bump $pkg to $ver (auto)"
+            git push -q -u origin "$branch"
+            {
+              printf '%s\n\n' "$summary"
+              printf 'Automated by the auto-bump workflow. Review before merge:\n\n'
+              printf -- '- [ ] build-verified with `bbdev build %s`\n' "$pkg"
+              printf -- '- [ ] soname unchanged if this is a shared library\n'
+            } | gh pr create --head "$branch" --base master \
+                  --title "pkg: bump $pkg to $ver" --body-file - \
+              && echo ":: opened PR for $pkg $ver"
+          done
