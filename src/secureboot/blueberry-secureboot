@@ -1,0 +1,196 @@
+#!/bin/sh
+# blueberry-secureboot — own-keys UEFI Secure Boot for Blueberry.
+#
+# Blueberry has no Microsoft-signed shim (that is a months-long external
+# process), so Secure Boot here is the *own-keys* model: you generate a Blueberry
+# key set, enroll it in your firmware, and Blueberry signs its own boot chain:
+#
+#     firmware --(db / Authenticode)--> GRUB --(GPG / check_signatures)--> kernel
+#
+# The db key (X.509) signs GRUB's EFI binary; firmware verifies it against the
+# enrolled db. GRUB is built with an embedded GPG public key and
+# check_signatures=enforce, so it refuses to boot a kernel/initramfs/grub.cfg
+# whose detached GPG signature does not verify. This gates the whole chain
+# without a shim.
+#
+# Commands:
+#   keygen                 generate PK/KEK/db (X.509) + a GPG boot-signing key
+#   enroll-artifacts <dir> write PK/KEK/db .esl + .auth (+ .crt) for enrollment
+#   sign-boot [--esp DIR]  sbsign GRUB + GPG-sign kernel/initramfs/grub.cfg
+#   verify    [--esp DIR]  sbverify GRUB, gpg --verify the boot files
+#   status                 show firmware SB state + key/signature status
+#
+# Keys live in /etc/blueberry/secureboot (mode 700). Keep the private keys safe —
+# anyone with db.key can sign a binary your firmware will trust.
+set -eu
+
+KEYDIR=${BLUEBERRY_SB_KEYDIR:-/etc/blueberry/secureboot}
+GNUPGHOME_SB="$KEYDIR/gpg"
+GPG_UID="Blueberry Secure Boot <secureboot@blueberrylinux.org>"
+DAYS=3650
+
+log()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
+warn() { printf '\033[1;33mwarning:\033[0m %s\n' "$*" >&2; }
+die()  { printf '\033[1;31merror:\033[0m %s\n' "$*" >&2; exit 1; }
+
+need() { command -v "$1" >/dev/null 2>&1 || die "missing tool: $1 (install $2)"; }
+
+# Default ESP: the first mounted vfat under /boot or /efi, else /boot.
+detect_esp() {
+    for m in /efi /boot/efi /boot; do
+        [ -d "$m/EFI" ] && { echo "$m"; return; }
+    done
+    echo /boot
+}
+
+find_one() {  # find_one <dir> <name-glob>...; echo first match
+    d=$1; shift
+    for g in "$@"; do
+        for f in "$d"/$g; do [ -e "$f" ] && { echo "$f"; return; }; done
+    done
+    return 1
+}
+
+# ── keygen ────────────────────────────────────────────────────────────────────
+cmd_keygen() {
+    need openssl openssl
+    need gpg gnupg
+    need uuidgen util-linux
+    if [ -e "$KEYDIR/db.key" ] && [ -z "${FORCE:-}" ]; then
+        die "keys already exist in $KEYDIR (set FORCE=1 to overwrite)"
+    fi
+    mkdir -p "$KEYDIR"; chmod 700 "$KEYDIR"
+    guid=$(uuidgen); printf '%s\n' "$guid" > "$KEYDIR/GUID"
+    log "generating X.509 Secure Boot keys (PK, KEK, db) in $KEYDIR"
+    for k in PK KEK db; do
+        openssl req -newkey rsa:4096 -nodes -sha256 -days "$DAYS" -x509 \
+            -subj "/CN=Blueberry Secure Boot $k/" \
+            -keyout "$KEYDIR/$k.key" -out "$KEYDIR/$k.crt" >/dev/null 2>&1
+        openssl x509 -in "$KEYDIR/$k.crt" -outform DER -out "$KEYDIR/$k.der"
+    done
+    chmod 600 "$KEYDIR"/*.key
+    log "generating GPG boot-signing key (GRUB -> kernel verification)"
+    mkdir -p "$GNUPGHOME_SB"; chmod 700 "$GNUPGHOME_SB"
+    GNUPGHOME="$GNUPGHOME_SB" gpg --batch --pinentry-mode loopback --passphrase '' \
+        --quick-generate-key "$GPG_UID" rsa4096 sign never >/dev/null 2>&1
+    GNUPGHOME="$GNUPGHOME_SB" gpg --export --output "$KEYDIR/grub-gpg.pub" "$GPG_UID"
+    log "done. Public GPG key for grub-mkstandalone --pubkey: $KEYDIR/grub-gpg.pub"
+    warn "back up $KEYDIR and keep the private keys (*.key, gpg/) offline where possible."
+}
+
+# ── enroll-artifacts ──────────────────────────────────────────────────────────
+cmd_enroll_artifacts() {
+    need sbsiglist sbsigntools
+    need sbvarsign sbsigntools
+    out=${1:-}; [ -n "$out" ] || die "usage: blueberry-secureboot enroll-artifacts <output-dir>"
+    [ -e "$KEYDIR/db.key" ] || die "no keys — run 'blueberry-secureboot keygen' first"
+    guid=$(cat "$KEYDIR/GUID")
+    mkdir -p "$out"
+    # PK is signed by PK (self); KEK by PK; db by KEK.
+    _mk() {  # _mk <var> <signer>
+        var=$1; signer=$2
+        sbsiglist --owner "$guid" --type x509 --output "$out/$var.esl" "$KEYDIR/$var.der"
+        sbvarsign --key "$KEYDIR/$signer.key" --cert "$KEYDIR/$signer.crt" \
+            --output "$out/$var.auth" "$var" "$out/$var.esl"
+        cp "$KEYDIR/$var.crt" "$out/$var.crt"
+    }
+    log "building enrollment artifacts in $out"
+    _mk PK  PK
+    _mk KEK PK
+    _mk db  KEK
+    cat <<EOF
+
+Enrollment artifacts written to $out:
+  PK.auth  KEK.auth  db.auth   — signed variable updates (enroll in this order)
+  *.esl / *.crt                — raw lists / certs for firmware "enroll from file"
+
+Enroll them by either:
+  * Firmware setup: put the ESP in Setup Mode / Custom Mode, then "Enroll" /
+    "Add from file" PK.auth, KEK.auth, db.auth (or the .esl/.crt), OR
+  * From Linux (firmware in Setup Mode): sbkeysync --pk PK.auth (see sbkeysync).
+Then re-enable Secure Boot in firmware and boot a signed Blueberry.
+EOF
+}
+
+# ── sign-boot ─────────────────────────────────────────────────────────────────
+cmd_sign_boot() {
+    need sbsign sbsigntools
+    need gpg gnupg
+    esp=$(detect_esp)
+    while [ $# -gt 0 ]; do
+        case $1 in
+            --esp) esp=$2; shift 2 ;;
+            *) die "sign-boot: unknown arg $1" ;;
+        esac
+    done
+    [ -e "$KEYDIR/db.key" ] || die "no keys — run keygen first"
+    grub=$(find_one "$esp/EFI/BOOT" BOOTX64.EFI grubx64.efi) \
+        || die "no GRUB EFI under $esp/EFI/BOOT"
+    log "sbsign $grub (db key)"
+    sbsign --key "$KEYDIR/db.key" --cert "$KEYDIR/db.crt" --output "$grub" "$grub"
+
+    # GPG-sign every file GRUB loads from the ESP at runtime.
+    log "GPG-signing kernel / initramfs / grub.cfg under $esp"
+    for f in \
+        "$(find_one "$esp" vmlinuz 'vmlinuz-*' 2>/dev/null || true)" \
+        "$(find_one "$esp" initramfs.cpio.zst 'initramfs*' 2>/dev/null || true)" \
+        "$(find_one "$esp" grub/grub.cfg 'grub.cfg' 'EFI/BOOT/grub.cfg' 2>/dev/null || true)"
+    do
+        [ -n "$f" ] && [ -e "$f" ] || continue
+        GNUPGHOME="$GNUPGHOME_SB" gpg --batch --yes --detach-sign \
+            --output "$f.sig" "$f"
+        printf '   signed %s\n' "$f"
+    done
+    log "boot chain signed. GRUB must be built with --pubkey $KEYDIR/grub-gpg.pub"
+}
+
+# ── verify ────────────────────────────────────────────────────────────────────
+cmd_verify() {
+    need sbverify sbsigntools
+    esp=$(detect_esp)
+    [ "${1:-}" = --esp ] && { esp=$2; shift 2; }
+    rc=0
+    grub=$(find_one "$esp/EFI/BOOT" BOOTX64.EFI grubx64.efi) || die "no GRUB EFI"
+    log "sbverify $grub"
+    sbverify --cert "$KEYDIR/db.crt" "$grub" || rc=1
+    for f in "$esp"/vmlinuz* "$esp"/initramfs* "$esp"/grub/grub.cfg; do
+        [ -e "$f" ] && [ -e "$f.sig" ] || continue
+        if GNUPGHOME="$GNUPGHOME_SB" gpg --verify "$f.sig" "$f" >/dev/null 2>&1; then
+            printf '   ok  %s\n' "$f"
+        else
+            printf '   BAD %s\n' "$f"; rc=1
+        fi
+    done
+    return $rc
+}
+
+# ── status ────────────────────────────────────────────────────────────────────
+cmd_status() {
+    printf 'keys:            '
+    [ -e "$KEYDIR/db.key" ] && echo "present ($KEYDIR)" || echo "none (run keygen)"
+    sb=/sys/firmware/efi/efivars
+    if [ -d "$sb" ]; then
+        v=$(find "$sb" -maxdepth 1 -name 'SecureBoot-*' 2>/dev/null | head -1)
+        if [ -n "$v" ]; then
+            # 5th byte of the efivar is the boolean value
+            state=$(od -An -tu1 -j4 -N1 "$v" 2>/dev/null | tr -d ' ')
+            printf 'firmware SecureBoot: %s\n' "$([ "$state" = 1 ] && echo ENABLED || echo disabled)"
+        else
+            echo "firmware SecureBoot: unknown (no SecureBoot efivar)"
+        fi
+    else
+        echo "firmware SecureBoot: n/a (not booted via UEFI, or efivars not mounted)"
+    fi
+}
+
+usage() { sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; }
+
+case "${1:-}" in
+    keygen)            shift; cmd_keygen "$@" ;;
+    enroll-artifacts)  shift; cmd_enroll_artifacts "$@" ;;
+    sign-boot)         shift; cmd_sign_boot "$@" ;;
+    verify)            shift; cmd_verify "$@" ;;
+    status)            shift; cmd_status "$@" ;;
+    ""|-h|--help|help) usage ;;
+    *) die "unknown command: $1 (try: blueberry-secureboot help)" ;;
+esac

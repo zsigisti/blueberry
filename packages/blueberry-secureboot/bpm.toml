@@ -1,0 +1,19 @@
+[package]
+name     = "blueberry-secureboot"
+version  = "0.1.0"
+release  = 1
+summary  = "Own-keys UEFI Secure Boot for Blueberry (keygen, enroll, sign the boot chain)"
+homepage = "https://github.com/zsigisti/blueberry"
+license  = ["GPL-3.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["sbsigntools", "gnupg", "openssl", "util-linux"]
+
+[upstream]
+skip   = true
+reason = "first-party component, versioned with the distro"
+
+[steps]
+package = '''
+install -Dm755 "$startdir/../../src/secureboot/blueberry-secureboot" "$pkgdir/usr/bin/blueberry-secureboot"
+'''
