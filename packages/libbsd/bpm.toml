@@ -23,5 +23,4 @@ make
 package = '''
 cd "libbsd-$version"
 make install DESTDIR="$pkgdir"
-rm -rf "$pkgdir/usr/include" "$pkgdir/usr/lib/pkgconfig"
 '''

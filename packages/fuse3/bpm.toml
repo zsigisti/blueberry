@@ -28,5 +28,4 @@ cd "fuse-$version"
 DESTDIR="$pkgdir" ninja -C build install
 # fusermount3 must be setuid root for unprivileged mounts.
 chmod 4755 "$pkgdir/usr/bin/fusermount3"
-rm -rf "$pkgdir/usr/include" "$pkgdir/usr/lib/pkgconfig"
 '''

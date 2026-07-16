@@ -1,0 +1,30 @@
+[package]
+name     = "libxcrypt"
+version  = "4.4.38"
+release  = 1
+summary  = "Modern password-hashing library — libcrypt.so.2 (crypt/crypt_r) + crypt.h"
+homepage = "https://github.com/besser82/libxcrypt"
+license  = ["LGPL-2.1-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["pkgconf", "perl"]
+provides    = ["libcrypt.so.2"]
+
+[[source]]
+url    = "https://github.com/besser82/libxcrypt/releases/download/v4.4.38/libxcrypt-4.4.38.tar.xz"
+sha256 = "80304b9c306ea799327f01d9a7549bdb28317789182631f1b54f4511b4206dd6"
+
+[steps]
+build = '''
+cd "libxcrypt-$version"
+# Modern-only ABI (libcrypt.so.2). This is a from-scratch distro that never had
+# glibc's libcrypt.so.1, so the obsolete-API compat shim is unnecessary.
+./configure --prefix=/usr --disable-static --disable-werror \
+    --enable-obsolete-api=no --enable-hashes=strong,glibc
+make
+'''
+package = '''
+cd "libxcrypt-$version"
+make install DESTDIR="$pkgdir"
+'''
