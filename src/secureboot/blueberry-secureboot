@@ -124,24 +124,30 @@ cmd_sign_boot() {
         esac
     done
     [ -e "$KEYDIR/db.key" ] || die "no keys — run keygen first"
+    sb() { sbsign --key "$KEYDIR/db.key" --cert "$KEYDIR/db.crt" --output "$1" "$1"; }
+    gsign() { GNUPGHOME="$GNUPGHOME_SB" gpg --batch --yes --detach-sign --output "$1.sig" "$1"; }
+
     grub=$(find_one "$esp/EFI/BOOT" BOOTX64.EFI grubx64.efi) \
         || die "no GRUB EFI under $esp/EFI/BOOT"
-    log "sbsign $grub (db key)"
-    sbsign --key "$KEYDIR/db.key" --cert "$KEYDIR/db.crt" --output "$grub" "$grub"
+    log "sbsign GRUB $grub (db key)"
+    sb "$grub"
 
-    # GPG-sign every file GRUB loads from the ESP at runtime.
-    log "GPG-signing kernel / initramfs / grub.cfg under $esp"
-    for f in \
-        "$(find_one "$esp" vmlinuz 'vmlinuz-*' 2>/dev/null || true)" \
-        "$(find_one "$esp" initramfs.cpio.zst 'initramfs*' 2>/dev/null || true)" \
-        "$(find_one "$esp" grub/grub.cfg 'grub.cfg' 'EFI/BOOT/grub.cfg' 2>/dev/null || true)"
-    do
-        [ -n "$f" ] && [ -e "$f" ] || continue
-        GNUPGHOME="$GNUPGHOME_SB" gpg --batch --yes --detach-sign \
-            --output "$f.sig" "$f"
-        printf '   signed %s\n' "$f"
-    done
-    log "boot chain signed. GRUB must be built with --pubkey $KEYDIR/grub-gpg.pub"
+    # The kernel is a PE (EFI stub): sbsign it (db) so GRUB's EFI loader / firmware
+    # LoadImage accepts it, THEN GPG-sign the signed file so GRUB's check_signatures
+    # (pgp verifier) also passes. The initramfs is GPG-signed only (LoadImage never
+    # sees it, so GRUB's pgp verifier is what gates it).
+    kernel=$(find_one "$esp" vmlinuz 'vmlinuz-*' || true)
+    if [ -n "$kernel" ] && [ -e "$kernel" ]; then
+        log "sbsign + GPG-sign kernel $kernel"
+        sb "$kernel"; gsign "$kernel"
+    fi
+    initrd=$(find_one "$esp" initramfs.cpio.zst 'initramfs*' 'initrd*' || true)
+    if [ -n "$initrd" ] && [ -e "$initrd" ]; then
+        log "GPG-sign initramfs $initrd"
+        gsign "$initrd"
+    fi
+    log "boot chain signed. (GRUB itself must have been built with --pubkey"
+    log " $KEYDIR/grub-gpg.pub --disable-shim-lock — done by mkdisk at image time.)"
 }
 
 # ── verify ────────────────────────────────────────────────────────────────────

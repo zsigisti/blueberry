@@ -67,8 +67,17 @@ This is an honest snapshot of what is solid and what is still open. Updated
   `bur.blueberrylinux.org` tunnel as a workaround; a dedicated
   `repo1.blueberrylinux.org` route is not wired up. (Its `bpm.index` is 0-byte
   only because nothing is published yet — not a bug.)
-- **Secure Boot.** GRUB is present but the boot chain is unsigned (no shim /
-  sbsign). Open.
+- **Secure Boot — own keys (done).** Blueberry signs its own boot chain with a
+  Blueberry key set you enroll once (no Microsoft-signed shim — that is a
+  months-long external process, out of scope). `blueberry-secureboot` does
+  keygen / enroll-artifacts / sign-boot / verify; `sbsigntools` + `gnu-efi` are
+  packaged. `mkdisk` signs opt-in via `SECUREBOOT_KEYDIR`: GRUB is built with an
+  embedded GPG key + `--disable-shim-lock`, GRUB **and** the kernel are sbsigned
+  (db), and the kernel + initramfs are GPG-signed. Chain: firmware —(db)→ GRUB
+  —(db + gpg check_signatures)→ kernel → initramfs. `make test-secureboot` proves
+  it under QEMU+OVMF (signed boots, unsigned is rejected). See
+  [doc/SECUREBOOT.md](SECUREBOOT.md). A signed shim, if ever added, slots in front
+  of GRUB without changing the rest.
 - **Boot-level rollback — `blueberry-snapshot` (done).** On btrfs installs the
   layout now includes `@snapshots`; `bpm upgrade` takes a writable pre-upgrade
   snapshot and `blueberry-snapshot grub` adds a grub-btrfs-style boot entry per

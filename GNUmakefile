@@ -561,6 +561,14 @@ test-bpm:
 test-services:
 	@sh $(TOPDIR)/tools/test/service-smoke.sh $(SERVICES)
 
+# Own-keys UEFI Secure Boot end-to-end under QEMU+OVMF: build a signed disk
+# image, enroll Blueberry keys with Secure Boot on, assert the signed image boots
+# and an unsigned one is rejected. Skips cleanly if OVMF/qemu/virt-fw-vars or the
+# rootfs/sbsigntools .bpm are unavailable.
+.PHONY: test-secureboot
+test-secureboot:
+	@bash $(TOPDIR)/tools/test/secureboot-test.sh
+
 # Unattended install of the server ISO in QEMU, then boot the installed disk
 # and assert it reaches multi-user with a login prompt.
 .PHONY: test-install

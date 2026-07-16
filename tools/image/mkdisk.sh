@@ -107,29 +107,41 @@ EOF
 # drivers by default, so the embedded grub.cfg can't read the real FAT ESP to
 # find /vmlinuz. Pull in GPT + FAT + search + the loaders explicitly.
 GRUB_MODS="part_gpt fat search search_fs_file normal linux echo all_video gfxterm test configfile"
-GRUB_PUBKEY=""
+GRUB_SBOPTS=""
 if [ "$SB" = 1 ]; then
     # pgp verifier + an embedded trusted key => GRUB enforces check_signatures,
     # refusing to load a kernel/initramfs whose detached .sig doesn't verify.
+    # --disable-shim-lock: without a Microsoft shim, GRUB's core shim_lock
+    # verifier would otherwise reject the `linux` handoff ("shim protocols not
+    # found") even under our own keys; this embeds the OBJ_TYPE_DISABLE_SHIM_LOCK
+    # marker so GRUB falls back to the pgp verifier (grub-core/kern/efi/sb.c).
     GRUB_MODS="$GRUB_MODS pgp"
-    GRUB_PUBKEY="--pubkey=$SB_KEYDIR/grub-gpg.pub"
+    GRUB_SBOPTS="--pubkey=$SB_KEYDIR/grub-gpg.pub --disable-shim-lock"
 fi
 grub-mkstandalone -O x86_64-efi \
-    --modules="$GRUB_MODS" $GRUB_PUBKEY \
+    --modules="$GRUB_MODS" $GRUB_SBOPTS \
     -o "$WORK/BOOTX64.EFI" \
     "boot/grub/grub.cfg=$WORK/grub.cfg"
+KIMG="$VMLINUZ"
 if [ "$SB" = 1 ]; then
-    log "Secure Boot: sbsign BOOTX64.EFI (db key) + GPG-sign kernel/initramfs"
+    log "Secure Boot: sbsign BOOTX64.EFI + kernel (db) + GPG-sign kernel/initramfs"
     sbsign --key "$SB_KEYDIR/db.key" --cert "$SB_KEYDIR/db.crt" \
         --output "$WORK/BOOTX64.EFI" "$WORK/BOOTX64.EFI"
-    gpg --homedir "$SB_KEYDIR/gpg" --batch --yes --detach-sign -o "$WORK/vmlinuz.sig"   "$VMLINUZ"
+    # GRUB's EFI linux loader boots the kernel via firmware LoadImage, which
+    # verifies it against db — so the kernel PE (EFI stub) must be sbsigned too.
+    sbsign --key "$SB_KEYDIR/db.key" --cert "$SB_KEYDIR/db.crt" \
+        --output "$WORK/vmlinuz.signed" "$VMLINUZ"
+    KIMG="$WORK/vmlinuz.signed"
+    # GPG-sign what GRUB reads from the ESP (check_signatures) — the db-signed
+    # kernel and the initramfs — so GRUB also gates them via its pgp verifier.
+    gpg --homedir "$SB_KEYDIR/gpg" --batch --yes --detach-sign -o "$WORK/vmlinuz.sig"   "$KIMG"
     gpg --homedir "$SB_KEYDIR/gpg" --batch --yes --detach-sign -o "$WORK/initramfs.sig" "$INITRD"
 fi
 
 mmd   -i "$ESP_IMG" ::/EFI ::/EFI/BOOT
 mcopy -i "$ESP_IMG" "$WORK/BOOTX64.EFI" ::/EFI/BOOT/BOOTX64.EFI
 mcopy -i "$ESP_IMG" "$WORK/grub.cfg"    ::/grub.cfg
-mcopy -i "$ESP_IMG" "$VMLINUZ"          ::/vmlinuz
+mcopy -i "$ESP_IMG" "$KIMG"             ::/vmlinuz
 mcopy -i "$ESP_IMG" "$INITRD"           ::/initramfs.cpio.zst
 if [ "$SB" = 1 ]; then
     mcopy -i "$ESP_IMG" "$WORK/vmlinuz.sig"   ::/vmlinuz.sig
