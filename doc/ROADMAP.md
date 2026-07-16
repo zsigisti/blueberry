@@ -42,8 +42,10 @@ This is an honest snapshot of what is solid and what is still open. Updated
   makedependencies resolve to a Blueberry package or a provided host name — zero
   Arch tools. `tools/build/mk-blueberry-builder.sh` bakes a Blueberry build
   container (base rootfs + toolchain + dev headers), and `bpmbuild` builds a
-  package inside it with **no pacman, no Arch** (proven with `tree`). Making it
-  the default build path — and self-seeding gcc/glibc — is the remaining work.
+  package inside it with **no pacman, no Arch** (proven with `tree`). The slim
+  (3.4 GB) image is published at `ghcr.io/zsigisti/blueberry-builder:latest`.
+  Making it the default build path — and self-seeding gcc/glibc — is the
+  remaining work.
 
 ## Open / decided
 
