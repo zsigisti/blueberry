@@ -163,6 +163,13 @@ def check_bpm(bpm_path):
         os.makedirs(pkgdir)
         manifest = None
         with tarfile.open(rawtar, "r") as t:
+            # Python 3.12+ defaults extraction to the 'data' filter, which strips
+            # setuid/setgid bits — that would recompute a different digest than the
+            # payload actually stores (e.g. ssh-keysign 4711 -> 0711) and report a
+            # false mismatch. Path traversal is already rejected by _safe_member
+            # below, so extract fully-trusted to preserve modes exactly.
+            if hasattr(tarfile, "fully_trusted_filter"):
+                t.extraction_filter = tarfile.fully_trusted_filter
             for m in t.getmembers():
                 if m.name in (".BPM", "./.BPM"):
                     manifest = t.extractfile(m).read().decode()
