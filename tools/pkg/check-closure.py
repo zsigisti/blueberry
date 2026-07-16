@@ -46,6 +46,8 @@ def load_recipes() -> dict[str, dict]:
                         for d in pkg.get("depends", [])],
             "makedepends": [d.split(">")[0].split("=")[0].split("<")[0].strip()
                             for d in pkg.get("makedepends", [])],
+            "provides": [d.split(">")[0].split("=")[0].split("<")[0].strip()
+                         for d in pkg.get("provides", [])],
         }
     return recipes
 
@@ -54,7 +56,10 @@ def main() -> int:
     check_make = "--make" in sys.argv
     provided = load_provided()
     recipes = load_recipes()
-    available = set(recipes) | provided
+    # A dep may name something a recipe *provides* (cargo->rust, clang->llvm,
+    # libssl.so->openssl), not the package itself — count those as available.
+    recipe_provides = {p for r in recipes.values() for p in r["provides"]}
+    available = set(recipes) | provided | recipe_provides
 
     missing: dict[str, list[str]] = {}
     for name, r in recipes.items():

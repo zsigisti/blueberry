@@ -58,18 +58,34 @@ def load_recipes() -> dict[str, dict]:
         recipes[name] = {
             "depends": [_atom(d) for d in pkg.get("depends", [])],
             "makedepends": [_atom(d) for d in pkg.get("makedepends", [])],
+            "provides": [_atom(d) for d in pkg.get("provides", [])],
         }
     return recipes
 
 
-def closure(pkgs, recipes, provided) -> list[str]:
+def build_provides(recipes: dict[str, dict]) -> dict[str, str]:
+    """Map each provided name/soname to the recipe that provides it, so a dep on
+    e.g. cargo (rust), clang (llvm) or libssl.so (openssl) resolves to a real
+    package rather than looking missing."""
+    prov: dict[str, str] = {}
+    for name, r in recipes.items():
+        for p in r["provides"]:
+            prov.setdefault(p, name)
+    return prov
+
+
+def closure(pkgs, recipes, provided, prov) -> list[str]:
     """Topologically-ordered build-time closure (deps before dependents)."""
     order: list[str] = []
     visiting: set[str] = set()
     done: set[str] = set()
 
+    def resolve(name: str) -> str:
+        return name if name in recipes else prov.get(name, name)
+
     def visit_runtime(name: str):
         # A runtime dependency: emit its own depends first, then itself.
+        name = resolve(name)
         if name in done or name in provided or name in visiting:
             return
         if name not in recipes:
@@ -85,7 +101,7 @@ def closure(pkgs, recipes, provided) -> list[str]:
         order.append(name)
 
     for x in pkgs:
-        r = recipes.get(x, {"depends": [], "makedepends": []})
+        r = recipes.get(x, {"depends": [], "makedepends": [], "provides": []})
         for d in r["makedepends"] + r["depends"]:
             visit_runtime(d)
     # Never include the requested packages themselves.
@@ -109,7 +125,8 @@ def main() -> int:
 
     provided = load_provided()
     recipes = load_recipes()
-    members = closure(args, recipes, provided)
+    prov = build_provides(recipes)
+    members = closure(args, recipes, provided, prov)
 
     if not check:
         for m in members:

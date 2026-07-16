@@ -20,6 +20,7 @@ TOPDIR=$(cd "$(dirname "$0")/../.." && pwd)
 ENGINE=${ENGINE:-podman}
 IMAGE=${IMAGE:-docker.io/library/archlinux:latest}
 mkdir -p "$OUT"
+OUT=$(cd "$OUT" && pwd)  # absolute — podman treats a relative -v source as a named volume
 
 need=
 for p in "$@"; do
