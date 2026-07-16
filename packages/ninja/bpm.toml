@@ -1,6 +1,6 @@
 [package]
 name     = "ninja"
-version  = "1.12.1"
+version  = "1.13.2"
 release  = 1
 summary  = "Small, fast build system used by meson"
 homepage = "https://ninja-build.org/"
@@ -11,8 +11,8 @@ depends     = ["glibc", "gcc-libs"]
 makedepends = ["python", "gcc", "make"]
 
 [[source]]
-url    = "https://github.com/ninja-build/ninja/archive/v1.12.1/ninja-1.12.1.tar.gz"
-sha256 = "821bdff48a3f683bc4bb3b6f0b5fe7b2d647cf65d52aeb63328c91a6c6df285a"
+url    = "https://github.com/ninja-build/ninja/archive/v1.13.2/ninja-1.13.2.tar.gz"
+sha256 = "974d6b2f4eeefa25625d34da3cb36bdcebe7fbce40f4c16ac0835fd1c0cbae17"
 
 [steps]
 build = '''
