@@ -7,7 +7,7 @@ homepage = "https://www.rust-lang.org/"
 license  = ["Apache-2.0", "MIT"]
 arch     = ["x86_64"]
 
-depends     = ["glibc", "gcc-libs", "llvm"]
+depends     = ["glibc", "gcc-libs", "llvm", "libgit2"]
 provides    = ["cargo"]
 # Bootstrapped from an existing rustc/cargo (stage0) and the container's LLVM
 # (statically linked into rustc, so no runtime LLVM dep). Needs cmake/ninja for
