@@ -36,6 +36,14 @@ This is an honest snapshot of what is solid and what is still open. Updated
 - **Functional tests** — `make test-services` starts each server service
   (redis/nginx/postgresql/…) and probes it (PING, HTTP GET, SQL SELECT), so
   "it installed" is backed by "it runs". Complements the boot + install tests.
+- **Self-hosted build container** — the whole build toolchain (gcc, binutils,
+  make, autotools, meson/ninja, cmake, go, **rust 1.97**, **LLVM 22 + clang**,
+  the Python build modules, …) is now packaged in the tree: every recipe's
+  makedependencies resolve to a Blueberry package or a provided host name — zero
+  Arch tools. `tools/build/mk-blueberry-builder.sh` bakes a Blueberry build
+  container (base rootfs + toolchain + dev headers), and `bpmbuild` builds a
+  package inside it with **no pacman, no Arch** (proven with `tree`). Making it
+  the default build path — and self-seeding gcc/glibc — is the remaining work.
 
 ## Open / decided
 
