@@ -15,4 +15,5 @@ built from source into one ed25519-signed mirror at
 - [Architecture](Architecture) · [The Kernel Model](The-Kernel-Model) ·
   [Package Management](Package-Management) · [Building From Source](Building-From-Source)
 - [Creating Packages](Creating-Packages) · [Hosting a Mirror](Hosting-a-Mirror)
+- [Secure Boot](Secure-Boot) — enroll your own keys and sign the boot chain
 - [FAQ](FAQ) · [Troubleshooting](Troubleshooting) · [Contributing](Contributing)
