@@ -23,3 +23,7 @@ serial.log
 # KDE Dolphin folder metadata
 .directory
 obj/
+
+# Python bytecode cache
+__pycache__/
+*.pyc
