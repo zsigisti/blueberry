@@ -1,0 +1,31 @@
+[package]
+name     = "sbsigntools"
+version  = "0.9.5"
+release  = 1
+summary  = "Sign and verify UEFI Secure Boot (Authenticode) EFI binaries — sbsign, sbverify"
+homepage = "https://git.kernel.org/pub/scm/linux/kernel/git/jejb/sbsigntools.git"
+license  = ["GPL-3.0-or-later"]
+arch     = ["x86_64"]
+
+depends     = ["glibc", "openssl", "util-linux"]
+makedepends = ["autoconf", "automake", "libtool", "pkgconf", "gnu-efi",
+               "openssl", "util-linux", "help2man"]
+
+# Debian's orig tarball vendors the ccan sources (the upstream git snapshot omits
+# the ccan submodule); it ships no ./configure, so autoreconf runs at build time.
+[[source]]
+url    = "http://deb.debian.org/debian/pool/main/s/sbsigntool/sbsigntool_0.9.5.orig.tar.gz"
+sha256 = "fa93920ef80a406115c1de6f7764ffa4c34e3d1bd7890b9145c36de899a258f5"
+
+[steps]
+build = '''
+cd "sbsigntool-$version"
+autoreconf -fi
+./configure --prefix=/usr --disable-dependency-tracking
+# Upstream compiles with -Werror; GCC 16 adds unused-but-set-variable etc.
+make CFLAGS="-O2 -g -Wno-error"
+'''
+package = '''
+cd "sbsigntool-$version"
+make install DESTDIR="$pkgdir"
+'''
