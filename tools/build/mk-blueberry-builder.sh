@@ -42,7 +42,15 @@ tar -C "$ROOTFS" -cf - . | "$ENGINE" import --change 'CMD ["/usr/bin/bash"]' - "
 echo "==> layering toolchain + dev headers"
 cid=$("$ENGINE" run -d -v "$OUT:/out:ro,z" -v "$CACHE:/cache:ro,z" "${TAG}-base:latest" /usr/bin/bash -c '
 set -e
-extract() { for f in "$@"; do [ -e "$f" ] && zstd -dcq "$f" | tar -x -C / --exclude=.BPM 2>/dev/null; done; }
+# Skip packages not present (tar/python/… come from the runtime base, not
+# obj/bpm-out); never let a missing/failed extract abort the whole layering.
+extract() {
+    for f in "$@"; do
+        [ -e "$f" ] || continue
+        zstd -dcq "$f" | tar -x -C / --exclude=.BPM 2>/dev/null || echo "  warn: extract $f failed" >&2
+    done
+    return 0
+}
 # glibc (headers; the runtime base strips /usr/include) + kernel headers first
 extract /cache/glibc-*.bpm /out/glibc-*.bpm /out/linux-api-headers-*.bpm
 for p in '"$TOOLCHAIN"'; do extract /out/"$p"-[0-9]*.bpm; done
