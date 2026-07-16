@@ -36,16 +36,21 @@ This is an honest snapshot of what is solid and what is still open. Updated
 - **Functional tests** — `make test-services` starts each server service
   (redis/nginx/postgresql/…) and probes it (PING, HTTP GET, SQL SELECT), so
   "it installed" is backed by "it runs". Complements the boot + install tests.
-- **Self-hosted build container** — the whole build toolchain (gcc, binutils,
+- **Self-hosted build path (default)** — the whole build toolchain (gcc, binutils,
   make, autotools, meson/ninja, cmake, go, **rust 1.97**, **LLVM 22 + clang**,
-  the Python build modules, …) is now packaged in the tree: every recipe's
+  the Python build modules, …) is packaged in the tree: every recipe's
   makedependencies resolve to a Blueberry package or a provided host name — zero
   Arch tools. `tools/build/mk-blueberry-builder.sh` bakes a Blueberry build
-  container (base rootfs + toolchain + dev headers), and `bpmbuild` builds a
-  package inside it with **no pacman, no Arch** (proven with `tree`). The slim
-  (3.4 GB) image is published at `ghcr.io/zsigisti/blueberry-builder:latest`.
-  Making it the default build path — and self-seeding gcc/glibc — is the
-  remaining work.
+  container (base rootfs + toolchain + dev headers), published at
+  `ghcr.io/zsigisti/blueberry-builder:latest`. `build-bpm-pkg.sh` now **defaults**
+  to building in it: each package's build closure (`makedep-closure.py`,
+  provides-aware) is installed by extracting the already-built `.bpm` from
+  `obj/bpm-out` — no pacman, no Arch (proven with openssh/curl/shadow). Any
+  package it can't yet build self-hosted (a makedep only Arch's base-devel
+  supplied) falls back to the arch bootstrap path with a loud "self-hosting gap"
+  warning, so the flip is regression-proof while gaps close one recipe at a time.
+  Reaching **zero fallback** needs `make repo-build` (so every dep's `.bpm`
+  exists); self-seeding gcc/glibc from a bootstrap is the deepest remaining layer.
 
 ## Open / decided
 
