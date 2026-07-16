@@ -1,6 +1,6 @@
 [package]
 name     = "libtool"
-version  = "2.5.4"
+version  = "2.6.2"
 release  = 1
 summary  = "GNU generic library support script (libtool + libltdl)"
 homepage = "https://www.gnu.org/software/libtool/"
@@ -12,8 +12,8 @@ provides    = ["libltdl.so"]
 makedepends = ["m4", "make", "gcc"]
 
 [[source]]
-url    = "https://ftp.gnu.org/gnu/libtool/libtool-2.5.4.tar.xz"
-sha256 = "f81f5860666b0bc7d84baddefa60d1cb9fa6fceb2398cc3baca6afaa60266675"
+url    = "https://ftp.gnu.org/gnu/libtool/libtool-2.6.2.tar.xz"
+sha256 = "2ef1067c16c97db930fd740cc9bc3d3ba9a583804ae5ac42cc3e8719e49e191e"
 
 [steps]
 build = '''
