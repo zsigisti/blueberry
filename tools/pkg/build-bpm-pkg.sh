@@ -58,28 +58,22 @@ closure_complete() {  # every $need package's build closure is already built
     return 0
 }
 
-if [ "$BASE" = auto ]; then
-    if have_builder_image && closure_complete $need; then
-        BASE=blueberry
-    else
-        BASE=arch
-        if have_builder_image; then
-            echo "build-bpm: builder image present but closure incomplete for$need" >&2
-            for p in $need; do python3 "$CLOSURE" --check "$DEPS" "$p" >/dev/null 2>&1 || \
-                python3 "$CLOSURE" --check "$DEPS" "$p" 2>&1 | sed 's/^/  /' >&2; done
-            echo "build-bpm: falling back to the arch bootstrap path (run 'make repo-build' to self-host)" >&2
-        else
-            echo "build-bpm: no builder image ($BUILDER_IMAGE) — using the arch bootstrap path" >&2
-        fi
-    fi
-elif [ "$BASE" = blueberry ]; then
-    have_builder_image || { echo "build-bpm: BASE=blueberry but no image: $BUILDER_IMAGE (build it with tools/build/mk-blueberry-builder.sh)" >&2; exit 1; }
-    closure_complete $need || { echo "build-bpm: BASE=blueberry but build closure is incomplete; run 'make repo-build' first" >&2; python3 "$CLOSURE" --check "$DEPS" $need >&2 || true; exit 1; }
-fi
-echo "build-bpm: building$need   [mode: $BASE]"
+# Which of a package set still lack a fresh .bpm in $OUT (i.e. failed to build).
+still_missing() {
+    sm=
+    for p in "$@"; do
+        rec="$TOPDIR/packages/$p/bpm.toml"
+        b=$(ls -t "$OUT/$p"-[0-9]*.bpm 2>/dev/null | head -1)
+        if [ -z "$b" ] || [ -n "$(find "$rec" -newer "$b" 2>/dev/null)" ]; then sm="$sm $p"; fi
+    done
+    echo $sm
+}
 
-if [ "$BASE" = blueberry ]; then
-    # Self-hosted: Blueberry image, deps extracted from already-built .bpm.
+# Self-hosted: Blueberry image, deps extracted from already-built .bpm. Never
+# aborts the caller — collects failures so auto-mode can fall back per package.
+run_blueberry() {
+    [ $# -gt 0 ] || return 0
+    echo "build-bpm: building $*   [mode: blueberry]"
     SCRIPT='
 set -eu
 SDE='"$SDE"'
@@ -101,7 +95,7 @@ extract() {  # drop a built .bpm payload into / (no pacman, no DB — build inpu
     return 0
 }
 fail=""
-for p in '"$need"'; do
+for p in '"$*"'; do
     echo "build-bpm: $p closure: $(python3 /tmp/b/tools/pkg/makedep-closure.py "$p" | tr "\n" " ")"
     for dep in $(python3 /tmp/b/tools/pkg/makedep-closure.py "$p"); do
         extract /deps/"$dep"-[0-9]*.bpm
@@ -118,13 +112,17 @@ for p in '"$need"'; do
         echo "build-bpm: built $p (blueberry, no arch)"
     fi
 done
-[ -z "$fail" ] || { echo "build-bpm: FAILED:$fail" >&2; exit 1; }
+[ -z "$fail" ] || { echo "build-bpm: blueberry build failed:$fail" >&2; exit 1; }
 '
     "$ENGINE" run --rm --ipc=host --security-opt seccomp=unconfined \
         -v "$TOPDIR:/repo:ro,z" -v "$OUT:/out:z" -v "$DEPS:/deps:ro,z" \
         "$BUILDER_IMAGE" /usr/bin/bash -euc "$SCRIPT"
-else
-    # Bootstrap: ephemeral Arch container, makedeps via pacman.
+}
+
+# Bootstrap: ephemeral Arch container, makedeps via pacman.
+run_arch() {
+    [ $# -gt 0 ] || return 0
+    echo "build-bpm: building $*   [mode: arch]"
     SCRIPT='
 set -eu
 grep -q "^\[multilib\]" /etc/pacman.conf || \
@@ -146,7 +144,7 @@ for d in deps:
 PY
 }
 fail=""
-for p in '"$need"'; do
+for p in '"$*"'; do
     rec="/tmp/b/packages/$p/bpm.toml"
     deps=$(extract_deps "$rec" | sort -u | tr "\n" " ")
     echo "build-bpm: $p deps: $deps"
@@ -172,5 +170,44 @@ done
     "$ENGINE" run --rm --ipc=host --security-opt seccomp=unconfined \
         -v "$PACMAN_CACHE:/var/cache/pacman/pkg" \
         -v "$TOPDIR:/repo:ro,z" -v "$OUT:/out:z" "$IMAGE" bash -euc "$SCRIPT"
+}
+
+# ── Mode selection + orchestration ────────────────────────────────────────────
+STRICT=
+case "$BASE" in
+    arch) mode=arch ;;
+    blueberry)  # explicit: self-host or fail (no silent arch fallback)
+        have_builder_image || { echo "build-bpm: BASE=blueberry but no image: $BUILDER_IMAGE (build it with tools/build/mk-blueberry-builder.sh)" >&2; exit 1; }
+        closure_complete $need || { echo "build-bpm: BASE=blueberry but build closure is incomplete; run 'make repo-build' first" >&2; python3 "$CLOSURE" --check "$DEPS" $need >&2 || true; exit 1; }
+        mode=blueberry; STRICT=1 ;;
+    auto)  # prefer self-hosted; degrade to arch when it can't run yet
+        if have_builder_image && closure_complete $need; then
+            mode=blueberry
+        else
+            mode=arch
+            if have_builder_image; then
+                echo "build-bpm: builder image present but closure incomplete — using arch (run 'make repo-build' to self-host)" >&2
+            else
+                echo "build-bpm: no builder image ($BUILDER_IMAGE) — using the arch bootstrap path" >&2
+            fi
+        fi ;;
+    *) echo "build-bpm: unknown BASE=$BASE (want auto|blueberry|arch)" >&2; exit 1 ;;
+esac
+
+if [ "$mode" = blueberry ]; then
+    run_blueberry $need || true
+    remain=$(still_missing $need)
+    if [ -n "$remain" ]; then
+        if [ -n "$STRICT" ]; then
+            echo "build-bpm: FAILED (blueberry, no fallback):$remain" >&2; exit 1
+        fi
+        # A self-hosting gap (a masked makedep, or a makedep that strips its dev
+        # files). Don't break the build — fall back to arch and flag it loudly.
+        echo "build-bpm: WARNING self-hosting gap — blueberry could not build:$remain" >&2
+        echo "build-bpm: falling back to arch for those; fix the recipe so they build self-hosted" >&2
+        run_arch $remain
+    fi
+else
+    run_arch $need
 fi
 echo "build-bpm: done ->$need"
