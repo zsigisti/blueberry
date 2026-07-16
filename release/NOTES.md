@@ -1,68 +1,53 @@
-## Blueberry Linux — v0.8.0-beta
+## Blueberry Linux — v0.9.0-beta
 
-A "catch the whole tree up" release. Every package that was behind upstream was
-bumped to current — about 50 recipes — headlined by **systemd 256.7 → 261.1**, a
-current GNU userland, and a refreshed toolchain and crypto stack. The ISOs are
-rebuilt on the new base and pass the full end-to-end gate (server ISO boots to
-multi-user; an unattended install boots with sshd and networkd up and no failed
-units). On an existing system it is `bpm update && bpm upgrade`.
+A self-hosting release. The build now runs in Blueberry's own container instead of
+Arch, the ISO is assembled from the signed mirror instead of compiled locally, and
+Blueberry can Secure-Boot with its own keys. The images are rebuilt and pass the
+full end-to-end gate (server ISO boots to multi-user; an unattended install boots
+with sshd and networkd up and no failed units). On an existing system it is
+`bpm update && bpm upgrade`.
 
-### systemd 256.7 → 261.1
+### Self-hosted build path is the default
 
-Five major versions forward. The one recipe change needed was dropping
-`-Ddefault-hierarchy=unified` (removed upstream in 261 now that cgroup v1 support
-is gone — unified is the only hierarchy). Built into the base and boot-tested:
-the freshly assembled server ISO reaches `multi-user.target`, and an unattended
-install of it comes up clean.
+The whole build toolchain — gcc, binutils, autotools, meson/ninja, cmake, go,
+rust, LLVM + clang, the Python build modules — is packaged in the tree, so every
+recipe's makedependencies resolve to a Blueberry package or a provided host name.
+`build-bpm-pkg.sh` now builds in the Blueberry builder image by default: each
+package's build closure is installed by extracting the already-built `.bpm` from
+the local store, with no pacman and no Arch. `makedep-closure.py` computes that
+closure and is provides-aware (a dep on `cargo` resolves to rust, `clang` to
+llvm, `libssl.so` to openssl). Any package that cannot yet build self-hosted falls
+back to the bootstrap path with a loud warning, so the switch is regression-proof.
 
-### The userland is current
+### The ISO is assembled from the mirror
 
-About 50 recipes moved to their latest upstream release. Highlights:
+`make install` and `make iso` now fetch every prebuilt, signed base package from
+the mirror by default (`BASE_SRC=mirror`) rather than compiling it locally — the
+image is reproducible from published packages, the same way glibc and the kernel
+already worked. `BASE_SRC=source` restores local builds for recipe work. The
+switch surfaced real base-closure gaps that the mirror packages' true dependencies
+need, now closed: `lzo` (btrfs), `e2fsprogs` (btrfs-convert), and a new `libtirpc`
+package (lsof). `check-base` is clean.
 
-- **GNU core:** coreutils 9.7 → 9.11, bash 5.2.37 → 5.3, grep 3.11 → 3.12,
-  sed 4.9 → 4.10, gawk 5.3.1 → 5.4.1, findutils, diffutils, gzip, patch, which.
-- **CLI tools:** vim 9.1 → 9.2, tmux 3.5a → 3.7b, htop 3.5.1, fzf 0.74.0,
-  rclone 1.74.4, strace 7.1, and a dozen more (lsof, mtr, iotop, whois, p7zip,
-  fastfetch, node_exporter, sysstat, dhcpcd, tree, screen, parted).
-- **Shared libraries:** ncurses 6.6, readline 8.3, libffi 3.7.1, zlib 1.3.2,
-  zstd 1.5.7, libseccomp 2.6.1, plus gdbm, brotli, jansson, libpsl, libtasn1,
-  libunistring, libusb, p11-kit. Every library's soname was checked in its built
-  payload and confirmed unchanged, so nothing that links them had to be rebuilt.
+### Secure Boot with your own keys
 
-### Toolchain and crypto
+Blueberry can now Secure-Boot without a Microsoft-signed shim, using a key set you
+enroll once. The chain is firmware to GRUB (Authenticode `db`) to kernel (`db` plus
+GPG-verified) to initramfs (GPG-verified). `blueberry-secureboot` does keygen,
+enroll-artifacts, sign-boot, verify and status; `sbsigntools` and `gnu-efi` are
+packaged; `mkdisk` signs the boot chain when `SECUREBOOT_KEYDIR` is set. GRUB is
+built with `--disable-shim-lock` so its own PGP verifier gates the kernel, and both
+GRUB and the kernel are sbsigned so the firmware `LoadImage` check passes.
+`make test-secureboot` proves it under QEMU and OVMF: a signed image boots and an
+unsigned one is rejected. See `wiki/Secure-Boot.md`.
 
-- **binutils 2.44 → 2.46.1.**
-- **nettle 3.10 → 4.0** (`libnettle.so.8 → .so.9`). This also closes a latent
-  mismatch: the build environment already provided nettle 4.0, so the shipped
-  gnutls was already linking `.so.9` while the nettle recipe still said 3.10.
-  **gnutls** is rebuilt against it (release 2); its own soname is unchanged, so
-  gnupg and msmtp are unaffected.
-- **podman 6.0.0 → 6.0.1**, **containers-common 0.64.1 → 1.0.1**,
-  **polkit 126 → 127**, **pam 1.7.0 → 1.7.2** (the newer pam needs `libpwaccess`
-  and `elogind` explicitly disabled at configure time).
+### Fixes and packaging
 
-### lsof stays inside the base
-
-`check-base` (the base DT_NEEDED closure gate) caught that lsof 4.99.7 had begun
-auto-linking `libtirpc`, which the base does not ship. lsof is now built
-`--without-libtirpc` so it stays self-contained; the base closure is clean.
-
-### CI, and BUR publishing verifies the payload
-
-- **A GitHub Actions gate** now runs on every push: recipe dependency closure,
-  bpm unit + end-to-end lifecycle tests, a `bpmbuild --check` tamper test, and an
-  advisory package-freshness report.
-- **BUR publishing now unpacks the uploaded `.bpm` and checks it against the
-  manifest inside it** — `payload_sha256` and `installed_size` — on top of the
-  existing recipe-vs-manifest checks. No server-side rebuild; an artifact that
-  does not match its own manifest is rejected.
-- **bpm** gained an end-to-end lifecycle test suite (install / upgrade / rollback
-  / downgrade / remove + config-file preservation), and there is now a
-  `check-updates.py` freshness tracker that reports which recipes are behind
-  upstream (it is what drove this release).
-
----
-
-**Upgrade:** `bpm update && bpm upgrade`. Because nettle changed soname, the
-upgrade pulls the matched nettle 4.0 + gnutls pair together. Fresh installs from
-these ISOs already have everything. `bpm install bur` for the community client.
+- **`bpmbuild --check`** no longer reports a false mismatch on packages with setuid
+  binaries (openssh, sudo): Python 3.12+ stripped setuid bits on re-extraction.
+- **`bpmbuild`** extracts sources with the `tar` filter, so GNU tarballs that ship
+  an absolute-target `INSTALL` symlink extract cleanly.
+- **New/updated packages:** `libxcrypt` (crypt was previously an untracked host
+  bundle), `gnu-efi`, `sbsigntools`, `libtirpc`; dev files kept in `libmd`,
+  `libbsd`, `fuse3` so they work as build dependencies.
+- The advisory **`bpm audit` CVE report** continues to run in CI on every push.
