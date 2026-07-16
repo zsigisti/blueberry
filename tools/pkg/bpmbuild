@@ -258,11 +258,15 @@ def main():
             log(f"verified {fn} (sha256 ok)")
         else:
             log(f"{fn} (sha256 SKIP)")
-        # Auto-extract archives so build() can cd into them, like makepkg.
+        # Auto-extract archives so build() can cd into them, like makepkg. Use the
+        # 'tar' filter, not 'data': sources are sha256-pinned (trusted), and 'data'
+        # rejects harmless absolute-target symlinks that many GNU tarballs ship
+        # (e.g. INSTALL -> /usr/share/automake/INSTALL), which would abort the whole
+        # extraction. 'tar' still blocks path traversal outside srcdir.
         if fn.endswith((".tar.gz", ".tar.xz", ".tar.bz2", ".tar.zst", ".tgz")):
             try:
                 with tarfile.open(dest) as t:
-                    t.extractall(srcdir, filter="data")
+                    t.extractall(srcdir, filter="tar")
             except Exception as e:
                 log(f"note: could not auto-extract {fn} ({e})")
 
