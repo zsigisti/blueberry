@@ -54,6 +54,13 @@ extract() {
 # glibc (headers; the runtime base strips /usr/include) + kernel headers first
 extract /cache/glibc-*.bpm /out/glibc-*.bpm /out/linux-api-headers-*.bpm
 for p in '"$TOOLCHAIN"'; do extract /out/"$p"-[0-9]*.bpm; done
+# slim: a build container needs none of the runtime bloat
+rm -rf /usr/lib/firmware /usr/lib/modules /lib/firmware \
+       /usr/share/man /usr/share/doc /usr/share/info /usr/share/gtk-doc \
+       /usr/share/locale /var/cache/* /var/log/* /usr/lib/systemd/system/*.target.wants \
+       /usr/lib/linux-firmware* 2>/dev/null || true
+# keep only the C/UTF-8 locale from the compiled archive (build tools use C)
+[ -d /usr/lib/locale ] && find /usr/lib/locale -mindepth 1 -maxdepth 1 ! -name 'C.*' -exec rm -rf {} + 2>/dev/null || true
 # smoke test: the compiler works end to end
 printf "int main(void){return 0;}\n" > /tmp/t.c
 gcc -o /tmp/t /tmp/t.c && echo "  gcc: $(gcc --version | head -1) — compiles + links OK"
@@ -61,8 +68,12 @@ command -v pacman >/dev/null && { echo "  ERROR: pacman present"; exit 1; } || e
 ')
 "$ENGINE" wait "$cid" >/dev/null
 "$ENGINE" logs "$cid" 2>&1 | sed 's/^/    /'
-"$ENGINE" commit -q "$cid" "$TAG:latest" >/dev/null
+# Flatten via export|import so the slim deletions actually shrink the image — a
+# `commit` keeps the removed files in the base import layer.
+echo "==> flattening (export|import) to apply the slim"
+"$ENGINE" export "$cid" | "$ENGINE" import --change 'CMD ["/usr/bin/bash"]' - "$TAG:latest" >/dev/null
 "$ENGINE" rm "$cid" >/dev/null
+"$ENGINE" rmi "${TAG}-base:latest" >/dev/null 2>&1 || true
 
 echo "==> built $TAG:latest ($("$ENGINE" images --format '{{.Size}}' "$TAG:latest" 2>/dev/null))"
 echo "    build a package in it, no Arch:"
