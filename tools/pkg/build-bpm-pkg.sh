@@ -34,14 +34,104 @@ for p in "$@"; do
 done
 [ -n "$need" ] || { echo "build-bpm: all up to date"; exit 0; }
 
-echo "build-bpm: building$need"
-SCRIPT='
+SDE=1767225600  # SOURCE_DATE_EPOCH, shared by both build modes
+
+# ── Build mode: blueberry (self-hosted) vs arch (bootstrap) ───────────────────
+# blueberry: run in the Blueberry builder image (its own gcc/toolchain, no
+#   pacman); each package's build-time closure is installed by extracting the
+#   already-built .bpm from the canonical store (DEPS, default obj/bpm-out).
+# arch: the bootstrap path — an ephemeral Arch container, makedeps via pacman.
+#   Used to build the world the first time (before obj/bpm-out is populated) or
+#   when forced. Extraction bypasses bpm's DB/scriptlets, which is fine for a
+#   throwaway build container (build-time makedeps need files in place, nothing
+#   more) — the same mechanism mk-blueberry-builder.sh uses to bake the toolchain.
+BASE=${BASE:-auto}
+DEPS=${DEPS:-$TOPDIR/obj/bpm-out}
+BUILDER_IMAGE=${BUILDER_IMAGE:-localhost/blueberry-builder:latest}
+CLOSURE="$TOPDIR/tools/pkg/makedep-closure.py"
+
+have_builder_image() { "$ENGINE" image exists "$BUILDER_IMAGE" 2>/dev/null; }
+closure_complete() {  # every $need package's build closure is already built
+    for p in "$@"; do
+        python3 "$CLOSURE" --check "$DEPS" "$p" >/dev/null 2>&1 || return 1
+    done
+    return 0
+}
+
+if [ "$BASE" = auto ]; then
+    if have_builder_image && closure_complete $need; then
+        BASE=blueberry
+    else
+        BASE=arch
+        if have_builder_image; then
+            echo "build-bpm: builder image present but closure incomplete for$need" >&2
+            for p in $need; do python3 "$CLOSURE" --check "$DEPS" "$p" >/dev/null 2>&1 || \
+                python3 "$CLOSURE" --check "$DEPS" "$p" 2>&1 | sed 's/^/  /' >&2; done
+            echo "build-bpm: falling back to the arch bootstrap path (run 'make repo-build' to self-host)" >&2
+        else
+            echo "build-bpm: no builder image ($BUILDER_IMAGE) — using the arch bootstrap path" >&2
+        fi
+    fi
+elif [ "$BASE" = blueberry ]; then
+    have_builder_image || { echo "build-bpm: BASE=blueberry but no image: $BUILDER_IMAGE (build it with tools/build/mk-blueberry-builder.sh)" >&2; exit 1; }
+    closure_complete $need || { echo "build-bpm: BASE=blueberry but build closure is incomplete; run 'make repo-build' first" >&2; python3 "$CLOSURE" --check "$DEPS" $need >&2 || true; exit 1; }
+fi
+echo "build-bpm: building$need   [mode: $BASE]"
+
+if [ "$BASE" = blueberry ]; then
+    # Self-hosted: Blueberry image, deps extracted from already-built .bpm.
+    SCRIPT='
+set -eu
+SDE='"$SDE"'
+# The builder image is a slim runtime rootfs: no shadow (useradd) and su/runuser
+# abort on the minimal PAM stack. Make an unprivileged builder by hand and drop
+# privileges with setpriv (no PAM). Ownership in the final .bpm is normalised to
+# root by bpmbuild regardless of who built it.
+id builder >/dev/null 2>&1 || {
+    echo "builder:x:1000:1000::/home/builder:/bin/bash" >> /etc/passwd
+    echo "builder:x:1000:" >> /etc/group
+    mkdir -p /home/builder && chown 1000:1000 /home/builder
+}
+cp -a /repo /tmp/b; chown -R 1000:1000 /tmp/b /out
+extract() {  # drop a built .bpm payload into / (no pacman, no DB — build inputs)
+    for f in "$@"; do
+        [ -e "$f" ] || continue
+        zstd -dcq "$f" | tar -x -C / --exclude=.BPM 2>/dev/null || echo "  warn: extract $f" >&2
+    done
+    return 0
+}
+fail=""
+for p in '"$need"'; do
+    echo "build-bpm: $p closure: $(python3 /tmp/b/tools/pkg/makedep-closure.py "$p" | tr "\n" " ")"
+    for dep in $(python3 /tmp/b/tools/pkg/makedep-closure.py "$p"); do
+        extract /deps/"$dep"-[0-9]*.bpm
+    done
+    # setuid helpers not other-readable break the unprivileged builder (rust copies
+    # the system sysroot); make them readable — throwaway container.
+    find /usr/lib /usr/bin -xdev -type f -perm /6000 -exec chmod o+r {} + 2>/dev/null || true
+    rm -f /out/$p-[0-9]*.bpm
+    if ! setpriv --reuid=1000 --regid=1000 --init-groups \
+            env HOME=/home/builder USER=builder SOURCE_DATE_EPOCH=$SDE BPM_ARCH=x86_64 \
+            bash -c "cd /tmp/b && python3 tools/pkg/bpmbuild packages/$p /out" >/tmp/$p.log 2>&1; then
+        echo "!! FAILED: $p"; tail -40 /tmp/$p.log; fail="$fail $p"
+    else
+        echo "build-bpm: built $p (blueberry, no arch)"
+    fi
+done
+[ -z "$fail" ] || { echo "build-bpm: FAILED:$fail" >&2; exit 1; }
+'
+    "$ENGINE" run --rm --ipc=host --security-opt seccomp=unconfined \
+        -v "$TOPDIR:/repo:ro,z" -v "$OUT:/out:z" -v "$DEPS:/deps:ro,z" \
+        "$BUILDER_IMAGE" /usr/bin/bash -euc "$SCRIPT"
+else
+    # Bootstrap: ephemeral Arch container, makedeps via pacman.
+    SCRIPT='
 set -eu
 grep -q "^\[multilib\]" /etc/pacman.conf || \
   printf "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n" >> /etc/pacman.conf
 pacman -Syu --noconfirm --needed base-devel git python zstd fakeroot curl >/dev/null 2>&1
 echo "MAKEFLAGS=\"-j$(nproc)\"" >> /etc/makepkg.conf
-SDE=1767225600
+SDE='"$SDE"'
 useradd -m builder; echo "builder ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/builder
 cp -a /repo /tmp/b; chown -R builder /tmp/b /out
 extract_deps() {
@@ -77,10 +167,10 @@ for p in '"$need"'; do
 done
 [ -z "$fail" ] || { echo "build-bpm: FAILED:$fail" >&2; exit 1; }
 '
-# Persistent pacman package cache: makedeps download once, not every build.
-# Pair with a pre-warmed IMAGE (tools/build/mk-builder-image.sh) to also skip install.
-PACMAN_CACHE=${PACMAN_CACHE:-blueberry-pacman}
-"$ENGINE" run --rm --ipc=host --security-opt seccomp=unconfined \
-    -v "$PACMAN_CACHE:/var/cache/pacman/pkg" \
-    -v "$TOPDIR:/repo:ro,z" -v "$OUT:/out:z" "$IMAGE" bash -euc "$SCRIPT"
+    # Persistent pacman package cache: makedeps download once, not every build.
+    PACMAN_CACHE=${PACMAN_CACHE:-blueberry-pacman}
+    "$ENGINE" run --rm --ipc=host --security-opt seccomp=unconfined \
+        -v "$PACMAN_CACHE:/var/cache/pacman/pkg" \
+        -v "$TOPDIR:/repo:ro,z" -v "$OUT:/out:z" "$IMAGE" bash -euc "$SCRIPT"
+fi
 echo "build-bpm: done ->$need"
