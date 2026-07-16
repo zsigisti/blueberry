@@ -39,6 +39,21 @@ INITRD="$ROOTFS/boot/initramfs.cpio.zst"
 [ -f "$VMLINUZ" ] || die "no kernel at $VMLINUZ (run 'make install')"
 [ -f "$INITRD"  ] || die "no initramfs at $INITRD (run 'make install')"
 
+# ── Secure Boot (opt-in) ──────────────────────────────────────────────────────
+# Set SECUREBOOT_KEYDIR to a key set from `blueberry-secureboot keygen`. When
+# present the boot chain is signed: GRUB is built to enforce GPG signatures on
+# what it loads, is itself sbsigned with the db key (firmware verifies it), and
+# the kernel + initramfs are GPG-signed (GRUB verifies them). Absent -> a normal
+# unsigned image (unchanged behaviour).
+SB_KEYDIR=${SECUREBOOT_KEYDIR:-}
+SB=0
+if [ -n "$SB_KEYDIR" ]; then
+    { [ -f "$SB_KEYDIR/db.key" ] && [ -f "$SB_KEYDIR/grub-gpg.pub" ]; } \
+        || die "SECUREBOOT_KEYDIR=$SB_KEYDIR lacks db.key/grub-gpg.pub (run: blueberry-secureboot keygen)"
+    for t in sbsign gpg; do command -v "$t" >/dev/null || die "$t not found (needed for Secure Boot)"; done
+    SB=1
+fi
+
 SECTOR=512
 
 # ── 1. Empty GPT image ────────────────────────────────────────────────────────
@@ -92,16 +107,34 @@ EOF
 # drivers by default, so the embedded grub.cfg can't read the real FAT ESP to
 # find /vmlinuz. Pull in GPT + FAT + search + the loaders explicitly.
 GRUB_MODS="part_gpt fat search search_fs_file normal linux echo all_video gfxterm test configfile"
+GRUB_PUBKEY=""
+if [ "$SB" = 1 ]; then
+    # pgp verifier + an embedded trusted key => GRUB enforces check_signatures,
+    # refusing to load a kernel/initramfs whose detached .sig doesn't verify.
+    GRUB_MODS="$GRUB_MODS pgp"
+    GRUB_PUBKEY="--pubkey=$SB_KEYDIR/grub-gpg.pub"
+fi
 grub-mkstandalone -O x86_64-efi \
-    --modules="$GRUB_MODS" \
+    --modules="$GRUB_MODS" $GRUB_PUBKEY \
     -o "$WORK/BOOTX64.EFI" \
     "boot/grub/grub.cfg=$WORK/grub.cfg"
+if [ "$SB" = 1 ]; then
+    log "Secure Boot: sbsign BOOTX64.EFI (db key) + GPG-sign kernel/initramfs"
+    sbsign --key "$SB_KEYDIR/db.key" --cert "$SB_KEYDIR/db.crt" \
+        --output "$WORK/BOOTX64.EFI" "$WORK/BOOTX64.EFI"
+    gpg --homedir "$SB_KEYDIR/gpg" --batch --yes --detach-sign -o "$WORK/vmlinuz.sig"   "$VMLINUZ"
+    gpg --homedir "$SB_KEYDIR/gpg" --batch --yes --detach-sign -o "$WORK/initramfs.sig" "$INITRD"
+fi
 
 mmd   -i "$ESP_IMG" ::/EFI ::/EFI/BOOT
 mcopy -i "$ESP_IMG" "$WORK/BOOTX64.EFI" ::/EFI/BOOT/BOOTX64.EFI
 mcopy -i "$ESP_IMG" "$WORK/grub.cfg"    ::/grub.cfg
 mcopy -i "$ESP_IMG" "$VMLINUZ"          ::/vmlinuz
 mcopy -i "$ESP_IMG" "$INITRD"           ::/initramfs.cpio.zst
+if [ "$SB" = 1 ]; then
+    mcopy -i "$ESP_IMG" "$WORK/vmlinuz.sig"   ::/vmlinuz.sig
+    mcopy -i "$ESP_IMG" "$WORK/initramfs.sig" ::/initramfs.cpio.zst.sig
+fi
 
 dd if="$ESP_IMG" of="$OUT" bs=$SECTOR seek="$ESP_START" conv=notrunc status=none
 
