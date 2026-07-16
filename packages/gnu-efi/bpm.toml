@@ -1,0 +1,31 @@
+[package]
+name     = "gnu-efi"
+version  = "3.0.18"
+release  = 1
+summary  = "Libraries and headers for building UEFI applications with GCC (crt0, libgnuefi)"
+homepage = "https://sourceforge.net/projects/gnu-efi/"
+license  = ["BSD-3-Clause"]
+arch     = ["x86_64"]
+
+depends     = ["glibc"]
+makedepends = ["pkgconf"]
+
+[[source]]
+url    = "https://download.sourceforge.net/gnu-efi/gnu-efi-3.0.18.tar.bz2"
+sha256 = "7f212c96ee66547eeefb531267b641e5473d7d8529f0bd8ccdefd33cf7413f5c"
+
+[steps]
+# Build/install only the libraries + headers (crt0 + libgnuefi + libefi + inc);
+# the sample apps/ trip ld --fatal-warnings on new binutils and aren't installed
+# anyway. SUBDIRS drives both the build and install loops.
+build = '''
+cd "gnu-efi-$version"
+# gnu-efi is not parallel-safe (object subdirs race); build the libs serially.
+make -j1 CFLAGS="-O2 -fno-stack-protector -fno-strict-aliasing -fno-merge-all-constants" \
+     lib gnuefi
+'''
+package = '''
+cd "gnu-efi-$version"
+# Install libs + headers only (SUBDIRS drops apps, which we never built).
+make -j1 SUBDIRS="lib gnuefi inc" PREFIX=/usr install INSTALLROOT="$pkgdir"
+'''
