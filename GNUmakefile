@@ -38,6 +38,14 @@ STAGEDIR    := $(DESTDIR)
 # it and supplies the terminfo database.
 BASE_PKGS   ?= ncurses bash
 
+# Where the base packages come from at install/iso time:
+#   mirror (default) — fetch each prebuilt, signed .bpm from the repo; nothing is
+#                      compiled locally, so the ISO is reproducible from published
+#                      packages (glibc + the kernel already work this way).
+#   source           — build every base package from the recipe tree (dev: use
+#                      when testing local recipe changes before publishing).
+BASE_SRC    ?= mirror
+
 # ── Init system selection ─────────────────────────────────────────────────────
 # INIT=runit   (default) busybox + runit + dropbear, tiny RAM-first image.
 # INIT=systemd full systemd PID 1 on the *installed* disk system: journald,
@@ -52,7 +60,7 @@ INIT ?= systemd
 # build host's. bundle-glibc sources from the staged rootfs (SYSROOT=STAGEDIR),
 # so it finds these package libs already in place and does not overwrite them.
 SYSTEMD_BASE_PKGS := systemd util-linux coreutils libseccomp kmod dbus acl \
-                     cryptsetup libcap libcap-ng readline file zlib xz zstd lz4 bzip2 expat \
+                     cryptsetup libcap libcap-ng readline file zlib xz zstd lz4 lzo bzip2 expat \
                      pcre2 mpfr gdbm \
                      attr device-mapper json-c openssl popt openssh pam glibc-locales gmp \
                      ca-certificates \
@@ -61,7 +69,7 @@ SYSTEMD_BASE_PKGS := systemd util-linux coreutils libseccomp kmod dbus acl \
                      iptables libnftnl libnetfilter_conntrack libnfnetlink \
                      grep sed gawk findutils gzip tar diffutils less which nano vim sudo tzdata kbd \
                      procps-ng psmisc lsof mandoc man-pages \
-                     btrfs-progs blueberry-snapshot
+                     e2fsprogs libtirpc btrfs-progs blueberry-snapshot
 # procps-ng gives ps/top/free/uptime/vmstat/pgrep/pkill/sysctl (busybox has these
 # only in the live initramfs; the installed systemd rootfs would have none).
 # psmisc = killall/pstree/fuser, lsof = open-file/port inspection. mandoc is the
@@ -337,17 +345,24 @@ _do_install:
 	@# Base packages shipped in the image. bash is the default interactive shell
 	@# (busybox ash stays as /bin/sh for scripts); ncurses backs it + provides
 	@# the terminfo database. Built once, then extracted into the rootfs.
-	@echo "[install] bundling base packages ($(BASE_PKGS))"
-	@# Native .bpm path (PKGBUILD/.pkg.tar.zst fully retired). Each .bpm is a zstd
-	@# tarball of ./usr… plus a .BPM manifest; build then extract into the rootfs.
-	@sh $(TOPDIR)/tools/pkg/build-bpm-pkg.sh $(OBJDIR)/bpm-out $(BASE_PKGS)
-	@# Extract each base package AND record it in the rootfs bpm DB, so the base
-	@# userland is bpm-tracked and `bpm upgrade` can pull security/version updates
-	@# for it (openssl, openssh, sudo, expat, …) — not just the kernel.
-	@for p in $(BASE_PKGS); do \
-	    f=$$(ls -t $(OBJDIR)/bpm-out/$$p-[0-9]*.bpm | head -1); \
-	    sh $(TOPDIR)/tools/pkg/bpm-extract-record.sh "$$f" $(STAGEDIR); \
-	done
+	@echo "[install] bundling base packages [BASE_SRC=$(BASE_SRC)] ($(BASE_PKGS))"
+	@# Each .bpm is a zstd tarball of ./usr… plus a .BPM manifest. Both paths extract
+	@# it into the rootfs AND record it in the bpm DB, so the base userland is
+	@# bpm-tracked and `bpm upgrade` can pull security/version updates (openssl,
+	@# openssh, sudo, …) — not just the kernel.
+	@if [ "$(BASE_SRC)" = source ]; then \
+	    sh $(TOPDIR)/tools/pkg/build-bpm-pkg.sh $(OBJDIR)/bpm-out $(BASE_PKGS); \
+	    for p in $(BASE_PKGS); do \
+	        f=$$(ls -t $(OBJDIR)/bpm-out/$$p-[0-9]*.bpm | head -1); \
+	        sh $(TOPDIR)/tools/pkg/bpm-extract-record.sh "$$f" $(STAGEDIR); \
+	    done; \
+	else \
+	    for p in $(BASE_PKGS); do \
+	        sh $(TOPDIR)/tools/pkg/fetch-bpm.sh "$$p" $(STAGEDIR) $(OBJDIR)/bpm-cache; \
+	        f=$$(ls -t $(OBJDIR)/bpm-cache/$$p-[0-9]*.bpm | head -1); \
+	        sh $(TOPDIR)/tools/pkg/bpm-extract-record.sh "$$f" $(STAGEDIR) --record-only; \
+	    done; \
+	fi
 	@# glibc: ALWAYS fetch the pinned, container-built package from the MIRROR —
 	@# never build it here or copy the build host's libc. Same rationale as the
 	@# initramfs: a host older than the container (Ubuntu 2.39 vs 2.43) would
