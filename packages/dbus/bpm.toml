@@ -7,7 +7,7 @@ homepage = "https://www.freedesktop.org/wiki/Software/dbus/"
 license  = ["GPL-2.0-or-later OR AFL-2.1"]
 arch     = ["x86_64"]
 
-depends     = ["glibc", "expat"]
+depends     = ["glibc", "expat", "systemd"]
 makedepends = ["meson", "ninja", "pkgconf"]
 
 [[source]]

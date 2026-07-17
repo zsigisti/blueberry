@@ -10,7 +10,7 @@ arch     = ["x86_64"]
 # newuidmap/newgidmap (setuid) give a non-root user its subordinate uid/gid
 # ranges — the hard requirement for rootless podman. Also brings real
 # useradd/usermod/groupadd (busybox only has adduser).
-depends     = ["glibc", "pam", "libbsd", "libxcrypt"]
+depends     = ["glibc", "pam", "libbsd", "libxcrypt", "acl", "attr", "systemd"]
 makedepends = ["pkgconf", "pam", "libbsd", "libxcrypt", "systemd"]
 
 [[source]]

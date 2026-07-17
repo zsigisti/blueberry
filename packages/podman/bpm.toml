@@ -12,7 +12,7 @@ arch     = ["x86_64"]
 # container init (catatonit). Built without gpgme/btrfs/devicemapper (pure-Go
 # openpgp + overlay/vfs storage), so no extra C library deps.
 depends = [
-    "glibc", "gcc-libs", "libseccomp", "systemd",
+    "glibc", "gcc-libs", "libseccomp", "systemd", "sqlite",
     "crun", "conmon", "netavark", "aardvark-dns", "containers-common", "catatonit",
     # Rootless: subuid/subgid mapping (shadow), user-mode net uplink (passt/pasta),
     # and rootless overlay storage (fuse-overlayfs).

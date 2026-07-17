@@ -7,7 +7,7 @@ homepage = "https://www.gnu.org/software/coreutils/"
 license  = ["GPL-3.0-or-later"]
 arch     = ["x86_64"]
 
-depends     = ["glibc", "libcap", "openssl", "gmp"]
+depends     = ["glibc", "libcap", "openssl", "gmp", "acl", "attr"]
 makedepends = ["gcc", "make", "pkgconf", "libcap", "openssl", "gmp"]
 options     = ["!lto"]
 

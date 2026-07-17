@@ -7,7 +7,7 @@ homepage = "https://www.gnu.org/software/bison/"
 license  = ["GPL-3.0-or-later"]
 arch     = ["x86_64"]
 
-depends     = ["glibc", "m4"]
+depends     = ["glibc", "m4", "gettext"]
 makedepends = ["m4", "make", "gcc"]
 
 [[source]]

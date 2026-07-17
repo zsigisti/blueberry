@@ -7,7 +7,7 @@ homepage = "https://roy.marples.name/projects/dhcpcd"
 license  = ["BSD-2-Clause"]
 arch     = ["x86_64"]
 
-depends     = ["glibc", "eudev", "openssl"]
+depends     = ["glibc", "eudev", "openssl", "systemd"]
 
 [[source]]
 url    = "https://github.com/NetworkConfiguration/dhcpcd/releases/download/v10.3.2/dhcpcd-10.3.2.tar.xz"

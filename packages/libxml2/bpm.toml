@@ -7,7 +7,7 @@ homepage = "https://gitlab.gnome.org/GNOME/libxml2/-/wikis/home"
 license  = ["MIT"]
 arch     = ["x86_64"]
 
-depends     = ["zlib", "glibc"]
+depends     = ["zlib", "glibc", "readline"]
 makedepends = ["python"]
 provides    = ["libxml2.so"]
 options     = ["!emptydirs"]

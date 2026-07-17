@@ -7,7 +7,7 @@ homepage = "https://github.com/containers/conmon"
 license  = ["Apache-2.0"]
 arch     = ["x86_64"]
 
-depends     = ["glibc", "glib2", "libseccomp"]
+depends     = ["glibc", "glib2", "libseccomp", "systemd"]
 makedepends = ["pkgconf", "git", "glib2", "libseccomp"]
 
 [[source]]

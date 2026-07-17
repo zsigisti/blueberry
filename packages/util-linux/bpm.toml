@@ -7,7 +7,7 @@ homepage = "https://github.com/util-linux/util-linux"
 license  = ["GPL-2.0-or-later", "LGPL-2.1-or-later", "BSD-3-Clause"]
 arch     = ["x86_64"]
 
-depends     = ["glibc", "libcap-ng", "readline", "file"]
+depends     = ["glibc", "libcap-ng", "readline", "file", "libxcrypt", "pam", "sqlite", "systemd"]
 makedepends = ["pkgconf"]
 provides    = ["libuuid.so", "libblkid.so", "libmount.so", "libfdisk.so", "libsmartcols.so"]
 

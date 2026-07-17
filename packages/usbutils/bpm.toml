@@ -7,7 +7,7 @@ homepage = "https://github.com/gregkh/usbutils"
 license  = ["GPL-2.0-or-later"]
 arch     = ["x86_64"]
 
-depends     = ["glibc", "libusb", "eudev"]
+depends     = ["glibc", "libusb", "eudev", "systemd"]
 makedepends = ["meson", "ninja", "pkgconf"]
 
 [[source]]

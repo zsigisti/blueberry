@@ -7,7 +7,7 @@ homepage = "https://www.python.org/"
 license  = ["Python-2.0.1"]
 arch     = ["x86_64"]
 
-depends     = ["glibc", "zlib", "openssl", "bzip2", "libffi", "xz", "ncurses", "readline", "gdbm", "mpdecimal", "sqlite", "expat", "util-linux"]
+depends     = ["glibc", "zlib", "openssl", "bzip2", "libffi", "xz", "ncurses", "readline", "gdbm", "mpdecimal", "sqlite", "expat", "util-linux", "zstd"]
 provides    = ["python3"]
 
 [[source]]

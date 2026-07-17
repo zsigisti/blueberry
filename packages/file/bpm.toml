@@ -7,7 +7,7 @@ homepage = "https://www.darwinsys.com/file/"
 license  = ["custom"]
 arch     = ["x86_64"]
 
-depends     = ["glibc", "zlib", "bzip2", "xz", "libseccomp"]
+depends     = ["glibc", "zlib", "bzip2", "xz", "libseccomp", "zstd"]
 provides    = ["libmagic.so"]
 
 [[source]]

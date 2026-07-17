@@ -7,7 +7,7 @@ homepage = "https://cmake.org/"
 license  = ["BSD-3-Clause"]
 arch     = ["x86_64"]
 
-depends     = ["glibc", "gcc-libs", "ncurses"]
+depends     = ["glibc", "gcc-libs", "ncurses", "libidn2", "openssl"]
 makedepends = ["gcc", "make"]
 
 # Bootstrap with bundled third-party libs (CMAKE_USE_SYSTEM_LIBRARIES=OFF) so the

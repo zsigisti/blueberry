@@ -7,7 +7,7 @@ homepage = "https://www.openssh.com/"
 license  = ["BSD-2-Clause"]
 arch     = ["x86_64"]
 
-depends     = ["glibc", "openssl", "zlib"]
+depends     = ["glibc", "openssl", "zlib", "libxcrypt"]
 # user-editable config — preserved across upgrades (bpm writes a .bpmnew instead)
 backup      = ["etc/ssh/sshd_config", "etc/ssh/ssh_config"]
 

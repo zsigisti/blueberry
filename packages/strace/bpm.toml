@@ -7,7 +7,7 @@ homepage = "https://strace.io/"
 license  = ["LGPL-2.1-or-later"]
 arch     = ["x86_64"]
 
-depends     = ["glibc", "elfutils"]
+depends     = ["glibc", "elfutils", "ncurses"]
 options     = ["!lto"]
 
 [[source]]

@@ -7,7 +7,7 @@ homepage = "https://github.com/linux-pam/linux-pam"
 license  = ["BSD-3-Clause"]
 arch     = ["x86_64"]
 
-depends     = ["glibc", "gdbm"]
+depends     = ["glibc", "gdbm", "libxcrypt", "systemd"]
 makedepends = ["meson", "ninja", "flex", "bison"]
 provides    = ["libpam.so", "libpamc.so", "libpam_misc.so"]
 

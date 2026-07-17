@@ -7,7 +7,7 @@ homepage = "https://www.smartmontools.org/"
 license  = ["GPL-2.0-or-later"]
 arch     = ["x86_64"]
 
-depends     = ["glibc", "libcap-ng"]
+depends     = ["glibc", "libcap-ng", "systemd"]
 makedepends = ["make", "gcc", "pkgconf", "libcap-ng"]
 provides    = ["smartctl", "smartd"]
 

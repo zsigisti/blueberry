@@ -487,9 +487,21 @@ ALL_BPM_PKGS := $(notdir $(patsubst %/bpm.toml,%,$(wildcard $(TOPDIR)/packages/*
 
 # Assert the recipe tree is dependency-closed (every `depends` has a recipe or is
 # host-provided). Catches "declared but never packaged" before it ships.
-.PHONY: check-closure build-world repo-build
+.PHONY: check-closure build-world repo-build audit-deps
 check-closure:
 	@python3 $(TOPDIR)/tools/pkg/check-closure.py
+
+# Audit real ELF linkage of every built package against the self-hosted store and
+# report any runtime dependency a recipe fails to declare. Needs the store
+# (obj/bpm-out) populated — e.g. after `make repo-selfhost`.
+#   ENGINE=podman|docker  BUILDER_IMAGE=...  STORE=<dir>
+AUDIT_ENGINE ?= podman
+AUDIT_IMAGE  ?= localhost/blueberry-builder:latest
+AUDIT_STORE  ?= $(TOPDIR)/obj/bpm-out
+audit-deps:
+	@$(AUDIT_ENGINE) run --rm --security-opt seccomp=unconfined \
+	    -v $(TOPDIR):/repo:ro,z -v $(AUDIT_STORE):/deps:ro,z \
+	    $(AUDIT_IMAGE) python3 /repo/tools/pkg/audit-runtime-deps.py
 
 
 # Build every .bpm package (idempotent: skips up-to-date ones). The bulk of the

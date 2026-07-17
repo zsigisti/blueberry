@@ -7,7 +7,7 @@ homepage = "https://infozip.sourceforge.net/"
 license  = ["custom:info-zip"]
 arch     = ["x86_64"]
 
-depends     = ["glibc"]
+depends     = ["glibc", "bzip2"]
 makedepends = ["make", "gcc"]
 provides    = ["zip"]
 

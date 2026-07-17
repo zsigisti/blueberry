@@ -7,7 +7,7 @@ homepage = "https://www.bitwizard.nl/mtr/"
 license  = ["GPL-2.0-only"]
 arch     = ["x86_64"]
 
-depends     = ["glibc", "ncurses", "libcap"]
+depends     = ["glibc", "ncurses", "libcap", "jansson"]
 makedepends = ["autoconf", "automake", "libtool", "pkgconf"]
 
 [[source]]

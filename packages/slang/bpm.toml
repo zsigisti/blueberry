@@ -6,7 +6,7 @@ summary  = "S-Lang embedded interpreter + tty display library (newt dep)"
 homepage = "https://www.jedsoft.org/slang/"
 license  = ["GPL-2.0-or-later"]
 arch     = ["x86_64"]
-depends     = ["glibc", "zlib"]
+depends     = ["glibc", "zlib", "libpng"]
 makedepends = ["make", "gcc", "zlib", "pcre2", "libpng"]
 
 [[source]]

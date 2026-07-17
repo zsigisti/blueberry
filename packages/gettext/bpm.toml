@@ -7,7 +7,7 @@ homepage = "https://www.gnu.org/software/gettext/"
 license  = ["GPL-3.0-or-later", "LGPL-2.1-or-later"]
 arch     = ["x86_64"]
 
-depends     = ["glibc", "libunistring", "ncurses", "libxml2"]
+depends     = ["glibc", "libunistring", "ncurses", "libxml2", "acl", "attr"]
 provides    = ["libtextstyle.so", "libintl.so", "libasprintf.so"]
 makedepends = ["gcc", "make"]
 

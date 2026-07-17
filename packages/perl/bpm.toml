@@ -7,7 +7,7 @@ homepage = "https://www.perl.org/"
 license  = ["GPL-1.0-or-later", "Artistic-1.0-Perl"]
 arch     = ["x86_64"]
 
-depends = ["glibc", "gdbm"]
+depends = ["glibc", "gdbm", "libxcrypt"]
 
 [[source]]
 url    = "https://www.cpan.org/src/5.0/perl-5.40.2.tar.xz"

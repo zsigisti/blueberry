@@ -7,7 +7,7 @@ homepage = "https://xfs.wiki.kernel.org/"
 license  = ["LGPL-2.1-or-later", "GPL-2.0-or-later"]
 arch     = ["x86_64"]
 
-depends     = ["glibc", "util-linux", "liburcu", "libinih"]
+depends     = ["glibc", "util-linux", "liburcu", "libinih", "device-mapper"]
 makedepends = ["make", "gcc", "pkgconf", "util-linux", "liburcu", "libinih"]
 provides    = ["mkfs.xfs", "xfs_repair"]
 

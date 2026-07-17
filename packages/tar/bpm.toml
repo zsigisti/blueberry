@@ -6,7 +6,7 @@ summary  = "GNU tar — core CLI tool (desktop base; busybox covers the server)"
 homepage = "https://www.gnu.org/software/tar/"
 license  = ["GPL-3.0-or-later"]
 arch     = ["x86_64"]
-depends     = ["glibc"]
+depends     = ["glibc", "acl"]
 makedepends = ["gcc", "make", "pkgconf"]
 options     = ["!lto"]
 

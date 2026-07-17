@@ -8,7 +8,7 @@ license  = ["BSD-3-Clause", "GPL-2.0-only"]
 arch     = ["x86_64"]
 
 # libzstd.so.1 is already provided by the base image; this ships the CLI tools.
-depends     = ["glibc"]
+depends     = ["glibc", "lz4", "xz", "zlib"]
 makedepends = ["make", "gcc"]
 provides    = ["zstd", "libzstd.so"]
 

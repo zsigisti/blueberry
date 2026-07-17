@@ -6,7 +6,7 @@ summary  = "GNU sed — core CLI tool (desktop base; busybox covers the server)"
 homepage = "https://www.gnu.org/software/sed/"
 license  = ["GPL-3.0-or-later"]
 arch     = ["x86_64"]
-depends     = ["glibc"]
+depends     = ["glibc", "acl", "attr"]
 makedepends = ["gcc", "make", "pkgconf"]
 options     = ["!lto"]
 

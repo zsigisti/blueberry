@@ -7,7 +7,7 @@ homepage = "https://marlam.de/msmtp/"
 license  = ["GPL-3.0-or-later"]
 arch     = ["x86_64"]
 
-depends     = ["glibc", "gnutls", "libidn2"]
+depends     = ["glibc", "gnutls", "libidn2", "glib2"]
 makedepends = ["pkgconf", "gnutls", "libidn2"]
 
 [[source]]

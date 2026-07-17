@@ -10,7 +10,7 @@ arch     = ["x86_64"]
 # BIND 9.20 requires libuv, OpenSSL and userspace-rcu (liburcu). Optional
 # libxml2/json-c/lmdb/libidn2/linux-caps are disabled to keep the closure small;
 # only the client tools are shipped (the named server is removed in package()).
-depends     = ["glibc", "libuv", "openssl", "liburcu"]
+depends     = ["glibc", "libuv", "openssl", "liburcu", "e2fsprogs", "krb5", "readline"]
 makedepends = ["make", "gcc", "pkgconf", "perl", "libuv", "liburcu", "openssl"]
 provides    = ["dig", "host", "nslookup"]
 

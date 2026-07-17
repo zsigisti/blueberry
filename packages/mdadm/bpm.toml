@@ -7,7 +7,7 @@ homepage = "https://kernel.org/"
 license  = ["GPL-2.0-or-later"]
 arch     = ["x86_64"]
 
-depends     = ["glibc", "eudev"]
+depends     = ["glibc", "eudev", "systemd"]
 options     = ["!lto"]
 
 [[source]]

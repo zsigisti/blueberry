@@ -7,7 +7,7 @@ homepage = "https://btrfs.readthedocs.io/"
 license  = ["GPL-2.0-only"]
 arch     = ["x86_64"]
 
-depends     = ["glibc", "util-linux", "lzo", "zlib"]
+depends     = ["glibc", "util-linux", "lzo", "zlib", "e2fsprogs", "systemd", "zstd"]
 makedepends = ["make", "gcc", "pkgconf", "autoconf", "automake", "util-linux", "lzo", "zlib"]
 provides    = ["mkfs.btrfs", "btrfs"]
 

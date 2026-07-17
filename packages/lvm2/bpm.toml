@@ -9,7 +9,7 @@ arch     = ["x86_64"]
 
 # Built from the same LVM2 source as device-mapper, but installs only the LVM2
 # tools (install_lvm2) — libdevmapper comes from the device-mapper package.
-depends     = ["glibc", "libaio", "readline", "device-mapper"]
+depends     = ["glibc", "libaio", "readline", "device-mapper", "systemd", "util-linux"]
 makedepends = ["make", "gcc", "pkgconf", "libaio"]
 provides    = ["lvm", "vgcreate", "lvcreate"]
 

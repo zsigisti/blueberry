@@ -7,7 +7,7 @@ homepage = "https://blueberry.linux/"
 license  = ["custom"]
 arch     = ["x86_64"]
 
-depends     = ["glibc", "e2fsprogs", "keyutils"]
+depends     = ["glibc", "e2fsprogs", "keyutils", "openssl"]
 makedepends = ["bison", "perl"]
 options     = ["!lto"]
 

@@ -7,7 +7,7 @@ homepage = "https://mariadb.org/"
 license  = ["GPL-2.0-only", "LGPL-2.1-or-later"]
 arch     = ["x86_64"]
 
-depends     = ["glibc", "gcc-libs", "openssl", "ncurses", "zlib", "zstd", "lz4", "pcre2", "libaio", "liburcu", "bzip2", "xz", "systemd"]
+depends     = ["glibc", "gcc-libs", "openssl", "ncurses", "zlib", "zstd", "lz4", "pcre2", "libaio", "liburcu", "bzip2", "xz", "systemd", "curl", "krb5", "libxcrypt"]
 makedepends = ["cmake", "bison", "pkgconf"]
 
 [[source]]
