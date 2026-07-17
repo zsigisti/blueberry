@@ -42,7 +42,7 @@ else
 fi
 seed()  { store env BPM_CACHE="$OUT" sh "$FETCH" "$1" - "$OUT" >/dev/null 2>&1; }
 have()  { ls "$OUT/$1"-[0-9]*.bpm >/dev/null 2>&1; }
-BAK="$OUT/.selfhost-bak"
+BAK="$TOPDIR/obj/.selfhost-bak"   # sibling of the store, not inside it
 store mkdir -p "$BAK"
 # Non-destructive rebuild: stash the current artifact before a fresh build, so a
 # failed build restores the exact working artifact locally — never lose a package
