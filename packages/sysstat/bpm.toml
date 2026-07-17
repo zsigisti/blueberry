@@ -8,6 +8,9 @@ license  = ["GPL-2.0-or-later"]
 arch     = ["x86_64"]
 
 depends     = ["glibc"]
+# NLS build runs gettext's msgfmt (which links libxml2/libunistring/…); declare it
+# so a working msgfmt and its full runtime closure are installed self-hosted.
+makedepends = ["gettext"]
 
 [[source]]
 url    = "https://github.com/sysstat/sysstat/archive/refs/tags/v12.7.9.tar.gz"
