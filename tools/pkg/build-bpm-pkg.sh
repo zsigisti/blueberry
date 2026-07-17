@@ -111,6 +111,7 @@ for p in '"$*"'; do
     rm -f /out/$p-[0-9]*.bpm
     if ! setpriv --reuid=1000 --regid=1000 --init-groups \
             env HOME=/home/builder USER=builder SOURCE_DATE_EPOCH=$SDE BPM_ARCH=x86_64 \
+            M4=/usr/bin/m4 \
             bash -c "cd /tmp/b && python3 tools/pkg/bpmbuild packages/$p /out" >/tmp/$p.log 2>&1; then
         echo "!! FAILED: $p"; tail -40 /tmp/$p.log; fail="$fail $p"
     else
