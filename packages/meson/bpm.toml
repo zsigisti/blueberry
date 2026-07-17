@@ -23,5 +23,25 @@ site="$pkgdir/usr/lib/python$pyver/site-packages";
 install -d "$site";
 cp -r mesonbuild "$site/";
 install -Dm755 meson.py "$pkgdir/usr/bin/meson";
-install -Dm644 man/meson.1 "$pkgdir/usr/share/man/man1/meson.1"
+install -Dm644 man/meson.1 "$pkgdir/usr/share/man/man1/meson.1";
+# arch-meson: an opinionated `meson setup` wrapper several recipes call (ported
+# from Arch's devtools so those recipes build unchanged self-hosted). Same
+# packaging defaults: /usr prefix, plain buildtype, all features enabled, no
+# network wraps.
+install -d "$pkgdir/usr/bin";
+cat > "$pkgdir/usr/bin/arch-meson" <<'AMEOF'
+#!/bin/sh
+# Opinionated meson wrapper for packaging (ported from Arch devtools).
+exec meson setup \
+    --prefix        /usr \
+    --libexecdir    lib \
+    --sbindir       bin \
+    --buildtype     plain \
+    --auto-features enabled \
+    --wrap-mode     nodownload \
+    -D b_pie=true \
+    -D python.bytecompile=1 \
+    "$@"
+AMEOF
+chmod 755 "$pkgdir/usr/bin/arch-meson"
 '''
