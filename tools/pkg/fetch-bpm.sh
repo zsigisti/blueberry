@@ -13,6 +13,8 @@
 # canonical glibc .bpm from the mirror makes the initramfs host-independent.
 #
 # Usage: fetch-bpm.sh <pkgname> <destroot> [cachedir]
+#   destroot "-" downloads + verifies the .bpm into the cache only (no extraction),
+#   used to seed a package store (obj/bpm-out) from the mirror.
 # Env:   BPM_MIRROR (default https://repo.blueberrylinux.org)
 set -eu
 
@@ -24,7 +26,8 @@ MIRROR=${BPM_MIRROR:-https://repo.blueberrylinux.org}
 for t in curl zstd tar sha256sum awk; do
     command -v "$t" >/dev/null 2>&1 || { echo "fetch-bpm: need $t" >&2; exit 1; }
 done
-mkdir -p "$CACHE" "$DEST"
+mkdir -p "$CACHE"
+[ "$DEST" = "-" ] || mkdir -p "$DEST"
 
 # Index line: name|version|filename|sha256|deps|size|desc
 # Fetch the whole index into a variable first, THEN parse — piping curl straight
@@ -51,6 +54,11 @@ if [ ! -f "$cached" ] || [ "$(sha256sum "$cached" | cut -d' ' -f1)" != "$want" ]
     mv "$cached.tmp" "$cached"
 else
     echo "fetch-bpm: using cached $file"
+fi
+
+if [ "$DEST" = "-" ]; then
+    echo "fetch-bpm: cached $file (no extract) -> $cached"
+    exit 0
 fi
 
 echo "fetch-bpm: extracting $file -> $DEST"

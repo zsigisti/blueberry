@@ -498,6 +498,14 @@ repo-build:
 	@echo "[repo] building all $(words $(ALL_BPM_PKGS)) .bpm packages"
 	@sh $(TOPDIR)/tools/pkg/build-bpm-pkg.sh $(OBJDIR)/bpm-out $(ALL_BPM_PKGS)
 
+# Rebuild every package self-hosted (BASE=blueberry, zero Arch), in runtime-
+# dependency order, so the whole mirror is produced by Blueberry's own toolchain.
+# Seeds the store from the mirror first, restores from it on any failure, and is
+# resumable (obj/.selfhost-done). FORCE=1 rebuilds everything.
+.PHONY: repo-selfhost
+repo-selfhost:
+	@sh $(TOPDIR)/tools/pkg/repo-selfhost.sh
+
 # "Build the world" gate: recipe closure must hold, then build every package
 # from source (fails if any recipe doesn't build). Run on a build box / nightly
 # CI — far too slow for per-push checks.

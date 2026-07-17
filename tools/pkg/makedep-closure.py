@@ -74,6 +74,58 @@ def build_provides(recipes: dict[str, dict]) -> dict[str, str]:
     return prov
 
 
+def topo_order(recipes, provided, prov, subset=None) -> list[str]:
+    """A global build order over all recipes: dependencies before dependents.
+
+    Edges are the runtime `depends` graph only, resolved through `provides` to
+    recipe names and restricted to real recipes (host-provided/implicit leaves and
+    unknown names are dropped). We deliberately do NOT order on makedepends: the
+    build toolchain (gcc, make, binutils, cmake, …) is baked into the builder image
+    and mutually build-depends, forming one big cycle that carries no real ordering
+    — a package links its runtime deps, so those are what must exist first. Any
+    makedep still needed at build time is supplied from the already-built store
+    (the seed / earlier waves). Self-edges are ignored; residual cycles are emitted
+    last in a stable order with a warning.
+    """
+    names = set(recipes) if subset is None else {n for n in subset if n in recipes}
+
+    def resolve(name: str) -> str:
+        return name if name in recipes else prov.get(name, name)
+
+    # deps[n] = set of in-scope recipe names n must be built after (runtime only).
+    deps: dict[str, set[str]] = {}
+    for n in names:
+        r = recipes[n]
+        d = set()
+        for raw in r["depends"]:
+            m = resolve(raw)
+            if m != n and m in names:
+                d.add(m)
+        deps[n] = d
+
+    # Kahn: repeatedly emit nodes whose deps are all already emitted.
+    order: list[str] = []
+    done: set[str] = set()
+    remaining = set(names)
+    while remaining:
+        ready = sorted(n for n in remaining if deps[n] <= done)
+        if not ready:
+            break  # only cycles left
+        for n in ready:
+            order.append(n)
+            done.add(n)
+            remaining.discard(n)
+
+    if remaining:
+        # Bootstrap cycles (mutual makedepends). Emit in stable order; the seeded
+        # .bpm satisfies the back-edge for the first pass.
+        cyc = sorted(remaining)
+        print("makedep-closure: --topo cycle(s), emitting last: " + " ".join(cyc),
+              file=sys.stderr)
+        order.extend(cyc)
+    return order
+
+
 def closure(pkgs, recipes, provided, prov) -> list[str]:
     """Topologically-ordered build-time closure (deps before dependents)."""
     order: list[str] = []
@@ -111,21 +163,31 @@ def closure(pkgs, recipes, provided, prov) -> list[str]:
 def main() -> int:
     args = sys.argv[1:]
     check = False
+    topo = False
     outdir = None
-    if args and args[0] == "--check":
+    if args and args[0] == "--topo":
+        topo = True
+        args = args[1:]  # optional subset; default = all recipes
+    elif args and args[0] == "--check":
         check = True
         if len(args) < 3:
             print("usage: makedep-closure.py --check <out-dir> <pkg>...", file=sys.stderr)
             return 2
         outdir = args[1]
         args = args[2:]
-    if not args:
-        print("usage: makedep-closure.py [--check <out-dir>] <pkg>...", file=sys.stderr)
+    if not args and not topo:
+        print("usage: makedep-closure.py [--topo|--check <out-dir>] <pkg>...", file=sys.stderr)
         return 2
 
     provided = load_provided()
     recipes = load_recipes()
     prov = build_provides(recipes)
+
+    if topo:
+        for m in topo_order(recipes, provided, prov, subset=args or None):
+            print(m)
+        return 0
+
     members = closure(args, recipes, provided, prov)
 
     if not check:

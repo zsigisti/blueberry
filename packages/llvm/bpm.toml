@@ -7,9 +7,9 @@ homepage = "https://llvm.org/"
 license  = ["Apache-2.0"]
 arch     = ["x86_64"]
 
-depends     = ["glibc", "gcc-libs", "zlib", "zstd", "libffi", "ncurses"]
+depends     = ["glibc", "gcc-libs", "zlib", "zstd", "libffi", "ncurses", "libxml2"]
 provides    = ["libLLVM.so", "libclang.so", "libclang-cpp.so", "clang"]
-makedepends = ["cmake", "ninja", "python", "gcc", "make", "zlib", "zstd", "libffi", "ncurses"]
+makedepends = ["cmake", "ninja", "python", "gcc", "make", "zlib", "zstd", "libffi", "ncurses", "libxml2"]
 
 [[source]]
 url    = "https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.8/llvm-project-22.1.8.src.tar.xz"
@@ -29,6 +29,7 @@ cmake -G Ninja -S "llvm-project-$version.src/llvm" -B build \
     -DLLVM_LINK_LLVM_DYLIB=ON \
     -DLLVM_ENABLE_RTTI=ON \
     -DLLVM_ENABLE_FFI=ON \
+    -DLLVM_ENABLE_LIBXML2=FORCE_ON \
     -DLLVM_INSTALL_UTILS=ON \
     -DLLVM_ENABLE_WERROR=OFF \
     -DLLVM_PARALLEL_LINK_JOBS=1 \
