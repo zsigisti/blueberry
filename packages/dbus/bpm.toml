@@ -1,7 +1,7 @@
 [package]
 name     = "dbus"
 version  = "1.16.0"
-release  = 2
+release  = 3
 summary  = "Freedesktop.org message bus system (libdbus + dbus-daemon)"
 homepage = "https://www.freedesktop.org/wiki/Software/dbus/"
 license  = ["GPL-2.0-or-later OR AFL-2.1"]
@@ -23,5 +23,14 @@ meson compile -C build
 package = '''
 cd "$name-$version";
 meson install -C build --destdir="$pkgdir";
+# dbus-1.pc lists `Requires.private: libsystemd` because dbus-daemon links
+# libsystemd (sd_notify/activation). But libdbus-1's PUBLIC headers expose no
+# libsystemd types, so that private require is only consumed when STATIC-linking
+# libdbus-1 — which nothing in Blueberry does. Left in, it makes dbus-1.pc
+# unparseable during systemd's own build (systemd reads dbus-1.pc for its path
+# vars but is the sole provider of libsystemd.pc, so pkg-config can't resolve it):
+# a build-time dependency cycle. Strip it — the daemon keeps its libsystemd
+# linkage; only the .pc's static-link hint is dropped.
+sed -i '/^Requires\.private:.*libsystemd/d' "$pkgdir/usr/lib/pkgconfig/dbus-1.pc";
 install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
 '''

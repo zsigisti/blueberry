@@ -42,6 +42,15 @@ else
 fi
 seed()  { store env BPM_CACHE="$OUT" sh "$FETCH" "$1" - "$OUT" >/dev/null 2>&1; }
 have()  { ls "$OUT/$1"-[0-9]*.bpm >/dev/null 2>&1; }
+BAK="$OUT/.selfhost-bak"
+store mkdir -p "$BAK"
+# Non-destructive rebuild: stash the current artifact before a fresh build, so a
+# failed build restores the exact working artifact locally — never lose a package
+# just because the mirror is unreachable or doesn't carry it. (The SCC toolchain
+# is mutually bootstrapping: dropping one member unrecoverably breaks the rest.)
+stash()   { store sh -c "mv -f '$OUT/$1'-[0-9]*.bpm '$BAK/' 2>/dev/null || true"; }
+unstash() { store sh -c "mv -f '$BAK/$1'-[0-9]*.bpm '$OUT/' 2>/dev/null || true"; }
+dropbak() { store sh -c "rm -f '$BAK/$1'-[0-9]*.bpm 2>/dev/null || true"; }
 
 if [ $# -gt 0 ]; then
     order="$*"
@@ -64,12 +73,13 @@ for p in $order; do
     case "$EXCLUDE" in *" $p "*) echo "[selfhost] pinned, skip: $p"; skipped=$((skipped+1)); continue;; esac
     if grep -qxF "$p" "$DONE"; then skipped=$((skipped+1)); continue; fi
     echo "======== [selfhost] $p ========"
-    store rm -f "$OUT/$p"-[0-9]*.bpm            # force a fresh self-hosted build
+    stash "$p"                                  # stash current artifact, force a fresh build
     if BASE=blueberry sh "$BUILD" "$OUT" "$p"; then
-        echo "$p" >> "$DONE"; built=$((built+1))
+        echo "$p" >> "$DONE"; built=$((built+1)); dropbak "$p"
     else
         echo "!! [selfhost] FAILED self-hosted: $p" >&2; failed="$failed $p"
-        seed "$p" || true                       # restore from mirror so dependents resolve
+        unstash "$p"                            # restore the exact prior artifact locally
+        have "$p" || seed "$p" || true          # only if none stashed, try the mirror
     fi
 done
 
