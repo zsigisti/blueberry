@@ -19,7 +19,7 @@ sha256 = "19e680c9eef8c079da4da37040b5f5453763205b4edfb1e2c114de77908927e4"
 build = '''
 # IDN off → no libidn2 dep; mans off → no docbook/xsltproc; ping links libcap only.
 meson setup "iputils-$version" build \
-  --prefix=/usr --buildtype=release \
+  --prefix=/usr --libdir=lib --buildtype=release \
   -D USE_IDN=false \
   -D USE_GETTEXT=false \
   -D BUILD_MANS=false \

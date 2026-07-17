@@ -19,7 +19,7 @@ sha256 = "e79216260d5dffe809bda840be48ab0eec7737b2bb9f02d2275c1b46344ea7b7"
 [steps]
 build = '''
 cd "inih-r$version"
-meson setup build --prefix=/usr --buildtype=release \
+meson setup build --prefix=/usr --libdir=lib --buildtype=release \
     -Ddefault_library=shared -Ddistro_install=true
 meson compile -C build
 '''

@@ -20,7 +20,7 @@ sha256 = "f01de85717e20adf5f98aff324acd85dd73d61a5ca3834d573dcf0bd6e54a298"
 build = '''
 cd "fuse-$version"
 # Disable example fs + init-script install; keep it a library + fusermount3.
-meson setup build --prefix=/usr -Dexamples=false -Duseroot=false
+meson setup build --prefix=/usr --libdir=lib -Dexamples=false -Duseroot=false
 ninja -C build
 '''
 package = '''

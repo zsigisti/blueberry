@@ -34,6 +34,7 @@ cat > "$pkgdir/usr/bin/arch-meson" <<'AMEOF'
 # Opinionated meson wrapper for packaging (ported from Arch devtools).
 exec meson setup \
     --prefix        /usr \
+    --libdir        lib \
     --libexecdir    lib \
     --sbindir       bin \
     --buildtype     plain \

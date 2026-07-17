@@ -17,7 +17,7 @@ sha256 = "9f8ca5eb51cbe09951aec8624b86c292990ae2428b41b856e2bed17ec65c8849"
 [steps]
 build = '''
 cd "$name-$version";
-meson setup build --prefix=/usr --buildtype=release -Dsystemd=enabled -Dsystemd_system_unitdir=/usr/lib/systemd/system -Dsystemd_user_unitdir=/usr/lib/systemd/user -Dselinux=disabled -Dapparmor=disabled -Dlibaudit=disabled -Dx11_autolaunch=disabled -Ddoxygen_docs=disabled -Dducktype_docs=disabled -Dxml_docs=disabled -Dmodular_tests=disabled;
+meson setup build --prefix=/usr --libdir=lib --buildtype=release -Dsystemd=enabled -Dsystemd_system_unitdir=/usr/lib/systemd/system -Dsystemd_user_unitdir=/usr/lib/systemd/user -Dselinux=disabled -Dapparmor=disabled -Dlibaudit=disabled -Dx11_autolaunch=disabled -Ddoxygen_docs=disabled -Dducktype_docs=disabled -Dxml_docs=disabled -Dmodular_tests=disabled;
 meson compile -C build
 '''
 package = '''
