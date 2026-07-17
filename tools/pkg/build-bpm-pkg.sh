@@ -100,6 +100,12 @@ fail=""
 # hooks can chown/chgrp/setgid while we build fully unprivileged). Extract it into
 # every build regardless of the recipe closure; skipped silently until it exists.
 extract /deps/fakeroot-[0-9]*.bpm
+# The image bakes the gettext msgfmt tool, but not the shared libs it links
+# (libxml2, libunistring, ...). Any recipe that compiles po/*.mo runs msgfmt, so
+# extract the whole gettext closure into every build to keep it functional.
+for gdep in gettext $(python3 /tmp/b/tools/pkg/makedep-closure.py gettext); do
+    extract /deps/"$gdep"-[0-9]*.bpm
+done
 for p in '"$*"'; do
     echo "build-bpm: $p closure: $(python3 /tmp/b/tools/pkg/makedep-closure.py "$p" | tr "\n" " ")"
     for dep in $(python3 /tmp/b/tools/pkg/makedep-closure.py "$p"); do
