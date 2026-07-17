@@ -96,6 +96,10 @@ extract() {  # drop a built .bpm payload into / (no pacman, no DB — build inpu
     return 0
 }
 fail=""
+# fakeroot is a universal build tool (bpmbuild runs package() under it so install
+# hooks can chown/chgrp/setgid while we build fully unprivileged). Extract it into
+# every build regardless of the recipe closure; skipped silently until it exists.
+extract /deps/fakeroot-[0-9]*.bpm
 for p in '"$*"'; do
     echo "build-bpm: $p closure: $(python3 /tmp/b/tools/pkg/makedep-closure.py "$p" | tr "\n" " ")"
     for dep in $(python3 /tmp/b/tools/pkg/makedep-closure.py "$p"); do

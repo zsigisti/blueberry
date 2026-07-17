@@ -1,0 +1,39 @@
+[package]
+name     = "fakeroot"
+version  = "1.37.2"
+release  = 1
+summary  = "Run commands in an environment faking root privileges (for packaging)"
+homepage = "https://tracker.debian.org/pkg/fakeroot"
+license  = ["GPL-3.0-or-later"]
+arch     = ["x86_64"]
+
+# Build tool used by bpmbuild's package() step: it wraps chown/chgrp/stat so a
+# recipe's `make install` can set root/setgid ownership while running fully
+# unprivileged (uid 1000) in the self-hosted builder. The wrapper script shells
+# out to getopt (util-linux) and sed at run time.
+depends     = ["glibc", "util-linux", "sed", "bash"]
+makedepends = ["gcc", "make"]
+options     = ["!lto"]
+
+# snapshot.debian.org serves every archived file permanently by content hash;
+# the /file/<sha1> path is stable where dated pool URLs rotate out.
+[[source]]
+url    = "fakeroot_1.37.2.orig.tar.gz::https://snapshot.debian.org/file/1a721c2b4093a4e83dc091dc41a028f19340c1b3"
+sha256 = "0eea60fbe89771b88fcf415c8f2f0a6ccfe9edebbcf3ba5dc0212718d98884db"
+
+[steps]
+build = '''
+cd "$name-$version";
+# SysV-IPC faked (the container runs with --ipc=host); NLS off to keep the build
+# closure small. GCC 16: old interposition code, keep it non-fatal.
+./configure --prefix=/usr --libdir=/usr/lib --disable-static --disable-nls \
+    CFLAGS="${CFLAGS:-} -std=gnu17 -Wno-error";
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install;
+rm -rf "$pkgdir"/usr/share/man;
+rm -f "$pkgdir"/usr/lib/*.la;
+install -Dm644 COPYING "$pkgdir/usr/share/licenses/$name/COPYING"
+'''
