@@ -7,7 +7,7 @@ homepage = "https://sourceware.org/elfutils/"
 license  = ["GPL-3.0-or-later"]
 arch     = ["x86_64"]
 
-depends     = ["glibc", "zlib", "bzip2", "xz", "zstd", "curl", "json-c"]
+depends     = ["glibc", "zlib", "bzip2", "xz", "zstd"]
 makedepends = ["pkgconf"]
 options     = ["!lto"]
 
@@ -18,7 +18,10 @@ sha256 = "616099beae24aba11f9b63d86ca6cc8d566d968b802391334c91df54eab416b4"
 [steps]
 build = '''
 cd "$name-$version";
-./configure --prefix=/usr --enable-libdebuginfod --disable-debuginfod --program-prefix="eu-" CFLAGS="${CFLAGS:-} -Wno-error";
+# Self-hosted: no libdebuginfod (it needs libcurl/libmicrohttpd/libarchive we do
+# not package, and it is the very lib that keeps binutils' readelf from running
+# in the builder image). libelf/libdw only.
+./configure --prefix=/usr --disable-libdebuginfod --disable-debuginfod --program-prefix="eu-" CFLAGS="${CFLAGS:-} -Wno-error";
 make
 '''
 package = '''
