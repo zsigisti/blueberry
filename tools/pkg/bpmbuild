@@ -315,15 +315,15 @@ def main():
             rel = os.path.relpath(root, lib64)
             dest_root = lib if rel == "." else os.path.join(lib, rel)
             os.makedirs(dest_root, exist_ok=True)
-            for name in list(dirs):  # recreate symlinked dirs as links, don't descend
-                src = os.path.join(root, name)
+            for d in list(dirs):  # recreate symlinked dirs as links, don't descend
+                src = os.path.join(root, d)
                 if os.path.islink(src):
-                    dst = os.path.join(dest_root, name)
+                    dst = os.path.join(dest_root, d)
                     if not os.path.lexists(dst):
                         os.symlink(os.readlink(src), dst)
-                    dirs.remove(name)
-            for name in files:  # includes symlinks to files
-                src, dst = os.path.join(root, name), os.path.join(dest_root, name)
+                    dirs.remove(d)
+            for fn in files:  # includes symlinks to files
+                src, dst = os.path.join(root, fn), os.path.join(dest_root, fn)
                 if os.path.lexists(dst):
                     continue
                 if os.path.islink(src):
