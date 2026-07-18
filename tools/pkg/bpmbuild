@@ -299,13 +299,39 @@ def main():
             os.remove(p)
             log(f"pruned shared index: {junk}")
 
-    # /usr/lib64 is invisible at runtime: ld.so searches /usr/lib only, and
-    # usr-merge symlinks /lib64 but leaves /usr/lib64 a real dir. A build system
-    # defaulting its libdir to lib64 (cmake/autoconf on non-merged builders)
-    # produces libraries no binary can load — fail loudly instead of shipping it.
-    if os.path.isdir(os.path.join(pkgdir, "usr/lib64")):
-        die("package installs into usr/lib64 — force libdir=/usr/lib in the recipe "
-            "(cmake: -DCMAKE_INSTALL_LIBDIR=lib, autoconf/meson: --libdir=/usr/lib)")
+    # Blueberry is merged-usr with a single library dir, /usr/lib. Some build
+    # systems still install to the x86_64 multi-os dir /usr/lib64 — cmake's
+    # default GNUInstallDirs libdir, or autoconf's toolexeclibdir=$(libdir)/../lib64
+    # (libffi, gcc) which even overrides an explicit --libdir=/usr/lib. On a
+    # merged-usr host that dir is the same place; here it is a real, separate
+    # directory that ld.so never searches, so those libraries load nowhere.
+    # Fold lib64 back into lib (what the /lib64->lib symlink does elsewhere), so
+    # the layout is correct no matter how stubborn the upstream build is.
+    lib64 = os.path.join(pkgdir, "usr/lib64")
+    if os.path.isdir(lib64) and not os.path.islink(lib64):
+        lib = os.path.join(pkgdir, "usr/lib")
+        os.makedirs(lib, exist_ok=True)
+        for root, dirs, files in os.walk(lib64):
+            rel = os.path.relpath(root, lib64)
+            dest_root = lib if rel == "." else os.path.join(lib, rel)
+            os.makedirs(dest_root, exist_ok=True)
+            for name in list(dirs):  # recreate symlinked dirs as links, don't descend
+                src = os.path.join(root, name)
+                if os.path.islink(src):
+                    dst = os.path.join(dest_root, name)
+                    if not os.path.lexists(dst):
+                        os.symlink(os.readlink(src), dst)
+                    dirs.remove(name)
+            for name in files:  # includes symlinks to files
+                src, dst = os.path.join(root, name), os.path.join(dest_root, name)
+                if os.path.lexists(dst):
+                    continue
+                if os.path.islink(src):
+                    os.symlink(os.readlink(src), dst)
+                else:
+                    shutil.move(src, dst)
+        shutil.rmtree(lib64)
+        log("folded usr/lib64 into usr/lib (merged-usr layout)")
 
     # Declarative systemd enablement: `[package] enable = ["foo.service"]` drops
     # the markers bpm reads (usr/lib/bpm/enable/<unit>) to wire up + start the
