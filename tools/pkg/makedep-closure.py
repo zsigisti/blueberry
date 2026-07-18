@@ -23,7 +23,10 @@ Usage:
 import os
 import sys
 import glob
-import tomllib
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python <=3.10 (the repo server): same API via tomli
+    import tomli as tomllib
 
 TOP = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 PKGDIR = os.path.join(TOP, "packages")
