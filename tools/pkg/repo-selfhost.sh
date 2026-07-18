@@ -34,8 +34,13 @@ mkdir -p "$OUT"
 [ -n "${FORCE:-}" ] && : > "$DONE"
 [ -f "$DONE" ] || : > "$DONE"
 
-# Store mutators (namespace-root; docker owns files as the invoking user, so plain).
-if [ "$ENGINE" = podman ]; then
+# Store mutators. Rootless podman writes the store as a subordinate uid the host
+# user can't touch, so mutations must run inside the user namespace (podman
+# unshare). Rootful podman (running as root, e.g. on the repo server) and docker
+# own the files as the real invoking user, and `podman unshare` even refuses to
+# run rootful — so use a plain passthrough there.
+if [ "$ENGINE" = podman ] && \
+   [ "$(podman info --format '{{.Host.Security.Rootless}}' 2>/dev/null)" = true ]; then
     store() { podman unshare "$@"; }
 else
     store() { "$@"; }
