@@ -8,7 +8,7 @@ license  = ["LGPL-2.0-or-later"]
 arch     = ["x86_64"]
 
 depends     = ["glib2", "expat", "pam", "duktape", "systemd"]
-makedepends = ["meson", "ninja", "gettext", "glib2-devel", "duktape"]
+makedepends = ["meson", "ninja", "gettext", "glib2-devel", "duktape", "perl"]
 provides    = ["libpolkit-gobject-1.so", "libpolkit-agent-1.so"]
 
 [[source]]

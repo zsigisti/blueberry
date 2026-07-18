@@ -1,7 +1,7 @@
 [package]
 name     = "libffi"
 version  = "3.7.1"
-release  = 1
+release  = 2
 summary  = "Portable foreign-function interface library (libffi)"
 homepage = "https://sourceware.org/libffi/"
 license  = ["MIT"]
@@ -17,7 +17,7 @@ sha256 = "d5e9a6638ddbd2513ddb54518eb67e4bbe6fa707bcc01c10f6212f0a088d819d"
 [steps]
 build = '''
 cd "$name-$version";
-./configure --prefix=/usr --disable-static --disable-exec-static-tramp;
+./configure --prefix=/usr --libdir=/usr/lib --disable-static --disable-exec-static-tramp;
 make
 '''
 package = '''

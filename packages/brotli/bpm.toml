@@ -1,7 +1,7 @@
 [package]
 name     = "brotli"
 version  = "1.2.0"
-release  = 1
+release  = 2
 summary  = "Generic-purpose lossless compression algorithm library"
 homepage = "https://github.com/google/brotli"
 license  = ["MIT"]
@@ -18,7 +18,7 @@ sha256 = "816c96e8e8f193b40151dad7e8ff37b1221d019dbcb9c35cd3fadbfe6477dfec"
 [steps]
 build = '''
 cd "$name-$version";
-cmake -B build -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON;
+cmake -B build -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON;
 cmake --build build
 '''
 package = '''

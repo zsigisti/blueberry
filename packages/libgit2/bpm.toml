@@ -1,7 +1,7 @@
 [package]
 name     = "libgit2"
 version  = "1.9.1"
-release  = 1
+release  = 2
 summary  = "Portable C implementation of the Git core methods (libgit2.so.1.9)"
 homepage = "https://libgit2.org/"
 license  = ["GPL-2.0-only-with-libgit2-exception"]
@@ -22,6 +22,7 @@ cd "libgit2-$version"
 # the only runtime deps are openssl/zlib/pcre2. This is what cargo links.
 cmake -S . -B build -G Ninja \
     -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_INSTALL_LIBDIR=lib \
     -DBUILD_TESTS=OFF -DUSE_SSH=OFF -DUSE_HTTPS=OpenSSL -DREGEX_BACKEND=pcre2 \
     -DUSE_BUNDLED_ZLIB=OFF
 ninja -C build

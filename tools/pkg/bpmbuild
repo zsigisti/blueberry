@@ -299,6 +299,14 @@ def main():
             os.remove(p)
             log(f"pruned shared index: {junk}")
 
+    # /usr/lib64 is invisible at runtime: ld.so searches /usr/lib only, and
+    # usr-merge symlinks /lib64 but leaves /usr/lib64 a real dir. A build system
+    # defaulting its libdir to lib64 (cmake/autoconf on non-merged builders)
+    # produces libraries no binary can load — fail loudly instead of shipping it.
+    if os.path.isdir(os.path.join(pkgdir, "usr/lib64")):
+        die("package installs into usr/lib64 — force libdir=/usr/lib in the recipe "
+            "(cmake: -DCMAKE_INSTALL_LIBDIR=lib, autoconf/meson: --libdir=/usr/lib)")
+
     # Declarative systemd enablement: `[package] enable = ["foo.service"]` drops
     # the markers bpm reads (usr/lib/bpm/enable/<unit>) to wire up + start the
     # unit on install. "if the app wants that" → list it in enable.
