@@ -4,4 +4,5 @@ auth      include    system-auth
 account   include    system-auth
 password  include    system-auth
 session   include    system-auth
-session   optional   pam_motd.so
+# NOTE: no pam_motd here — util-linux `login` already prints /etc/motd via
+# login.defs MOTD_FILE, so adding pam_motd would show the banner twice.
