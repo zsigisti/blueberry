@@ -481,6 +481,14 @@ test-server:
 	@[ -f $(SERVER_ISO) ] || $(MAKE) server-iso
 	@bash $(TOPDIR)/tools/test/boot-iso.sh test $(SERVER_ISO) server
 
+# Stronger than test-server: proves the root autologin reaches an actual shell
+# (test-server only waits for the "blueberry login:" prompt, which prints BEFORE
+# login/PAM runs — so it cannot catch a PAM abort at login).
+.PHONY: test-login
+test-login:
+	@[ -f $(SERVER_ISO) ] || $(MAKE) server-iso
+	@sh $(TOPDIR)/tools/test/boot-login-check.sh $(SERVER_ISO) $(OBJDIR)/serial-login.log
+
 
 # ── Directory creation ────────────────────────────────────────────────────────
 $(OBJDIR_SRC) $(STAGEDIR) $(BOOTDIR) $(OBJDIR):
