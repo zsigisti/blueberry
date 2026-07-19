@@ -63,6 +63,7 @@ SYSTEMD_BASE_PKGS := systemd util-linux coreutils libseccomp kmod dbus acl \
                      cryptsetup libcap libcap-ng readline file zlib xz zstd lz4 lzo bzip2 expat \
                      pcre2 mpfr gdbm \
                      attr device-mapper json-c openssl popt openssh pam glibc-locales gmp \
+                     shadow libxcrypt libbsd libmd \
                      ca-certificates \
                      iproute2 iputils libmnl wpa_supplicant libnl linux-firmware wireless-regdb ufw \
                      python libffi mpdecimal sqlite \
@@ -81,6 +82,10 @@ SYSTEMD_BASE_PKGS := systemd util-linux coreutils libseccomp kmod dbus acl \
 # Same reason for the pcre2/mpfr/gdbm line: they are runtime libraries hard-linked
 # by base tools but not otherwise pulled in — pcre2 = grep + iproute2's `ss`
 # (libpcre2-8.so.0), mpfr = gawk (libmpfr.so.6), gdbm = pam's pam_userdb.so.
+# shadow ships passwd/useradd/usermod/chage/gpasswd + newuidmap/newgidmap —
+# without it there is no passwd on the system (util-linux has none, no busybox),
+# so root cannot change any password. Its binaries link libbsd (→ libmd) and
+# libxcrypt (libcrypt.so.2), which the flat base must list explicitly.
 # Run `make check-base` (tools/pkg/check-base-closure.sh) after an install to
 # report any base binary whose DT_NEEDED library the base list doesn't provide.
 ifeq ($(INIT),systemd)

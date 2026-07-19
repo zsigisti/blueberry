@@ -1,7 +1,7 @@
 [package]
 name     = "shadow"
 version  = "4.19.4"
-release  = 1
+release  = 2
 summary  = "Password/account management (useradd, groupadd) + newuidmap/newgidmap for rootless containers"
 homepage = "https://github.com/shadow-maint/shadow"
 license  = ["BSD-3-Clause"]
@@ -27,14 +27,17 @@ make
 package = '''
 cd "shadow-$version"
 make install DESTDIR="$pkgdir"
-# util-linux/busybox already ship su/login/nologin/passwd — drop shadow's copies
-# (it installs su to /bin, others to /usr/bin) to avoid file conflicts on install.
-for t in su login nologin passwd; do
+# util-linux ships su/login/nologin — drop shadow's copies of THOSE (it installs
+# su to /bin, others to /usr/bin) to avoid file conflicts on install. But KEEP
+# passwd: util-linux has no passwd and there is no busybox, so shadow's passwd is
+# the only one on the system — without it root cannot change any password.
+for t in su login nologin; do
     find "$pkgdir" -type f -name "$t" -delete 2>/dev/null || true
     find "$pkgdir/usr/share/man" -type f -name "$t.[0-9]" -delete 2>/dev/null || true
 done
-# The uid/gid mapping helpers MUST be setuid root for rootless containers.
-chmod 4755 "$pkgdir/usr/bin/newuidmap" "$pkgdir/usr/bin/newgidmap"
+# passwd must be setuid root so a normal user can change their own password; the
+# uid/gid mapping helpers must be setuid root for rootless containers.
+chmod 4755 "$pkgdir/usr/bin/passwd" "$pkgdir/usr/bin/newuidmap" "$pkgdir/usr/bin/newgidmap"
 # Subordinate-id maps (empty; useradd auto-assigns ranges per login.defs).
 install -Dm644 /dev/null "$pkgdir/etc/subuid"
 install -Dm644 /dev/null "$pkgdir/etc/subgid"
