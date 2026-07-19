@@ -8,7 +8,7 @@ license  = ["GPL-2.0-or-later", "LGPL-2.1-or-later"]
 arch     = ["x86_64"]
 
 depends     = ["newt", "glibc", "glib2", "libnl", "nss", "libndp", "jansson", "curl", "libpsl", "polkit", "util-linux", "readline", "dbus", "libmnl"]
-makedepends = ["newt", "meson", "ninja", "pkgconf", "glib2", "glib2-devel", "libnl", "nss", "libndp", "jansson", "curl", "libpsl", "polkit", "util-linux", "dbus", "libmnl", "python", "perl"]
+makedepends = ["newt", "meson", "ninja", "pkgconf", "glib2", "glib2-devel", "libnl", "nss", "libndp", "jansson", "curl", "libpsl", "polkit", "util-linux", "dbus", "libmnl", "python", "perl", "libxslt"]
 provides    = ["libnm.so", "libnmova"]
 
 [[source]]

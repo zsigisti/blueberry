@@ -1,0 +1,30 @@
+[package]
+name     = "libxslt"
+version  = "1.1.43"
+release  = 1
+summary  = "XSLT 1.0 processor library and the xsltproc command-line tool"
+homepage = "https://gitlab.gnome.org/GNOME/libxslt"
+license  = ["MIT"]
+arch     = ["x86_64"]
+
+# Provides xsltproc, needed at build time by packages that generate man pages /
+# D-Bus docs from XML (e.g. NetworkManager). Built on libxml2 (already in base).
+# --without-crypto drops the libexslt crypto extension (would pull libgcrypt).
+depends     = ["libxml2", "glibc"]
+makedepends = ["libxml2", "pkgconf"]
+provides    = ["libxslt.so", "libexslt.so"]
+
+[[source]]
+url    = "https://download.gnome.org/sources/libxslt/1.1/libxslt-1.1.43.tar.xz"
+sha256 = "5a3d6b383ca5afc235b171118e90f5ff6aa27e9fea3303065231a6d403f0183a"
+
+[steps]
+build = '''
+cd "$name-$version";
+./configure --prefix=/usr --without-python --without-crypto --disable-static;
+make
+'''
+package = '''
+cd "$name-$version";
+make DESTDIR="$pkgdir" install
+'''
