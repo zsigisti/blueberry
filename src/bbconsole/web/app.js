@@ -58,14 +58,10 @@ const PANELS = [
   { id: "network", label: "Network", render: network },
   { id: "updates", label: "Updates", render: updates },
   { id: "install", label: "Install", render: installer },
-  { id: "containers", label: "Containers", render: stub("Containers") },
+  { id: "containers", label: "Containers", render: containers },
 ];
 
 let installTimer = null; // installer status poller
-
-function stub(name) {
-  return async (view) => view.append(el("p", { text: name + " — planned; not built yet." }));
-}
 
 async function overview(view) {
   const s = await getJSON("system");
@@ -119,6 +115,50 @@ async function services(view) {
   });
   view.append(el("h2", { text: "Services (" + services.length + ")" }),
     table(["Unit", "State", "Description", ""], rows));
+}
+
+async function containers(view) {
+  const data = await getJSON("containers");
+  if (!data.available) {
+    view.append(el("h2", { text: "Containers" }),
+      el("p", { text: "podman is not installed on this host. Install it with:  bpm install podman" }));
+    return;
+  }
+  const act = async (name, action) => {
+    if (action === "remove" && !confirm("Remove container " + name + "?")) return;
+    try {
+      await api("containers/" + action + "?name=" + encodeURIComponent(name), { method: "POST" });
+    } catch (e) { alert(action + " failed: " + (e && e.message ? e.message : e)); }
+    render("containers");
+  };
+  const btn = (label, name, action) => {
+    const b = el("button", { text: label });
+    b.addEventListener("click", () => act(name, action));
+    return b;
+  };
+  const list = data.containers || [];
+  const crows = list.map((c) => {
+    const ref = (c.names ? c.names.split(",")[0] : "") || c.id;
+    const running = c.state === "running";
+    return el("tr", {},
+      el("td", { text: c.names || c.id }),
+      el("td", { text: c.image }),
+      el("td", { text: running ? "running" : (c.status || c.state || "stopped") }),
+      el("td", {},
+        running ? btn("Stop", ref, "stop") : btn("Start", ref, "start"),
+        document.createTextNode(" "),
+        btn("Restart", ref, "restart"),
+        document.createTextNode(" "),
+        running ? document.createTextNode("") : btn("Remove", ref, "remove")));
+  });
+  view.append(el("h2", { text: "Containers (" + list.length + ")" }),
+    list.length ? table(["Name", "Image", "State", ""], crows) : el("p", { text: "No containers." }));
+
+  const images = data.images || [];
+  const irows = images.map((im) =>
+    el("tr", {}, el("td", { text: im.names || im.id }), el("td", { text: im.id }), el("td", { text: fmtBytes(im.size) })));
+  view.append(el("h2", { text: "Images (" + images.length + ")" }),
+    images.length ? table(["Name", "ID", "Size"], irows) : el("p", { text: "No images." }));
 }
 
 async function packages(view) {

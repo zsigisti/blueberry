@@ -1,6 +1,6 @@
 [package]
 name     = "blueberry-console"
-version  = "0.10.0"
+version  = "0.11.0"
 release  = 1
 summary  = "First-party web console to manage a Blueberry box (HTTPS, PAM auth)"
 homepage = "https://github.com/zsigisti/blueberry"

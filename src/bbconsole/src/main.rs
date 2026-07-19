@@ -433,8 +433,26 @@ fn api_route(st: &State, req: &Request, rest: &str, peer: &str, sess: &auth::Ses
             }
         }
 
-        // Far-vision stubs — stable shape, not built yet.
-        ("GET", "containers") => Response::json(501, api::not_implemented("containers")),
+        // Containers (podman): list + tail logs + a few audited write actions.
+        ("GET", "containers") => Response::json(200, api::containers()),
+        ("GET", "containers/logs") => {
+            let name = query_param(&req.query, "name").unwrap_or_default();
+            let lines = query_param(&req.query, "lines").and_then(|s| s.parse().ok()).unwrap_or(200);
+            match api::container_logs(&name, lines) {
+                Ok(v) => Response::json(200, v),
+                Err(e) => Response::error(400, &e),
+            }
+        }
+        // /api/v1/containers/{start,stop,restart,remove}?name=<container>
+        ("POST", r) if r.starts_with("containers/") => {
+            let action = &r["containers/".len()..];
+            let name = query_param(&req.query, "name").unwrap_or_default();
+            audit(st, peer, &format!("container {action} {name}"));
+            match api::container_action(action, &name) {
+                Ok(v) => Response::json(200, v),
+                Err(e) => Response::error(400, &e),
+            }
+        }
 
         _ => Response::error(404, "no such endpoint"),
     }

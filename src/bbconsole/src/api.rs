@@ -687,9 +687,105 @@ pub fn updates_apply(snapshot: bool) -> Result<Value, String> {
     Ok(json!({ "ok": up.status.success(), "snapshot": snap, "output": out.trim() }))
 }
 
+// ── Containers (podman) ──────────────────────────────────────────────────────
+
+/// A valid podman container/image name or id: non-empty, no leading '-' (so it
+/// can't be read as a podman option), restricted charset. Always passed as an
+/// argv element after `--`, never interpolated into a shell string.
+pub fn valid_container_name(s: &str) -> bool {
+    !s.is_empty()
+        && s.len() <= 128
+        && !s.starts_with('-')
+        && s.bytes().all(|b| b.is_ascii_alphanumeric() || b"_.-/:@".contains(&b))
+}
+
+/// Join a podman JSON `Names` array (or fall back to a string field) to a label.
+fn podman_names(v: &Value, fallback: &str) -> String {
+    v.get("Names")
+        .and_then(|n| n.as_array())
+        .map(|a| a.iter().filter_map(|x| x.as_str()).collect::<Vec<_>>().join(","))
+        .or_else(|| v.get(fallback).and_then(|x| x.as_str()).map(str::to_string))
+        .unwrap_or_default()
+}
+
+fn short_id(v: &Value) -> String {
+    v.get("Id").and_then(|x| x.as_str()).unwrap_or("").chars().take(12).collect()
+}
+
+/// GET /api/v1/containers — podman containers (running + stopped) and images.
+/// Returns { available:false } when podman isn't installed, so the frontend
+/// degrades gracefully (same contract as zfs/btrfs).
+pub fn containers() -> Value {
+    if Command::new("podman").arg("--version").output().is_err() {
+        return json!({ "available": false });
+    }
+    let mut containers = Vec::new();
+    if let Ok(o) = Command::new("podman").args(["ps", "-a", "--format", "json"]).output() {
+        if let Ok(Value::Array(arr)) = serde_json::from_slice::<Value>(&o.stdout) {
+            for c in arr {
+                containers.push(json!({
+                    "id": short_id(&c),
+                    "names": podman_names(&c, "Names"),
+                    "image": c.get("Image").and_then(|v| v.as_str()).unwrap_or(""),
+                    "state": c.get("State").and_then(|v| v.as_str()).unwrap_or(""),
+                    "status": c.get("Status").and_then(|v| v.as_str()).unwrap_or(""),
+                }));
+            }
+        }
+    }
+    let mut images = Vec::new();
+    if let Ok(o) = Command::new("podman").args(["images", "--format", "json"]).output() {
+        if let Ok(Value::Array(arr)) = serde_json::from_slice::<Value>(&o.stdout) {
+            for im in arr {
+                images.push(json!({
+                    "id": short_id(&im),
+                    "names": podman_names(&im, "Repository"),
+                    "size": im.get("Size").and_then(|v| v.as_u64()).unwrap_or(0),
+                }));
+            }
+        }
+    }
+    json!({ "available": true, "containers": containers, "images": images })
+}
+
+/// GET /api/v1/containers/logs?name=<c>&lines=<n> — tail a container's logs.
+pub fn container_logs(name: &str, lines: u32) -> Result<Value, String> {
+    if !valid_container_name(name) {
+        return Err("invalid container name".into());
+    }
+    let n = lines.clamp(1, 1000).to_string();
+    let out = Command::new("podman")
+        .args(["logs", "--tail", &n, "--", name])
+        .output()
+        .map_err(|e| e.to_string())?;
+    let text = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    Ok(json!({ "name": name, "output": text.trim_end() }))
+}
+
+/// POST /api/v1/containers/{start,stop,restart,remove} — the few audited write
+/// actions. `remove` maps to `podman rm` WITHOUT -f, so podman refuses a running
+/// container (stop it first) — there is no accidental kill from the console.
+pub fn container_action(action: &str, name: &str) -> Result<Value, String> {
+    if !valid_container_name(name) {
+        return Err("invalid container name".into());
+    }
+    let verb = match action {
+        "start" => "start",
+        "stop" => "stop",
+        "restart" => "restart",
+        "remove" => "rm",
+        _ => return Err("unsupported action".into()),
+    };
+    match Command::new("podman").args([verb, "--", name]).output() {
+        Ok(o) if o.status.success() => Ok(json!({ "ok": true, "action": action, "name": name })),
+        Ok(o) => Err(String::from_utf8_lossy(&o.stderr).trim().to_string()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 /// The far-vision surface, stubbed so the shape is stable for the frontend.
-/// Each becomes a real module: containers (podman), logs (journald), updates +
-/// snapshot/rollback (bpm + btrfs), storage (lvm/btrfs), network (nftables).
+/// Each becomes a real module: logs (journald), updates + snapshot/rollback
+/// (bpm + btrfs), storage (lvm/btrfs), network (nftables).
 pub fn not_implemented(area: &str) -> Value {
     json!({
         "error": "not implemented yet",
