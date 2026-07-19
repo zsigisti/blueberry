@@ -1,0 +1,38 @@
+[package]
+name     = "fish"
+version  = "4.8.1"
+release  = 1
+summary  = "The friendly interactive shell (fish)"
+homepage = "https://fishshell.com/"
+license  = ["GPL-2.0-only"]
+arch     = ["x86_64"]
+
+# fish 4.x is written in Rust and driven by CMake (which invokes cargo). It ships
+# its own terminfo, so there is no ncurses dependency; PCRE2 comes from the system
+# package (FISH_USE_SYSTEM_PCRE2) rather than a bundled fetch, so the build stays
+# offline. Rust 1.85+ is required (edition 2024) — Blueberry's rust is 1.97.
+depends     = ["glibc", "gcc-libs", "pcre2"]
+makedepends = ["rust", "cmake", "ninja", "pkgconf", "pcre2"]
+options     = ["!lto"]
+
+[[source]]
+url    = "https://github.com/fish-shell/fish-shell/releases/download/4.8.1/fish-4.8.1.tar.xz"
+sha256 = "0eb86a851e865e934a7c2091a73d7695225e78f0e00a7bb96d5f877d76c65782"
+
+[steps]
+build = '''
+cd "fish-$version"
+# cargo (invoked by the CMake `fish` target) fetches crates into CARGO_HOME.
+export CARGO_HOME="$srcdir/cargo"
+cmake -S . -B build -G Ninja \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_INSTALL_LIBDIR=lib \
+    -DCMAKE_INSTALL_SYSCONFDIR=/etc \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DFISH_USE_SYSTEM_PCRE2=ON
+cmake --build build
+'''
+package = '''
+cd "fish-$version"
+DESTDIR="$pkgdir" cmake --install build
+'''
