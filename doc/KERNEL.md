@@ -32,7 +32,7 @@ The kernel config follows these principles:
 
    > **Wi-Fi is enabled** for real-hardware installs: `cfg80211`/`mac80211`
    > plus common drivers (`iwlwifi`, `rtw88`, …), paired with `linux-firmware`,
-   > `wpa_supplicant`, and NetworkManager in the base image.
+   > and `wpa_supplicant` in the base image.
    >
    > **The legacy netfilter backend is required by `ufw`:** the `IP_NF_*` /
    > `IP6_NF_*` stack (built in). On kernel versions that gate the legacy iptables

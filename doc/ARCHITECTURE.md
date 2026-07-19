@@ -114,7 +114,7 @@ busybox is only the live/initramfs userland.
 ### 3.3  systemd by default, runit optional
 
 The installed disk system runs **systemd** as PID 1 by default (`INIT=systemd`):
-journald, logind, networkd/resolved/timesyncd, NetworkManager, and OpenSSH. The
+journald, logind, networkd/resolved/timesyncd, and OpenSSH. The
 integration layer is in `src/systemd/`. A minimal **runit** scheme
 (`INIT=runit`) remains for RAM-first / embedded builds — three shell stages and
 `runsvdir`, with Dropbear for SSH. The live initramfs is busybox-based either
@@ -166,7 +166,7 @@ provides. `tools/pkg/check-closure.py` enforces this (see §7).
 
 ```
 firmware → GRUB → pinned vmlinuz → initramfs (root=UUID=…) → switch_root
-  └─ systemd (default): journald, logind, networkd/resolved, NetworkManager,
+  └─ systemd (default): journald, logind, networkd/resolved,
                         OpenSSH, multi-user.target
   └─ runit (INIT=runit): /etc/runit/{1,2,3}, runsvdir, getty/sshd/syslogd
 ```

@@ -66,7 +66,7 @@ dd if=blueberry-<...>.iso of=/dev/sdX bs=4M oflag=sync
 ```
 
 Booting it lands in the TUI installer (BIOS and UEFI). It installs a rolling CLI
-server: systemd, OpenSSH, NetworkManager (nmcli/nmtui) with wifi, ufw, and a full
+server: systemd, OpenSSH, systemd-networkd (wpa_supplicant for wifi), ufw, and a full
 GNU userland.
 
 ## Building

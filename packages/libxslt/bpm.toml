@@ -8,7 +8,7 @@ license  = ["MIT"]
 arch     = ["x86_64"]
 
 # Provides xsltproc, needed at build time by packages that generate man pages /
-# D-Bus docs from XML (e.g. NetworkManager). Built on libxml2 (already in base).
+# docs from XML. Built on libxml2 (already in base).
 # --without-crypto drops the libexslt crypto extension (would pull libgcrypt).
 depends     = ["libxml2", "glibc"]
 makedepends = ["libxml2", "pkgconf"]

@@ -3,7 +3,7 @@
 ## 1. Overview
 
 Blueberry runs **systemd** as PID 1 by default (`INIT=systemd`)
-— journald, logind, networkd/resolved/timesyncd, NetworkManager, and OpenSSH.
+— journald, logind, networkd/resolved/timesyncd, and OpenSSH.
 The integration layer is in `src/systemd/`; `make server-iso` builds a live
 systemd Server ISO.
 

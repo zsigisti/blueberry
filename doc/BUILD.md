@@ -70,7 +70,7 @@ make run-server  / make test-server     # boot Server ISO  (window / headless as
 make test-install                        # unattended install to a disk image, assert boot
 ```
 
-`INIT=systemd` is the default (journald/logind/networkd/NetworkManager/OpenSSH);
+`INIT=systemd` is the default (journald/logind/networkd/OpenSSH);
 `INIT=runit` builds the minimal RAM-first image.
 
 ---

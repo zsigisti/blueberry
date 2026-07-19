@@ -25,7 +25,7 @@ firmware ─► GRUB ─► vmlinuz ─► initramfs /init (PID 1)
 
 | | Used by |
 |---|---|
-| **systemd** | Default — journald, logind, networkd/resolved, NetworkManager, OpenSSH |
+| **systemd** | Default — journald, logind, networkd/resolved, OpenSSH |
 | **runit** | Opt-in (`INIT=runit`) — a small supervision tree for RAM-first / minimal builds |
 
 The live initramfs is busybox-based either way; only the **installed** rootfs

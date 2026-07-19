@@ -24,8 +24,8 @@ Common problems and fixes, grouped by area. See also the [FAQ](FAQ).
 
 | Symptom | Try |
 |---|---|
-| No Wi-Fi | The stack ships NetworkManager + wpa_supplicant + linux-firmware; connect with `nmtui` or `nmcli device wifi connect <SSID>` |
-| No DNS after connecting | Check `systemd-resolved`/`NetworkManager` is up (`systemctl status NetworkManager`) |
+| No Wi-Fi | The stack ships wpa_supplicant + linux-firmware; connect with `wpa_cli` or a `/etc/wpa_supplicant/wpa_supplicant-<if>.conf` |
+| No DNS after connecting | Check `systemd-resolved` is up (`systemctl status systemd-resolved`) |
 | Firewall blocks a port | `ufw allow <port>`; check `ufw status` (ufw uses the legacy iptables backend, enabled in the kernel) |
 
 ## Packages (bpm)

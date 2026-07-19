@@ -10,7 +10,7 @@ Blueberry system depends on no other distro's mirror. See [Overview](Overview).
 ### What is Blueberry Server?
 
 A minimal, rolling, source-built **CLI server** distribution. systemd is PID 1
-by default (journald, logind, networkd, NetworkManager, OpenSSH); a smaller
+by default (journald, logind, networkd/resolved, OpenSSH); a smaller
 **runit** build exists for RAM-first use. There is no desktop — it is a server
 OS.
 

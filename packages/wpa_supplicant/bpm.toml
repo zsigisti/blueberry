@@ -7,7 +7,7 @@ homepage = "https://w1.fi/wpa_supplicant/"
 license  = ["BSD-3-Clause"]
 arch     = ["x86_64"]
 
-# NetworkManager drives it over D-Bus; wpa_cli covers headless/server use.
+# wpa_cli drives it for headless/server Wi-Fi; D-Bus control stays available.
 depends     = ["glibc", "openssl", "libnl", "dbus"]
 makedepends = ["make", "gcc", "pkgconf", "openssl", "libnl", "dbus"]
 provides    = ["wpa_supplicant", "wpa_cli"]
@@ -20,7 +20,7 @@ sha256 = "912ea06f74e30a8e36fbb68064d6cdff218d8d591db0fc5d75dee6c81ac7fc0a"
 build = '''
 cd "$name-$version/wpa_supplicant"
 cp defconfig .config
-# D-Bus control (NetworkManager) + modern crypto/SAE (WPA3)
+# D-Bus control + modern crypto/SAE (WPA3)
 cat >> .config <<CFG
 CONFIG_CTRL_IFACE_DBUS_NEW=y
 CONFIG_CTRL_IFACE_DBUS_INTRO=y

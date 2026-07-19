@@ -49,7 +49,7 @@ Repo: https://github.com/zsigisti/blueberry · Releases (beta ISOs) on that page
 > • A **TUI installer** — pick your disk, filesystem (ext4/xfs/btrfs), optional
 >   full-disk encryption, done.
 > • A tuned, pinned kernel and a real server userland — systemd, OpenSSH,
->   NetworkManager, a firewall, the works.
+>   systemd-networkd, a firewall, the works.
 >
 > It's a **rolling CLI server** distro: minimal, fast, and yours to fork.
 > Public beta out now, GPL-3.0, built in the open.

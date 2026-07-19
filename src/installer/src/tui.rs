@@ -529,7 +529,7 @@ fn draw_form(f: &mut ratatui::Frame, area: Rect, form: &Form) {
         Row::Disk => "The disk Blueberry is installed to.\n\nEverything on it is erased during the install. ←/→ cycles through the detected disks.",
         Row::Bootloader => "How the system boots.\n\nUEFI for modern machines (an EFI system partition is created), BIOS for legacy machines and simple VMs. The detected firmware is pre-selected.",
         Row::Fs => "Root filesystem.\n\next4 is the safe default. xfs suits large files / many-core I/O. btrfs adds snapshots and compression. All three boot without an initramfs fs module.",
-        Row::Net => "How the installed system manages networking.\n\nsystemd-networkd: lightweight, declarative, ideal for wired servers/VMs. Configure via /etc/systemd/network/*.network.\n\nNetworkManager: handles Wi-Fi, VPNs and roaming; configure with `nmtui`/`nmcli`. Pick this for laptops or any Wi-Fi machine.\n\nauto: NetworkManager if this machine has a Wi-Fi card, otherwise networkd. Both ship in the base — you can switch later.",
+        Row::Net => "How the installed system manages networking.\n\nsystemd-networkd (+resolved): lightweight, declarative, enabled by default in the base image. Configure via /etc/systemd/network/*.network. This is the only supported stack on Blueberry Server.",
         Row::Keymap => "Console + desktop keyboard layout.\n\nApplies IMMEDIATELY in this installer (so the passwords you type match) and is saved to the installed system (console + desktop).",
         Row::Hostname => "This machine's network name.",
         Row::RootPw => "Password for the root (administrator) account. Required.",

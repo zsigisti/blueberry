@@ -30,11 +30,11 @@ mirror. That is the entire supply chain, and you own all of it.
   toolchain; it is not part of the installed system.)
 - **Rolling.** Userspace advances continuously via `bpm upgrade`.
 - **systemd by default.** PID 1 is systemd — journald, logind,
-  networkd/resolved, NetworkManager, and OpenSSH. A minimal **runit** build
+  networkd/resolved and OpenSSH. A minimal **runit** build
   (`INIT=runit`) is available for RAM-first / embedded use.
 - **CLI only.** No X11, no Wayland, no desktop. Just a real GNU/Linux server
   userland: `ps`/`top`/`free`, `ss`/`ip`, `systemctl`/`journalctl`, `ufw`,
-  `nmcli`/`nmtui`, editors, and the toolchain.
+  `wpa_cli`, editors, and the toolchain.
 
 ## The package manager: bpm
 
@@ -57,7 +57,7 @@ The full server stack, all from source:
   (grep/sed/gawk/findutils/tar/gzip), procps-ng, psmisc, lsof, less, vim, nano.
 - **Init & services:** systemd, dbus, polkit, OpenSSH, chrony, dcron, logrotate,
   rsync, nginx, redis.
-- **Networking:** NetworkManager, wpa_supplicant, iproute2, iputils, dhcpcd,
+- **Networking:** systemd-networkd, wpa_supplicant, iproute2, iputils, dhcpcd,
   wireguard-tools, nftables, iptables, ufw, tcpdump.
 - **Storage & crypto:** e2fsprogs, dosfstools, cryptsetup, mdadm,
   device-mapper, openssl, gnutls, krb5.

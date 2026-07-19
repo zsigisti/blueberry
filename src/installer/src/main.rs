@@ -156,13 +156,8 @@ fn config_from_prompts(payload: &Payload) -> R<Config> {
     let fsi = ui::select("Root filesystem", &fs_items, 0, "BLUEBERRY_FS");
     let fs = Filesystem::ALL[fsi];
 
-    let net_items = [
-        "auto — NetworkManager if Wi-Fi, else systemd-networkd".to_string(),
-        "systemd-networkd (wired, lightweight)".to_string(),
-        "NetworkManager (Wi-Fi / roaming)".to_string(),
-    ];
-    let neti = ui::select("Network stack", &net_items, 0, "BLUEBERRY_NET");
-    let net = NetStack::ALL[neti];
+    // Network stack is systemd-networkd (the only supported stack) — no prompt.
+    let net = NetStack::Networkd;
 
     println!("\nThis will ERASE ALL DATA on {}.", disks[di].dev);
     if !ui::confirm("Proceed and erase this disk?", false, "BLUEBERRY_ERASE_OK") {
