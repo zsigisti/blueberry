@@ -70,7 +70,7 @@ SYSTEMD_BASE_PKGS := systemd util-linux coreutils libseccomp kmod dbus acl \
                      iptables libnftnl libnetfilter_conntrack libnfnetlink \
                      grep sed gawk findutils gzip tar diffutils less which nano vim sudo tzdata kbd \
                      procps-ng psmisc lsof mandoc man-pages \
-                     e2fsprogs libtirpc btrfs-progs blueberry-snapshot
+                     e2fsprogs libtirpc btrfs-progs blueberry-snapshot blueberry-console
 # procps-ng gives ps/top/free/uptime/vmstat/pgrep/pkill/sysctl (busybox has these
 # only in the live initramfs; the installed systemd rootfs would have none).
 # psmisc = killall/pstree/fuser, lsof = open-file/port inspection. mandoc is the
@@ -86,6 +86,11 @@ SYSTEMD_BASE_PKGS := systemd util-linux coreutils libseccomp kmod dbus acl \
 # without it there is no passwd on the system (util-linux has none, no busybox),
 # so root cannot change any password. Its binaries link libbsd (→ libmd) and
 # libxcrypt (libcrypt.so.2), which the flat base must list explicitly.
+# blueberry-console is the first-party web management UI (systemctl/bpm/proc +
+# containers via podman). It ships present-but-DISABLED — the flat base only lays
+# files down, so its unit isn't enabled until `systemctl enable --now
+# blueberry-console`. Its runtime deps (systemd, pam, openssl, glibc, gcc-libs)
+# are all already in the base, so it adds no new library.
 # Run `make check-base` (tools/pkg/check-base-closure.sh) after an install to
 # report any base binary whose DT_NEEDED library the base list doesn't provide.
 ifeq ($(INIT),systemd)
