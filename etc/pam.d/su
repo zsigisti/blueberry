@@ -1,0 +1,5 @@
+# Blueberry — su (util-linux). root may su to anyone without a password.
+auth      sufficient pam_rootok.so
+auth      include    system-auth
+account   include    system-auth
+session   include    system-auth

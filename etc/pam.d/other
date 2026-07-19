@@ -1,0 +1,9 @@
+# Blueberry — fallback for any PAM service without its own config. Routing to
+# system-auth (rather than pam_deny) means a service that ships no /etc/pam.d
+# file still authenticates normally instead of aborting PAM ("Critical error -
+# immediate abort"), which is what breaks console login when the dir is
+# half-populated.
+auth      include    system-auth
+account   include    system-auth
+password  include    system-auth
+session   include    system-auth
