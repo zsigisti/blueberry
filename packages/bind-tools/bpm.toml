@@ -23,7 +23,7 @@ build = '''
 cd "bind-$version"
 ./configure --prefix=/usr --sbindir=/usr/bin --sysconfdir=/etc --localstatedir=/var \
     --without-libxml2 --without-json-c --without-lmdb --without-libidn2 \
-    --disable-linux-caps
+    --disable-doh --disable-linux-caps
 make -j"$(nproc)"
 '''
 package = '''
