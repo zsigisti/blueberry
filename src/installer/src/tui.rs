@@ -217,14 +217,11 @@ pub fn run(payload: Payload, disks: Vec<Disk>, detected: Firmware) -> io::Result
             Phase::Confirm => match key.code {
                 KeyCode::Enter | KeyCode::Char('y') | KeyCode::Char('Y') => {
                     let cfg = form.to_config();
-                    let total = engine::total_steps(&cfg, &payload);
+                    let total = engine::total_steps(&cfg);
                     let (tx, rx) = mpsc::channel::<Msg>();
                     let pl = Payload {
                         dir: payload.dir.clone(),
-                        profile: payload.profile.clone(),
                         name: payload.name.clone(),
-                        manifest: payload.manifest.clone(),
-                        overlay: payload.overlay,
                     };
                     std::thread::spawn(move || {
                         let txe = tx.clone();
@@ -372,11 +369,7 @@ fn draw(f: &mut ratatui::Frame, payload: &Payload, form: &Form, phase: &Phase) {
         .split(area);
 
     // Header
-    let title = format!(
-        "  Blueberry Installer — {}{}",
-        payload.name,
-        if payload.manifest.is_some() { "  [online]" } else { "  [offline]" }
-    );
+    let title = format!("  Blueberry Installer — {}", payload.name);
     f.render_widget(
         Paragraph::new(title)
             .style(Style::default().fg(ACCENT).add_modifier(Modifier::BOLD))
@@ -530,7 +523,7 @@ fn draw_form(f: &mut ratatui::Frame, area: Rect, form: &Form) {
         Row::Bootloader => "How the system boots.\n\nUEFI for modern machines (an EFI system partition is created), BIOS for legacy machines and simple VMs. The detected firmware is pre-selected.",
         Row::Fs => "Root filesystem.\n\next4 is the safe default. xfs suits large files / many-core I/O. btrfs adds snapshots and compression. All three boot without an initramfs fs module.",
         Row::Net => "How the installed system manages networking.\n\nsystemd-networkd (+resolved): lightweight, declarative, enabled by default in the base image. Configure via /etc/systemd/network/*.network. This is the only supported stack on Blueberry Server.",
-        Row::Keymap => "Console + desktop keyboard layout.\n\nApplies IMMEDIATELY in this installer (so the passwords you type match) and is saved to the installed system (console + desktop).",
+        Row::Keymap => "Console keyboard layout.\n\nApplies IMMEDIATELY in this installer (so the passwords you type match) and is saved to the installed system.",
         Row::Hostname => "This machine's network name.",
         Row::RootPw => "Password for the root (administrator) account. Required.",
         Row::UserName => "Optional everyday user account.\n\nIt is added to the wheel group, so it can use sudo.",

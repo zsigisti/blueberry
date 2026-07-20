@@ -10,19 +10,12 @@ use std::path::Path;
 
 pub const MNT: &str = "/mnt/blueberry";
 
-/// What we found on the boot medium.
+/// What we found on the boot medium. Blueberry is server-only: the medium
+/// carries a single `rootfs.tar.zst` base and nothing else to choose.
 pub struct Payload {
     pub dir: String,
-    /// PROFILE= from payload.conf: "server", "desktop-offline", "desktop-online".
-    pub profile: String,
     /// Human name for the UI (NAME= in payload.conf).
     pub name: String,
-    /// desktop-pkgs.txt — when present the installer fetches these with bpm
-    /// from the online repo after laying down the base rootfs.
-    pub manifest: Option<Vec<String>>,
-    /// overlay.tar.zst — extracted over the target after packages (online mode:
-    /// carries the desktop system configuration).
-    pub overlay: bool,
 }
 
 impl Payload {
@@ -44,24 +37,15 @@ impl Payload {
 
     pub fn discover() -> Option<Payload> {
         let dir = find_payload_dir()?;
-        let mut profile = "server".to_string();
         let mut name = "Blueberry Linux".to_string();
         if let Ok(conf) = fs::read_to_string(format!("{dir}/payload.conf")) {
             for line in conf.lines() {
-                if let Some(v) = line.strip_prefix("PROFILE=") {
-                    profile = v.trim().to_string();
-                }
                 if let Some(v) = line.strip_prefix("NAME=") {
                     name = v.trim().to_string();
                 }
             }
         }
-        let manifest = fs::read_to_string(format!("{dir}/desktop-pkgs.txt"))
-            .ok()
-            .map(|s| s.split_whitespace().map(str::to_string).collect::<Vec<_>>())
-            .filter(|v: &Vec<String>| !v.is_empty());
-        let overlay = Path::new(&format!("{dir}/overlay.tar.zst")).exists();
-        Some(Payload { dir, profile, name, manifest, overlay })
+        Some(Payload { dir, name })
     }
 }
 
@@ -160,15 +144,9 @@ fn logln(emit: Emit, s: &str) {
 }
 
 /// How many Step() events run() emits — lets the UI draw a progress gauge.
-pub fn total_steps(cfg: &Config, payload: &Payload) -> u32 {
+pub fn total_steps(cfg: &Config) -> u32 {
     let mut n = 9; // partition, format, mount, extract, kernel, grub, config, users, finish
     if cfg.luks_pw.is_some() {
-        n += 1;
-    }
-    if payload.manifest.is_some() {
-        n += 1;
-    }
-    if payload.overlay {
         n += 1;
     }
     if cfg.swap_gib > 0 {
@@ -246,30 +224,6 @@ pub fn run_install(cfg: &Config, payload: &Payload, emit: Emit) -> R<()> {
         "zstd -dcq {}/rootfs.tar.zst | tar -x -C {MNT}",
         payload.dir
     ))?;
-
-    // ── Online mode: fetch the desktop set with bpm ─────────────────────────
-    if let Some(pkgs) = &payload.manifest {
-        step(emit, &format!("Downloading + installing {} packages (online)", pkgs.len()));
-        disk::ensure_network();
-        logln(emit, "bpm update…");
-        if !run(&["sh", "-c", &format!("BPM_ROOT={MNT} bpm update")]) {
-            return Err("bpm update failed — is the network up? (online install needs the repo)".into());
-        }
-        let list = pkgs.join(" ");
-        logln(emit, &format!("bpm install {list}"));
-        if !run(&["sh", "-c", &format!("BPM_ROOT={MNT} bpm install {list}")]) {
-            return Err("bpm install of the desktop set failed".into());
-        }
-    }
-
-    // ── Config overlay (online desktop config / branding) ───────────────────
-    if payload.overlay {
-        step(emit, "Applying system configuration overlay");
-        crate::run::sh_check(&format!(
-            "zstd -dcq {}/overlay.tar.zst | tar -x -C {MNT}",
-            payload.dir
-        ))?;
-    }
 
     // ── Kernel + bootloader ─────────────────────────────────────────────────
     step(emit, "Installing kernel + initramfs");

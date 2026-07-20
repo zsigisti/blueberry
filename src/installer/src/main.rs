@@ -6,8 +6,8 @@
 //!   • unattended (BLUEBERRY_* env)     — no UI at all; used by `bbinstall`
 //!     kernel-cmdline installs and CI (BLUEBERRY_YES=1 BLUEBERRY_TARGET=… )
 //!
-//! The payload on the boot medium decides WHAT gets installed (server base or
-//! desktop, offline tarball or online via bpm) — see engine::Payload.
+//! The boot medium carries a single server base payload (rootfs.tar.zst) that
+//! the installer lays down on the target — see engine::Payload.
 
 mod boot;
 mod disk;
@@ -109,7 +109,7 @@ fn config_from_env(payload: &Payload) -> R<Config> {
         env::var("BLUEBERRY_LVM").unwrap_or_default().as_str(),
         "1" | "y" | "yes" | "true"
     );
-    let _ = payload; // profile driven by the payload itself
+    let _ = payload; // only the base rootfs matters; nothing to select
     Ok(Config {
         disk_dev,
         firmware,
