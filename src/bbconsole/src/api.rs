@@ -734,9 +734,18 @@ pub fn containers() -> Value {
         }
     }
     let mut images = Vec::new();
+    let mut seen = std::collections::HashSet::new();
     if let Ok(o) = Command::new("podman").args(["images", "--format", "json"]).output() {
         if let Ok(Value::Array(arr)) = serde_json::from_slice::<Value>(&o.stdout) {
             for im in arr {
+                // podman emits ONE object per repo tag, each already carrying the
+                // full `Names` list — so a multi-tagged image (e.g. tagged in two
+                // repos) would otherwise appear as several identical rows. Dedupe
+                // by image Id; the first occurrence already lists every name.
+                let id = im.get("Id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                if !id.is_empty() && !seen.insert(id) {
+                    continue;
+                }
                 images.push(json!({
                     "id": short_id(&im),
                     "names": podman_names(&im, "Repository"),
