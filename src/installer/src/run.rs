@@ -57,8 +57,3 @@ fn status(argv: &[&str]) -> std::io::Result<i32> {
         .status()
         .map(|s| s.code().unwrap_or(-1))
 }
-
-/// `:: message` progress line, matching the old C installer's style.
-pub fn step(msg: &str) {
-    println!("\n:: {msg}");
-}

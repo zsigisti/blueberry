@@ -782,14 +782,3 @@ pub fn container_action(action: &str, name: &str) -> Result<Value, String> {
         Err(e) => Err(e.to_string()),
     }
 }
-
-/// The far-vision surface, stubbed so the shape is stable for the frontend.
-/// Each becomes a real module: logs (journald), updates + snapshot/rollback
-/// (bpm + btrfs), storage (lvm/btrfs), network (nftables).
-pub fn not_implemented(area: &str) -> Value {
-    json!({
-        "error": "not implemented yet",
-        "area": area,
-        "planned": true,
-    })
-}
