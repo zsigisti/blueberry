@@ -486,6 +486,16 @@ test-server:
 	@[ -f $(SERVER_ISO) ] || $(MAKE) server-iso
 	@bash $(TOPDIR)/tools/test/boot-iso.sh test $(SERVER_ISO) server
 
+# Boot the INSTALLER ISO interactively with a blank target disk attached, so you
+# can drive `blueberry-install` by hand (TUI or --cli). Unlike run-server (live
+# CLI, no disk) and test-install (headless + unattended), this is the "try the
+# installer myself" path. The target disk persists next to the ISO, so after the
+# install you can boot the result: qemu ... -drive file=iso/*-target.qcow2 -boot c
+.PHONY: run-install
+run-install:
+	@[ -f $(INSTALLER_ISO) ] || $(MAKE) iso
+	@bash $(TOPDIR)/tools/test/boot-iso.sh run $(INSTALLER_ISO) install
+
 # Stronger than test-server: proves the root autologin reaches an actual shell
 # (test-server only waits for the "blueberry login:" prompt, which prints BEFORE
 # login/PAM runs — so it cannot catch a PAM abort at login).

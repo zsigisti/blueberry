@@ -37,6 +37,27 @@ run)
         exec qemu-system-x86_64 $ACCEL -m "$MEM" -smp "$SMP" -cdrom "$ISO" \
             -drive file="$DISK",if=virtio,format=qcow2 $VGA -boot d
     fi
+    if [ "$EDITION" = install ]; then
+        # The installer ISO boots the SAME live CLI shell, but to actually try
+        # `blueberry-install` you need a blank target disk to install ONTO — the
+        # live server ISO deliberately has none. Attach a persistent virtual disk
+        # (reused across runs) so you can install, quit, and boot the result.
+        DISK=${BLUEBERRY_DISK:-${ISO%.iso}-target.qcow2}
+        SIZE=${BLUEBERRY_DISK_SIZE:-20G}
+        if [ ! -f "$DISK" ]; then
+            echo "[run] creating $SIZE install target disk: $DISK"
+            qemu-img create -f qcow2 "$DISK" "$SIZE" >/dev/null
+        fi
+        echo "[run] installer ISO — blank target disk attached: $DISK"
+        echo "[run] at the shell, run:  blueberry-install        (full-screen TUI)"
+        echo "[run]                 or:  blueberry-install --cli  (serial-safe prompts)"
+        echo "[run] when it finishes: quit (Ctrl-A X), then boot the INSTALLED disk with:"
+        echo "[run]   qemu-system-x86_64 -enable-kvm -m 2048 -drive file=$DISK,if=virtio,format=qcow2 -boot c"
+        echo "[run] booting installer ISO headless on serial (Ctrl-A X to quit)"
+        # shellcheck disable=SC2086
+        exec qemu-system-x86_64 $ACCEL -m "$MEM" -smp "$SMP" -cdrom "$ISO" \
+            -drive file="$DISK",if=virtio,format=qcow2 -nographic -boot d
+    fi
     # Server is headless: route the serial console to this terminal (-nographic).
     # The ISO autologins root on ttyS0, so it drops straight to a shell. Ctrl-A X
     # quits.
