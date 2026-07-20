@@ -8,8 +8,11 @@
 //! extends the /api/v1 surface without reworking this core.
 //!
 //! Security posture (see doc/WEBUI.md):
-//!   * binds 127.0.0.1 by default — TLS + exposure are a reverse proxy's job.
-//!   * token→session auth; every API call is re-checked.
+//!   * binds 0.0.0.0:9090 by default and terminates its OWN TLS (self-signed,
+//!     generated on first start) — it is meant to be reached directly over the
+//!     LAN. Set BBCONSOLE_BIND=127.0.0.1:9090 to keep it host-local behind a
+//!     reverse proxy instead.
+//!   * PAM (or token) → session auth; every API call is re-checked.
 //!   * write actions are few, argument-validated, and appended to an audit log.
 //!   * pure-std HTTP, hard request-size limits, one request per connection.
 
