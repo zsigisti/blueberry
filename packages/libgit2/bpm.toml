@@ -1,7 +1,7 @@
 [package]
 name     = "libgit2"
-version  = "1.9.1"
-release  = 2
+version  = "1.9.6"
+release  = 1
 summary  = "Portable C implementation of the Git core methods (libgit2.so.1.9)"
 homepage = "https://libgit2.org/"
 license  = ["GPL-2.0-only-with-libgit2-exception"]
@@ -12,8 +12,8 @@ makedepends = ["cmake", "ninja", "pkgconf", "openssl", "zlib", "pcre2", "python"
 provides    = ["libgit2.so"]
 
 [[source]]
-url    = "https://github.com/libgit2/libgit2/archive/refs/tags/v1.9.1.tar.gz"
-sha256 = "14cab3014b2b7ad75970ff4548e83615f74d719afe00aa479b4a889c1e13fc00"
+url    = "https://github.com/libgit2/libgit2/archive/refs/tags/v1.9.6.tar.gz"
+sha256 = "a88a42a4ea9bdab7aa8686eead3bf7d9c6dd74529caca16ab22eaa92433d31d9"
 
 [steps]
 build = '''
