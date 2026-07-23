@@ -1,7 +1,7 @@
 [package]
 name     = "rust"
 version  = "1.97.0"
-release  = 1
+release  = 2
 summary  = "The Rust compiler and Cargo package manager"
 homepage = "https://www.rust-lang.org/"
 license  = ["Apache-2.0", "MIT"]
@@ -9,10 +9,16 @@ arch     = ["x86_64"]
 
 depends     = ["glibc", "gcc-libs", "llvm", "libgit2", "curl"]
 provides    = ["cargo"]
-# Bootstrapped from an existing rustc/cargo (stage0) and the container's LLVM
-# (statically linked into rustc, so no runtime LLVM dep). Needs cmake/ninja for
-# the LLVM C++ glue, python + curl for the build system.
-makedepends = ["rust", "cargo", "llvm", "clang", "cmake", "ninja", "python", "curl", "gcc", "make", "pkgconf", "libffi", "zlib"]
+# Bootstrapped from upstream's PINNED stage0 compiler, which x.py downloads per
+# the source's src/stage0 (a throwaway build seed — you cannot compile a compiler
+# without a prior one; it is never shipped). stage2 is then compiled from source
+# against OUR llvm (llvm-config below, link-shared) so the final rustc is produced
+# by Blueberry's own toolchain and links our libLLVM — no Arch rust involved.
+# Deliberately NOT bootstrapped from the container's Arch rustc: it is ABI-bound
+# to Arch's libLLVM, which our llvm shadows, breaking the bootstrap.
+# Needs cmake/ninja for the LLVM C++ glue, python + curl for the build system and
+# the stage0 download.
+makedepends = ["llvm", "clang", "cmake", "ninja", "python", "curl", "gcc", "make", "pkgconf", "libffi", "zlib"]
 
 [[source]]
 url    = "https://static.rust-lang.org/dist/rustc-1.97.0-src.tar.xz"
@@ -26,8 +32,6 @@ cd "rustc-$version-src";
     --release-channel=stable \
     --enable-extended --tools=cargo \
     --disable-docs \
-    --set build.rustc=/usr/bin/rustc \
-    --set build.cargo=/usr/bin/cargo \
     --set rust.channel=stable \
     --set llvm.link-shared=true \
     --set target.x86_64-unknown-linux-gnu.llvm-config=/usr/bin/llvm-config;
