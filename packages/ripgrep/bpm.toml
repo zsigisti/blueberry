@@ -1,7 +1,7 @@
 [package]
 name     = "ripgrep"
 version  = "14.1.1"
-release  = 1
+release  = 2
 summary  = "A recursive line-oriented search tool that respects gitignore (rg)"
 homepage = "https://github.com/BurntSushi/ripgrep"
 license  = ["MIT", "Unlicense"]

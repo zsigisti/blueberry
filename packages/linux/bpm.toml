@@ -1,7 +1,7 @@
 [package]
 name     = "linux"
 version  = "6.18.38"
-release  = 2
+release  = 3
 summary  = "The Blueberry Linux kernel (6.18 LTS, monolithic, no modules)"
 homepage = "https://www.kernel.org/"
 license  = ["GPL-2.0-only"]
