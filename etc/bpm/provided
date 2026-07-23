@@ -20,10 +20,10 @@ systemd-libs
 # glibc provides argp (argp.h / argp_parse); argp-standalone is a musl-only shim.
 argp-standalone
 
-# Kernel-build host tools: bc, cpio and pahole are used only by the linux recipe's
-# `make kernel-rebuild` path. The kernel is a pinned, prebuilt artifact (fetched,
-# not compiled in the package build container), so these are never needed to build
-# packages/ — treat as provided by the build host.
-bc
+# Kernel-build host tools. The kernel is now built FROM SOURCE in the package
+# container (self-hosted, not fetched), so `bc` is a real first-party package
+# (packages/bc — GavinHoward bc/dc) extracted into the build. cpio and pahole are
+# only needed for an embedded initramfs / BTF, which the monolithic no-BTF kernel
+# config does not use, so they remain host-provided.
 cpio
 pahole

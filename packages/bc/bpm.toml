@@ -1,0 +1,33 @@
+[package]
+name     = "bc"
+version  = "7.0.3"
+release  = 1
+summary  = "An implementation of POSIX bc and dc calculators (GavinHoward bc)"
+homepage = "https://git.gavinhoward.com/gavin/bc"
+license  = ["BSD-2-Clause"]
+arch     = ["x86_64"]
+
+# Dependency-light bc/dc: builds with only a C compiler (no flex/bison/ed), so it
+# self-hosts cleanly in the Blueberry builder image. Needed to build the kernel
+# (Kbuild uses bc to generate timeconst.h). Provides dc as well.
+depends     = ["glibc"]
+makedepends = ["gcc", "make"]
+provides    = ["dc"]
+
+[[source]]
+url    = "https://github.com/gavinhoward/bc/releases/download/7.0.3/bc-7.0.3.tar.xz"
+sha256 = "91eb74caed0ee6655b669711a4f350c25579778694df248e28363318e03c7fc4"
+
+[steps]
+build = '''
+cd "bc-$version";
+# GCC 16 defaults to C23, where true/false are keywords rather than <stdbool.h>
+# macros, so bc's UINTMAX_C(false) token-pastes to the undeclared 'falseUL'.
+# Pin -std=gnu17 so true/false are integer macros again (repo GCC16 gotcha).
+CFLAGS="-std=gnu17 -O2" PREFIX=/usr CC=gcc ./configure.sh --prefix=/usr;
+make
+'''
+package = '''
+cd "bc-$version";
+make install DESTDIR="$pkgdir"
+'''
