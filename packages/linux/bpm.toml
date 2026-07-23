@@ -30,4 +30,12 @@ make -j"$(nproc)" bzImage
 package = '''
 cd "linux-$version";
 install -Dm644 arch/x86/boot/bzImage "$pkgdir/boot/vmlinuz"
+# Also ship this build's own System.map + builtin-module metadata, keyed by the
+# real kernel release (e.g. 6.18.38-blueberry). Needed to assemble the pinned boot
+# artifact (tools/kernel/publish-kernel.sh) from our own container build rather
+# than a host compile, and so `bpm upgrade` keeps /boot + /lib/modules in sync.
+rel=$(cat include/config/kernel.release)
+install -Dm644 System.map "$pkgdir/boot/System.map-$rel"
+install -Dm644 modules.builtin "$pkgdir/lib/modules/$rel/modules.builtin"
+install -Dm644 modules.builtin.modinfo "$pkgdir/lib/modules/$rel/modules.builtin.modinfo"
 '''
