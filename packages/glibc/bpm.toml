@@ -1,7 +1,7 @@
 [package]
 name     = "glibc"
-version  = "2.43"
-release  = 2
+version  = "2.44"
+release  = 1
 summary  = "GNU C Library — headers, startup objects, and libraries (on-device SDK)"
 homepage = "https://www.gnu.org/software/libc/"
 license  = ["GPL-2.0-or-later", "LGPL-2.1-or-later"]
@@ -12,8 +12,8 @@ makedepends = ["linux-api-headers", "python"]
 options     = ["staticlibs", "!lto"]
 
 [[source]]
-url    = "https://ftp.gnu.org/gnu/glibc/glibc-2.43.tar.xz"
-sha256 = "d9c86c6b5dbddb43a3e08270c5844fc5177d19442cf5b8df4be7c07cd5fa3831"
+url    = "https://ftp.gnu.org/gnu/glibc/glibc-2.44.tar.xz"
+sha256 = "37f600f2bef3c5e8300147059568b2a2e40a7ad6ccc65ce942556d49429cc667"
 
 [steps]
 build = '''
