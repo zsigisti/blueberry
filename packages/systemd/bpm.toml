@@ -1,6 +1,6 @@
 [package]
 name     = "systemd"
-version  = "261.1"
+version  = "261.2"
 release  = 1
 summary  = "System and service manager (PID 1) — slimmed Blueberry build"
 homepage = "https://systemd.io/"
@@ -11,8 +11,8 @@ depends     = ["glibc", "libcap", "util-linux", "libseccomp", "kmod", "dbus", "a
 makedepends = ["meson", "ninja", "gperf", "pkgconf", "python-jinja", "gettext", "pam"]
 
 [[source]]
-url    = "https://github.com/systemd/systemd/archive/refs/tags/v261.1.tar.gz"
-sha256 = "f9b9da1103d1714703503d1746971ccbeeae945663ef3ede3b7348169b5df064"
+url    = "https://github.com/systemd/systemd/archive/refs/tags/v261.2.tar.gz"
+sha256 = "ed1059ff964f5df35b6056434cc17cc83f86dc913f10489948a0b19b6081c5ec"
 
 [steps]
 build = '''
