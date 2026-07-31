@@ -1,59 +1,59 @@
-## Blueberry Linux — v0.9.2-beta
+## Blueberry Linux — v0.9.3-beta
 
-A feature + fix release. The interactive installer now actually ships the
-current code (a build bug had been freezing it at an old build), NetworkManager
-is gone in favour of systemd-networkd everywhere, the web console can manage
-containers, and the fish shell is packaged. The images are rebuilt and pass the
-end-to-end gate: the server ISO boots to a root shell, and an unattended install
-boots to multi-user with sshd and networkd up and no failed units. On an existing
-system it is `bpm update && bpm upgrade`.
+A self-hosting and security release. Every package now builds from our own
+recipes with our own toolchain — including the toolchains themselves — and glibc
+and the kernel are compiled from source on the mirror rather than pinned or
+host-provided. A new CVE audit was run against the shipped set, and the four
+packages carrying CRITICAL vulnerabilities are patched. The images are rebuilt
+and pass the boot gate: a fresh server ISO built from the mirror boots to a root
+shell on the patched glibc. On an existing system it is `bpm update && bpm
+upgrade`.
 
-### The installer on the ISO is current again
+### Full self-hosting restored — no Arch respin
 
-The bootable ISOs bundle the guided installer (`blueberry-install`) inside the
-initramfs. Its rebuild trigger pointed at the long-dead C installer source
-instead of the Rust sources it is actually built from, so editing the installer
-never rebuilt the initramfs — and the ISOs kept shipping a months-old build. That
-stale installer still offered a NetworkManager "network stack" choice and
-referenced the removed desktop edition. The dependency now tracks the real Rust
-sources, the dead C installer is deleted, and the initramfs (and both ISOs)
-rebuild whenever the installer changes. Verified: the shipped installer has no
-NetworkManager left in it and lays down a clean networkd system.
+An earlier experiment repackaged Arch binary packages as native .bpm. That is
+reverted: `arch-import` is deleted and every package is built from our own recipe
+by our own toolchain again. The build toolchains are no exception — rust, LLVM,
+gcc, and glibc are all compiled from source, not fetched as prebuilts. rust in
+particular now bootstraps from the upstream pinned stage0 (self-contained) and
+links against our own libLLVM, instead of bootstrapping from the container's
+system rustc, which clashed at the LLVM ABI. The build container itself is
+Blueberry, not Arch: it is a Blueberry rootfs plus our toolchain, with no pacman,
+regenerated from the purified package set.
 
-A new `make run-install` boots the installer ISO in QEMU with a blank target disk
-attached, so the installer can be driven by hand (TUI or `--cli`) rather than
-only through the headless unattended path.
+### glibc and the kernel are built from source, on the mirror
 
-### NetworkManager removed — systemd-networkd only
+glibc and the Linux kernel were previously pinned artifacts. They are now
+compiled from source in our own build container and published to the mirror like
+any other package. Building the kernel in-container surfaced one missing tool —
+`bc`, which Kbuild uses to generate `timeconst.h` — so a dependency-light `bc`
+(GavinHoward) is now a first-party package rather than an assumed host tool. The
+`linux` package also installs `System.map` and the builtin-module metadata keyed
+by the kernel release, so the pinned boot artifact is regenerated from exactly
+the kernel we publish.
 
-NetworkManager never built self-hosted and pulled an unmet dependency chain, so
-it is removed entirely. systemd-networkd (+resolved) is the sole, default network
-stack, shipped enabled in the base image with DHCP on every wired interface. For
-Wi-Fi, `wpa_supplicant`/`wpa_cli` remain in the base. The installer no longer
-offers a network-stack choice, and all docs point at networkd.
+### Security: four CRITICAL CVEs patched
 
-### Container management in the web console
+A new `bpm-audit` sweep queries NVD and OSV for known CVEs against the exact
+versions we ship. It flagged CRITICALs in four packages, each now fixed:
 
-The Blueberry Console gains a Containers panel backed by podman: it lists running
-and stopped containers and images, tails a container's logs, and offers
-start / stop / restart / remove. All actions are argument-validated and passed as
-argv (never a shell string); `remove` refuses a running container (no accidental
-kill). When podman is not installed the panel degrades gracefully with an install
-hint. Images that podman reports once per tag are de-duplicated so each image
-shows a single row.
+- glibc: CVE-2026-5450 — a `scanf` `%mc`/`%mC` off-by-one heap overflow
+  (BZ #34008). glibc 2.44 is not released yet, so the maintainer-reviewed fix is
+  carried as a patch on the 2.43 branch (release 2 to 3).
+- redis: CVE-2025-49844 "RediShell", a Lua use-after-free leading to remote code
+  execution (CVSS 10.0). Updated 7.4.2 to 7.4.6.
+- perl: CVE-2026-4176 and CVE-2026-13221. Updated 5.40.2 to 5.40.4. (CVE-2026-8376
+  is 32-bit-only and does not affect the x86_64 build.)
+- mariadb: CVE-2026-49261 and CVE-2026-44170. Updated 11.4.4 to 11.4.12, the
+  latest 11.4 LTS point release.
 
-### fish shell packaged
+All four were rebuilt self-hosted in the Blueberry container and republished
+under new filenames so the immutable CDN serves them fresh.
 
-The friendly interactive shell fish 4.8.1 is available: `bpm install fish`. It
-builds against the system PCRE2 and ships its own terminfo, so it is fully
-self-contained.
+### Mirror housekeeping
 
-### Also in this release
-
-- `blueberry-console` is now part of the base image (the service stays opt-in:
-  `systemctl enable --now blueberry-console`).
-- `bind-tools` builds with DoH disabled (libnghttp2 is not packaged), so `dig`
-  and friends build cleanly self-hosted.
-- Internal cleanups: dead code removed from the console and installer, and the
-  console's documented security posture (binds `0.0.0.0:9090` with its own TLS)
-  now matches the code.
+Mirror .bpm are served with a one-year immutable cache, so a rebuilt package must
+always take a new filename (a bumped release) or the CDN keeps serving the old
+bytes. Superseded packages left on the origin from earlier release bumps — 65
+files, about 380 MB — were removed; they were already unreferenced by the signed
+index, so nothing that resolves through bpm was affected.
