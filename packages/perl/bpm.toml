@@ -1,6 +1,6 @@
 [package]
 name     = "perl"
-version  = "5.40.2"
+version  = "5.40.4"
 release  = 1
 summary  = "A highly capable, feature-rich programming language"
 homepage = "https://www.perl.org/"
@@ -10,8 +10,10 @@ arch     = ["x86_64"]
 depends = ["glibc", "gdbm", "libxcrypt"]
 
 [[source]]
-url    = "https://www.cpan.org/src/5.0/perl-5.40.2.tar.xz"
-sha256 = "0551c717458e703ef7972307ab19385edfa231198d88998df74e12226abf563b"
+# 5.40.4 fixes CVE-2026-4176 and CVE-2026-13221 (CRITICAL). CVE-2026-8376 is
+# 32-bit-only and does not affect our x86_64 build.
+url    = "https://www.cpan.org/src/5.0/perl-5.40.4.tar.xz"
+sha256 = "eb0b1116b84ded552f686c9ee40c83000d8388c454f54197ca1d3a3b17246bd3"
 
 [steps]
 build = '''

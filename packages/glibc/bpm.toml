@@ -1,7 +1,7 @@
 [package]
 name     = "glibc"
 version  = "2.43"
-release  = 2
+release  = 3
 summary  = "GNU C Library — headers, startup objects, and libraries (on-device SDK)"
 homepage = "https://www.gnu.org/software/libc/"
 license  = ["GPL-2.0-or-later", "LGPL-2.1-or-later"]
@@ -15,8 +15,16 @@ options     = ["staticlibs", "!lto"]
 url    = "https://ftp.gnu.org/gnu/glibc/glibc-2.43.tar.xz"
 sha256 = "d9c86c6b5dbddb43a3e08270c5844fc5177d19442cf5b8df4be7c07cd5fa3831"
 
+# CVE-2026-5450 (BZ #34008): scanf %mc/%mC off-by-one heap overflow — CRITICAL.
+# The upstream fix lands on the release/2.43 branch, not a new tarball (2.44 is
+# not out yet), so we carry the maintainer-reviewed commit as a local patch.
+[[source]]
+url    = "glibc-cve-2026-5450.patch"
+sha256 = "8949d2e9fa8575f22585e03aa70e9057ea0739147f8151b5816f66538a94cef3"
+
 [steps]
 build = '''
+patch -d "glibc-$version" -p1 < glibc-cve-2026-5450.patch;
 CFLAGS="${CFLAGS//-Wp,-D_FORTIFY_SOURCE=3/}";
 CFLAGS="${CFLAGS//-Werror=format-security/}";
 export CFLAGS;
