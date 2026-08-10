@@ -1,6 +1,6 @@
 [package]
 name     = "crun"
-version  = "1.28"
+version  = "1.29"
 release  = 1
 summary  = "Fast, low-memory OCI container runtime written in C (podman's default)"
 homepage = "https://github.com/containers/crun"
@@ -14,8 +14,8 @@ depends     = ["glibc", "libseccomp", "libcap", "systemd"]
 makedepends = ["python", "pkgconf", "libseccomp", "libcap", "systemd", "argp-standalone"]
 
 [[source]]
-url    = "https://github.com/containers/crun/releases/download/1.28/crun-1.28.tar.zst"
-sha256 = "62b82f7db89df3652970d9ad76f635a177d09bcb543c8d1dae13a749cd3e6e35"
+url    = "https://github.com/containers/crun/releases/download/1.29/crun-1.29.tar.zst"
+sha256 = "d4846ce8407cd78ea322bc7daa8a75f7cbd2648a22eca4e388b84b87510b8352"
 
 [steps]
 build = '''
