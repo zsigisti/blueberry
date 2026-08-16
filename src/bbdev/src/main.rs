@@ -220,7 +220,7 @@ fn cmd_build(root: &Path, names: &[String]) -> i32 {
     let mut argv = vec!["tools/pkg/build-bpm-pkg.sh".to_string(), outdir];
     argv.extend(targets);
     let sh_args: Vec<&str> = argv.iter().map(String::as_str).collect();
-    run(root, "sh", &sh_args)
+    run_selfhosted(root, "sh", &sh_args)
 }
 
 fn cmd_auto(root: &Path) -> i32 {
@@ -248,6 +248,30 @@ fn cmd_auto(root: &Path) -> i32 {
 }
 
 // ── process helper ────────────────────────────────────────────────────────────
+/// Like `run`, but pins the builder to the self-hosted path.
+///
+/// build-bpm-pkg.sh defaults to BASE=auto, which degrades to the Arch bootstrap
+/// container when a package won't build self-hosted — it prints a warning and
+/// still writes a .bpm. That artifact is then linked against Arch's libraries,
+/// which is exactly what this distro is not. A bump that can't build on our own
+/// toolchain has to fail loudly instead (libgcrypt 1.12 needing a newer
+/// libgpg-error is how this was found). Set BASE=auto explicitly to bootstrap.
+fn run_selfhosted(root: &Path, prog: &str, args: &[&str]) -> i32 {
+    let base = std::env::var("BASE").unwrap_or_else(|_| "blueberry".into());
+    match Command::new(prog)
+        .current_dir(root)
+        .env("BASE", base)
+        .args(args)
+        .status()
+    {
+        Ok(s) => s.code().unwrap_or(1),
+        Err(e) => {
+            eprintln!("bbdev: cannot run {prog}: {e}");
+            127
+        }
+    }
+}
+
 fn run(root: &Path, prog: &str, args: &[&str]) -> i32 {
     match Command::new(prog).current_dir(root).args(args).status() {
         Ok(s) => s.code().unwrap_or(1),
