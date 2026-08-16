@@ -11,6 +11,12 @@ depends     = ["glibc"]
 makedepends = ["cmake"]
 provides    = ["libjson-c.so"]
 
+[upstream]
+# tags are json-c-0.19-20250808; the recipe versions on the 0.19 part alone, so
+# read the tags API through the regex provider instead of taking the whole tag.
+url   = "https://api.github.com/repos/json-c/json-c/tags"
+regex = "json-c-([0-9.]+)-[0-9]{8}"
+
 [[source]]
 url    = "https://s3.amazonaws.com/json-c_releases/releases/json-c-0.18.tar.gz"
 sha256 = "876ab046479166b869afc6896d288183bbc0e5843f141200c677b3e8dfb11724"

@@ -12,6 +12,12 @@ depends     = ["glibc"]
 # builder image is self-hosted). cgo needs a C compiler.
 makedepends = ["go", "gcc", "bash"]
 
+[upstream]
+# golang/go's first 100 tags are the 2009-era weekly/release ones, so the tags
+# API never reaches a go1.x; the download page is the release list.
+url   = "https://go.dev/dl/"
+regex = "go([0-9.]+)\\.src\\.tar\\.gz"
+
 [[source]]
 url    = "https://go.dev/dl/go1.26.5.src.tar.gz"
 sha256 = "495be4bc87176ac567392e5b4116abd98466d33d7b49d41e764ccc6976b2dc42"

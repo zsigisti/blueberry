@@ -10,6 +10,9 @@ arch     = ["x86_64"]
 makedepends = ["rsync"]
 provides    = ["linux-headers"]
 
+[upstream]
+track = "6.18"   # matches the linux recipe
+
 [[source]]
 url    = "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.18.38.tar.xz"
 sha256 = "ac26e508abd56e9f8b89872b6e10c49fc823bcc70d8068a5d8504c1a7c4ff045"

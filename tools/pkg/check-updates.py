@@ -27,9 +27,11 @@ Auth: set GITHUB_TOKEN (CI provides one) to lift the GitHub rate limit.
 
 Usage:
   tools/pkg/check-updates.py [--json] [--only NAME]... [--fail-outdated]
+                             [--jobs N]
 Exit: 0 normally; non-zero only with --fail-outdated when something is behind.
 """
 import argparse
+import concurrent.futures
 import glob
 import json
 import os
@@ -94,13 +96,14 @@ def _clean(tag):
         if stripped == t:
             break
         t = stripped
-    # A short digit run then a hyphen was part of the *name*, not the version
-    # (pcre2-10.47 -> 10.47). Underscore-joined digits are the version itself
-    # (libnl3_11_0 -> 3.11.0), so only the hyphen form is stripped, and only
-    # when it is short enough to be a name suffix — libedit's 20240808-3.1 is a
-    # date, not a project called "libedit20240808".
-    t = re.sub(r"^\d{1,2}-", "", t)
-    t = re.sub(r"(?<=\d)-(?=\d)", ".", t)   # 20240808-3.1 -> 20240808.3.1
+    # A short digit run then a hyphen can be the tail of the *name* rather than
+    # the version (pcre2-10.47 -> 10.47) — but only when what follows is a
+    # dotted version on its own. flex tags flex-2-5-10 and logrotate tags
+    # r3-9-1, where that same leading digit is the major version.
+    head, sep, rest = t.partition("-")
+    if sep and head.isdigit() and len(head) <= 2 and "." in rest and "-" not in rest:
+        t = rest
+    t = re.sub(r"(?<=\d)-(?=\d)", ".", t)   # 2-5-10 -> 2.5.10, 20240808-3.1 -> …
     if "." not in t and "_" in t:
         # 3_11_0 -> 3.11.0, and NSS_3_108_RTM -> 3.108: one trailing word is
         # release decoration, more than one means the tag was never a version
@@ -158,7 +161,11 @@ def _pick_latest(cands, cur, track=None):
 
 # ── network helpers ──────────────────────────────────────────────────────────
 def _get(url, headers=None):
-    req = urllib.request.Request(url, headers={**UA, **(headers or {})})
+    hdr = {**UA, **(headers or {})}
+    tok = os.environ.get("GITHUB_TOKEN")
+    if tok and "api.github.com" in url and "Authorization" not in hdr:
+        hdr["Authorization"] = f"Bearer {tok}"   # so [upstream] url= can use the API too
+    req = urllib.request.Request(url, headers=hdr)
     with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
         return r.read().decode("utf-8", "replace")
 
@@ -297,14 +304,29 @@ def latest_for(method, arg, cur, track=None):
     }[method](arg, cur, track)
 
 
+def check_one(name, cur, method, arg, track):
+    """One recipe -> its report row. Network-bound; safe to run in a thread."""
+    try:
+        latest = latest_for(method, arg, cur, track)
+    except (urllib.error.URLError, urllib.error.HTTPError, KeyError,
+            ValueError, TimeoutError, ConnectionError, OSError) as e:
+        return (name, cur, "?", "error", f"{method}: {type(e).__name__}")
+    if not latest:
+        return (name, cur, "?", "error", f"{method}: no usable tags")
+    if newer(latest, cur):
+        return (name, cur, latest, "OUTDATED", method)
+    return (name, cur, latest, "current", method)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--only", action="append", default=[], help="limit to these package names")
     ap.add_argument("--fail-outdated", action="store_true")
+    ap.add_argument("--jobs", type=int, default=8, help="parallel upstream queries")
     args = ap.parse_args()
 
-    rows = []
+    rows, queries = [], []
     for toml in sorted(glob.glob(os.path.join(PKGDIR, "*", "bpm.toml"))):
         with open(toml, "rb") as f:
             data = tomllib.load(f)
@@ -316,22 +338,17 @@ def main():
         method, arg = detect(data)
         if method == "skip":
             rows.append((name, cur, "-", "skip", arg))
-            continue
-        if not method:
+        elif not method:
             rows.append((name, cur, "?", "unknown", "no upstream (add [upstream])"))
-            continue
-        track = (data.get("upstream") or {}).get("track")
-        try:
-            latest = latest_for(method, arg, cur, track)
-        except (urllib.error.URLError, urllib.error.HTTPError, KeyError, ValueError, TimeoutError) as e:
-            rows.append((name, cur, "?", "error", f"{method}: {type(e).__name__}"))
-            continue
-        if not latest:
-            rows.append((name, cur, "?", "error", f"{method}: no usable tags"))
-        elif newer(latest, cur):
-            rows.append((name, cur, latest, "OUTDATED", method))
         else:
-            rows.append((name, cur, latest, "current", method))
+            queries.append((name, cur, method, arg, (data.get("upstream") or {}).get("track")))
+
+    # ~220 recipes against ~90 different hosts, each with a 20s timeout: serial
+    # this is a quarter-hour, which is too slow to stay in CI.
+    if queries:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
+            rows += list(pool.map(lambda q: check_one(*q), queries))
+    rows.sort(key=lambda r: r[0])
 
     if args.json:
         print(json.dumps(

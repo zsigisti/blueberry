@@ -11,6 +11,10 @@ depends     = ["glibc"]
 makedepends = ["glibc"]
 options     = ["!strip"]
 
+[upstream]
+skip   = true
+reason = "generated from the glibc build; bump with glibc"
+
 [steps]
 build = '''
 localedef --no-archive -i en_US -f UTF-8 "$srcdir/en_US.utf8";

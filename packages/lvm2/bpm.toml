@@ -13,6 +13,10 @@ depends     = ["glibc", "libaio", "readline", "device-mapper", "systemd", "util-
 makedepends = ["make", "gcc", "pkgconf", "libaio"]
 provides    = ["lvm", "vgcreate", "lvcreate"]
 
+[upstream]
+url   = "https://sourceware.org/ftp/lvm2/"
+regex = "LVM2\\.([0-9.]+)\\.tgz"
+
 [[source]]
 url    = "https://sourceware.org/ftp/lvm2/LVM2.2.03.30.tgz"
 sha256 = "ad76abecb8dc887733e06c449cb9add04a3506f9f0780c128817a6e1a17cec05"

@@ -10,6 +10,11 @@ arch     = ["x86_64"]
 depends     = ["glibc", "zlib", "readline"]
 provides    = ["libsqlite3.so"]
 
+[upstream]
+# the tarball name encodes the version (3530400); the page spells it out
+url   = "https://sqlite.org/download.html"
+regex = "version ([0-9]+\\.[0-9]+\\.[0-9]+)"
+
 [[source]]
 url    = "https://sqlite.org/2026/sqlite-autoconf-3530300.tar.gz"
 sha256 = "c917d7db16648ec95f714974ace5e5dcf46b7dc70e26600a0a102a3141125db0"

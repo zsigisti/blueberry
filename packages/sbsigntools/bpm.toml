@@ -13,6 +13,10 @@ makedepends = ["autoconf", "automake", "libtool", "pkgconf", "gnu-efi",
 
 # Debian's orig tarball vendors the ccan sources (the upstream git snapshot omits
 # the ccan submodule); it ships no ./configure, so autoreconf runs at build time.
+[upstream]
+url   = "http://deb.debian.org/debian/pool/main/s/sbsigntool/"
+regex = "sbsigntool_([0-9.]+)\\.orig\\.tar"
+
 [[source]]
 url    = "http://deb.debian.org/debian/pool/main/s/sbsigntool/sbsigntool_0.9.5.orig.tar.gz"
 sha256 = "fa93920ef80a406115c1de6f7764ffa4c34e3d1bd7890b9145c36de899a258f5"

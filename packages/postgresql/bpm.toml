@@ -10,6 +10,11 @@ arch     = ["x86_64"]
 depends     = ["glibc", "readline", "zlib", "openssl", "lz4", "zstd"]
 makedepends = ["pkgconf", "bison", "flex", "perl"]
 
+[upstream]
+url   = "https://ftp.postgresql.org/pub/source/"
+regex = "v([0-9.]+)/"
+track = "17"     # major series we ship
+
 [[source]]
 url    = "https://ftp.postgresql.org/pub/source/v17.10/postgresql-17.10.tar.bz2"
 sha256 = "078a03516dcdbdb705fecaf415ea3d13a956c589e46f09fed68a06fb00598c90"

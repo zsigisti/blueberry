@@ -10,6 +10,10 @@ arch     = ["x86_64"]
 depends     = ["glibc"]
 makedepends = ["lzip", "make", "gcc"]
 
+[upstream]
+url   = "https://data.iana.org/time-zones/releases/"
+regex = "tzdb-([0-9]{4}[a-z])\\.tar"
+
 [[source]]
 url    = "https://data.iana.org/time-zones/releases/tzdb-2026b.tar.lz"
 sha256 = "ffad46a04c8d1624197056630af475a35f3556d0887f028ac1bd33b7d47dc653"

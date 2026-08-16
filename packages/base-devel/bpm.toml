@@ -9,6 +9,10 @@ arch     = ["x86_64"]
 
 depends     = ["gcc", "binutils", "make", "linux-api-headers"]
 
+[upstream]
+skip   = true
+reason = "first-party meta package, versioned with the distro"
+
 [steps]
 package = '''
 install -d "$pkgdir/usr/share/doc/base-devel";

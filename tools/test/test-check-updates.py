@@ -59,6 +59,13 @@ class TestClean(unittest.TestCase):
         self.assertEqual(cu._clean("RELEASE_7_4"), "7.4")        # smartmontools
         self.assertEqual(cu._clean("NSS_3_108_RTM"), "3.108")    # nss
 
+    def test_hyphen_joined_version_components(self):
+        # flex tags flex-2-5-10 and logrotate r3-9-1: the leading digit is the
+        # major version, not a name suffix like pcre2's.
+        self.assertEqual(cu._clean("flex-2-5-10"), "2.5.10")
+        self.assertEqual(cu._clean("r3-9-1"), "3.9.1")
+        self.assertEqual(cu._pick_latest(["v2.6.4", "flex-2-5-10"], "2.6.4"), "2.6.4")
+
     def test_repeated_name_segments_are_stripped(self):
         self.assertEqual(cu._clean("json-c-0.19-20250808"), "0.19.20250808")
 

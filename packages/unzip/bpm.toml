@@ -11,6 +11,10 @@ depends     = ["glibc"]
 makedepends = ["make", "gcc"]
 provides    = ["unzip", "zipinfo"]
 
+[upstream]
+skip   = true
+reason = "Info-ZIP unzip 6.0 (2009) is the last release; upstream is dormant"
+
 [[source]]
 # archive extracts to unzip60
 url    = "https://downloads.sourceforge.net/infozip/unzip60.tar.gz"

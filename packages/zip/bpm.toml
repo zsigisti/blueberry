@@ -11,6 +11,10 @@ depends     = ["glibc", "bzip2"]
 makedepends = ["make", "gcc"]
 provides    = ["zip"]
 
+[upstream]
+skip   = true
+reason = "Info-ZIP zip 3.0 (2008) is the last release; upstream is dormant"
+
 [[source]]
 # archive extracts to zip30
 url    = "https://downloads.sourceforge.net/infozip/zip30.tar.gz"

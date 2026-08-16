@@ -11,6 +11,10 @@ arch     = ["x86_64"]
 depends     = ["glibc"]
 makedepends = ["make", "pkgconf"]
 
+[upstream]
+skip   = true
+reason = "upstream releases are date_commit snapshots, not versions"
+
 [[source]]
 url    = "https://passt.top/passt/snapshot/passt-2026_06_11.a9c61ff.tar.xz"
 sha256 = "b94b235cb96ce1b7aeab6552b7e0b4c9a780e5d700ced500c65e429b2d8b8450"

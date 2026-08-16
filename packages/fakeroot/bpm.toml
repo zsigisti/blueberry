@@ -17,6 +17,10 @@ options     = ["!lto"]
 
 # snapshot.debian.org serves every archived file permanently by content hash;
 # the /file/<sha1> path is stable where dated pool URLs rotate out.
+[upstream]
+url   = "http://deb.debian.org/debian/pool/main/f/fakeroot/"
+regex = "fakeroot_([0-9.]+)\\.orig\\.tar"
+
 [[source]]
 url    = "fakeroot_1.37.2.orig.tar.gz::https://snapshot.debian.org/file/1a721c2b4093a4e83dc091dc41a028f19340c1b3"
 sha256 = "0eea60fbe89771b88fcf415c8f2f0a6ccfe9edebbcf3ba5dc0212718d98884db"

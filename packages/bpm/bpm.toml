@@ -11,6 +11,10 @@ depends     = ["glibc", "gcc-libs"]
 makedepends = ["rust"]
 options     = ["!lto"]
 
+[upstream]
+skip   = true
+reason = "first-party component, versioned with the distro"
+
 [steps]
 build = '''
 rm -rf bpmsrc;

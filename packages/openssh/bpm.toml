@@ -11,6 +11,10 @@ depends     = ["glibc", "openssl", "zlib", "libxcrypt"]
 # user-editable config — preserved across upgrades (bpm writes a .bpmnew instead)
 backup      = ["etc/ssh/sshd_config", "etc/ssh/ssh_config"]
 
+[upstream]
+url   = "https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/"
+regex = "openssh-([0-9.]+p[0-9]+)\\.tar"
+
 [[source]]
 url    = "https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-10.3p1.tar.gz"
 sha256 = "56682a36bb92dcf4b4f016fd8ec8e74059b79a8de25c15d670d731e7d18e45f4"

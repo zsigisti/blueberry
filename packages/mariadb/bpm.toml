@@ -10,6 +10,11 @@ arch     = ["x86_64"]
 depends     = ["glibc", "gcc-libs", "openssl", "ncurses", "zlib", "zstd", "lz4", "pcre2", "libaio", "liburcu", "bzip2", "xz", "systemd", "curl", "krb5", "libxcrypt"]
 makedepends = ["cmake", "bison", "pkgconf"]
 
+[upstream]
+url   = "https://archive.mariadb.org/"
+regex = "mariadb-([0-9.]+)/"
+track = "11.4"   # LTS series
+
 [[source]]
 # 11.4.12 (latest 11.4 LTS) fixes CVE-2026-49261 and CVE-2026-44170 (CRITICAL).
 url    = "https://archive.mariadb.org/mariadb-11.4.12/source/mariadb-11.4.12.tar.gz"

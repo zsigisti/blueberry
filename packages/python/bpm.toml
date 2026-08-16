@@ -10,6 +10,11 @@ arch     = ["x86_64"]
 depends     = ["glibc", "zlib", "openssl", "bzip2", "libffi", "xz", "ncurses", "readline", "gdbm", "mpdecimal", "sqlite", "expat", "util-linux", "zstd"]
 provides    = ["python3"]
 
+[upstream]
+url   = "https://www.python.org/ftp/python/"
+regex = "([0-9]+\\.[0-9]+\\.[0-9]+)/"
+track = "3.14"   # series the tree is built against
+
 [[source]]
 url    = "https://www.python.org/ftp/python/3.14.6/Python-3.14.6.tar.xz"
 sha256 = "143b1dddefaec3bd2e21e3b839b34a2b7fb9842272883c576420d605e9f30c63"

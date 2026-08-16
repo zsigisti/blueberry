@@ -9,6 +9,10 @@ arch     = ["x86_64"]
 
 depends     = ["glibc", "openssl", "libxcrypt"]
 
+[upstream]
+url   = "https://www.sudo.ws/dist/"
+regex = "sudo-([0-9.]+p?[0-9]*)\\.tar"
+
 [[source]]
 url    = "https://www.sudo.ws/dist/sudo-1.9.17p2.tar.gz"
 sha256 = "4a38a1ab3adb1199257edc2a7c4a2bd714665eb605b04368843b06dada2cfcfb"

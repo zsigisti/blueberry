@@ -11,6 +11,10 @@ depends     = ["glibc", "libmnl", "libnftnl", "gmp"]
 makedepends = ["pkgconf"]
 provides    = ["libnftables.so"]
 
+[upstream]
+url   = "https://www.netfilter.org/pub/nftables/"
+regex = "nftables-([0-9.]+)\\.tar"
+
 [[source]]
 url    = "https://www.netfilter.org/projects/nftables/files/nftables-1.1.1.tar.xz"
 sha256 = "6358830f3a64f31e39b0ad421d7dadcd240b72343ded48d8ef13b8faf204865a"

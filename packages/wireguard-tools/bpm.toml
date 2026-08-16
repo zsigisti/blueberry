@@ -9,6 +9,10 @@ arch     = ["x86_64"]
 
 depends     = ["glibc", "libmnl", "bash"]
 
+[upstream]
+# the official GitHub mirror: git.zx2c4.com rate-limits CI runners
+github = "WireGuard/wireguard-tools"
+
 [[source]]
 url    = "https://git.zx2c4.com/wireguard-tools/snapshot/wireguard-tools-1.0.20210914.tar.xz"
 sha256 = "942ed32d1d6631932c82ff86c91ae8428d4c90bfec231a14ebdf6c29f068e60b"

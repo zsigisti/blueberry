@@ -20,6 +20,9 @@ provides    = ["cargo"]
 # the stage0 download.
 makedepends = ["llvm", "clang", "cmake", "ninja", "python", "curl", "gcc", "make", "pkgconf", "libffi", "zlib"]
 
+[upstream]
+github = "rust-lang/rust"
+
 [[source]]
 url    = "https://static.rust-lang.org/dist/rustc-1.97.0-src.tar.xz"
 sha256 = "de002ee301c1b7422b0a7b09d7c4cb4924cd3224e6cfb24f065dad786dd3ed12"

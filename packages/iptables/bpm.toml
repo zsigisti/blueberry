@@ -10,6 +10,10 @@ arch     = ["x86_64"]
 depends     = ["glibc", "libmnl", "libnftnl", "libnfnetlink", "libnetfilter_conntrack"]
 makedepends = ["pkgconf"]
 
+[upstream]
+url   = "https://www.netfilter.org/pub/iptables/"
+regex = "iptables-([0-9.]+)\\.tar"
+
 [[source]]
 url    = "https://www.netfilter.org/projects/iptables/files/iptables-1.8.11.tar.xz"
 sha256 = "d87303d55ef8c92bcad4dd3f978b26d272013642b029425775f5bad1009fe7b2"

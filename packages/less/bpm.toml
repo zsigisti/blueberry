@@ -9,6 +9,10 @@ arch     = ["x86_64"]
 
 depends     = ["glibc", "ncurses"]
 
+[upstream]
+url   = "https://www.greenwoodsoftware.com/less/download.html"
+regex = "less-([0-9]+)\\.tar"
+
 [[source]]
 url    = "https://www.greenwoodsoftware.com/less/less-668.tar.gz"
 sha256 = "2819f55564d86d542abbecafd82ff61e819a3eec967faa36cd3e68f1596a44b8"

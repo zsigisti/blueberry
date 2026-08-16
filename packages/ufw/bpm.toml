@@ -9,6 +9,10 @@ arch     = ["x86_64"]
 depends     = ["python", "iptables"]
 makedepends = ["python", "python-setuptools"]
 
+[upstream]
+url   = "https://launchpad.net/ufw/+download"
+regex = "ufw-([0-9.]+)\\.tar"
+
 [[source]]
 url    = "https://launchpad.net/ufw/0.36/0.36.2/+download/ufw-0.36.2.tar.gz"
 sha256 = "2a57a99eecef6b44db3537ed2520b30bae3759f8465456e22e404cd643838bf5"

@@ -10,6 +10,11 @@ arch     = ["x86_64"]
 depends     = ["glibc"]
 provides    = ["libdevmapper.so"]
 
+[upstream]
+# built from the same LVM2 tarball as the lvm2 recipe
+url   = "https://sourceware.org/ftp/lvm2/"
+regex = "LVM2\\.([0-9.]+)\\.tgz"
+
 [[source]]
 url    = "https://sourceware.org/ftp/lvm2/LVM2.2.03.30.tgz"
 sha256 = "ad76abecb8dc887733e06c449cb9add04a3506f9f0780c128817a6e1a17cec05"

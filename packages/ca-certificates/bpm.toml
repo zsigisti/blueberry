@@ -8,6 +8,11 @@ license  = ["MPL-2.0"]
 arch     = ["any"]
 
 
+[upstream]
+# the bundle is date-stamped; the recipe writes it without separators
+url   = "https://curl.se/docs/caextract.html"
+regex = "cacert-([0-9]{4})-([0-9]{2})-([0-9]{2})\\.pem"
+
 [[source]]
 url    = "cacert-20260514.pem::https://curl.se/ca/cacert-2026-05-14.pem"
 sha256 = "86a1f3366afac7c6f8ae9f3c779ac221129328c43f0ab2b8817eb2f362a5025c"
