@@ -9,6 +9,13 @@ arch     = ["x86_64"]
 
 depends = ["glibc", "gdbm", "libxcrypt"]
 
+[upstream]
+# perl ships development releases on odd minor versions (5.43.x, 5.45.x) into
+# the same directory as the stable ones, and they are NOT for production — only
+# even minors (5.40.x, 5.42.x, 5.44.x) are releases.
+url   = "https://www.cpan.org/src/5.0/"
+regex = "perl-(5\\.[0-9]*[02468]\\.[0-9]+)\\.tar"
+
 [[source]]
 # 5.40.4 fixes CVE-2026-4176 and CVE-2026-13221 (CRITICAL). CVE-2026-8376 is
 # 32-bit-only and does not affect our x86_64 build.
