@@ -1,6 +1,6 @@
 [package]
 name     = "perl"
-version  = "5.40.4"
+version  = "5.40.5"
 release  = 1
 summary  = "A highly capable, feature-rich programming language"
 homepage = "https://www.perl.org/"
@@ -17,10 +17,14 @@ url   = "https://www.cpan.org/src/5.0/"
 regex = "perl-(5\\.[0-9]*[02468]\\.[0-9]+)\\.tar"
 
 [[source]]
-# 5.40.4 fixes CVE-2026-4176 and CVE-2026-13221 (CRITICAL). CVE-2026-8376 is
-# 32-bit-only and does not affect our x86_64 build.
-url    = "https://www.cpan.org/src/5.0/perl-5.40.4.tar.xz"
-sha256 = "eb0b1116b84ded552f686c9ee40c83000d8388c454f54197ca1d3a3b17246bd3"
+# 5.40.5 is a security release on the 5.40 maintenance branch: per its
+# perldelta it fixes CVE-2026-57432 (integer overflow in S_measure_struct ->
+# out-of-bounds heap read in pack/unpack), CVE-2026-8376 (Perl_study_chunk
+# buffer overflow) and CVE-2026-13221 (regex trie 16-bit field overflow).
+# NVD's CPE ranges are still open-ended here, so `bpm audit` keeps flagging
+# these three against 5.40.5 -- the perldelta is the authority.
+url    = "https://www.cpan.org/src/5.0/perl-5.40.5.tar.xz"
+sha256 = "1fe6f825b487d26c35aa51a35f52fe494d4cfc77b8051f8b1ee3391bf0289bc6"
 
 [steps]
 build = '''

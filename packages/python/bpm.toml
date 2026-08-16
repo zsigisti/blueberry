@@ -1,7 +1,7 @@
 [package]
 name     = "python"
-version  = "3.14.6"
-release  = 3
+version  = "3.14.7"
+release  = 1
 summary  = "CPython — the Python programming language interpreter"
 homepage = "https://www.python.org/"
 license  = ["Python-2.0.1"]
@@ -16,8 +16,8 @@ regex = "([0-9]+\\.[0-9]+\\.[0-9]+)/"
 track = "3.14"   # series the tree is built against
 
 [[source]]
-url    = "https://www.python.org/ftp/python/3.14.6/Python-3.14.6.tar.xz"
-sha256 = "143b1dddefaec3bd2e21e3b839b34a2b7fb9842272883c576420d605e9f30c63"
+url    = "https://www.python.org/ftp/python/3.14.7/Python-3.14.7.tar.xz"
+sha256 = "3b48dac8fb59f62eaa67ac83c1eb12bda1b7a08406dd286e252c11a66be27f81"
 
 [steps]
 build = '''

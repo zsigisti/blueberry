@@ -1,6 +1,6 @@
 [package]
 name     = "gnupg"
-version  = "2.4.7"
+version  = "2.4.9"
 release  = 1
 summary  = "Complete implementation of the OpenPGP standard (gpg)"
 homepage = "https://gnupg.org/"
@@ -14,9 +14,13 @@ makedepends = ["make", "gcc", "pkgconf", "libgcrypt", "libgpg-error",
                "gnutls", "libusb"]
 provides    = ["gpg", "gpg2", "gpg-agent"]
 
+[upstream]
+# 2.5.x is GnuPG's development series, not a release — stay on stable 2.4.
+track = "2.4"
+
 [[source]]
-url    = "https://www.gnupg.org/ftp/gcrypt/gnupg/gnupg-2.4.7.tar.bz2"
-sha256 = "7b24706e4da7e0e3b06ca068231027401f238102c41c909631349dcc3b85eb46"
+url    = "https://www.gnupg.org/ftp/gcrypt/gnupg/gnupg-2.4.9.tar.bz2"
+sha256 = "dd17ab2e9a04fd79d39d853f599cbc852062ddb9ab52a4ddeb4176fd8b302964"
 
 [steps]
 build = '''

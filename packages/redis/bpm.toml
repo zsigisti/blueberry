@@ -1,6 +1,6 @@
 [package]
 name     = "redis"
-version  = "7.4.6"
+version  = "7.4.10"
 release  = 1
 summary  = "In-memory data structure store, used as database, cache and message broker"
 homepage = "https://redis.io/"
@@ -11,8 +11,8 @@ depends     = ["glibc"]
 
 [[source]]
 # 7.4.6 fixes CVE-2025-49844 "RediShell" (Lua use-after-free RCE, CVSS 10.0).
-url    = "https://download.redis.io/releases/redis-7.4.6.tar.gz"
-sha256 = "73b94484e00fb4c2440b490dc4021142fb0b6efc8b64c6329c10d24f0b531c99"
+url    = "https://download.redis.io/releases/redis-7.4.10.tar.gz"
+sha256 = "669ab6689b5e7d0c479e8d526ccbadae36b69a11370742ffe23822b9df8d85ba"
 
 [steps]
 build = '''

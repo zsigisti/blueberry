@@ -21,6 +21,7 @@ import os
 import re
 import subprocess
 import sys
+import tomllib
 import urllib.request
 
 TOP = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -59,6 +60,20 @@ def boundary_sub(text, old, new):
     return re.sub(pat, new, text)
 
 
+def recipe_sources(data):
+    """The recipe's [[source]] urls and checksums, from the parsed recipe.
+
+    Read the table, never the raw lines: `[upstream] url = …` (how a recipe
+    declares where to look for new versions) also matches a naive `^url =`
+    regex, and counting it as a second source makes every tracked recipe look
+    unbumpable.
+    """
+    srcs = data.get("source") or data.get("sources") or []
+    urls = [s["url"] for s in srcs if s.get("url")]
+    shas = [s["sha256"] for s in srcs if s.get("sha256")]
+    return urls, shas
+
+
 def fetch_sha256(url):
     req = urllib.request.Request(url, headers=UA)
     h = hashlib.sha256()
@@ -91,8 +106,7 @@ def main():
         die(f"{args.package}: already at {cur}", code=1)
 
     # One source only — multi-source recipes are rare and need judgement.
-    urls = re.findall(r'(?m)^\s*url\s*=\s*"([^"]+)"', text)
-    shas = re.findall(r'(?m)^\s*sha256\s*=\s*"([0-9a-f]{64})"', text)
+    urls, shas = recipe_sources(tomllib.loads(text))
     if len(urls) != 1 or len(shas) != 1:
         die(f"{args.package}: {len(urls)} source(s)/{len(shas)} checksum(s) — bump by hand", code=3)
     old_url, old_sha = urls[0], shas[0]

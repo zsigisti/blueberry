@@ -1,7 +1,7 @@
 [package]
 name     = "util-linux"
-version  = "2.40.2"
-release  = 99
+version  = "2.42.2"
+release  = 1
 summary  = "Miscellaneous system utilities + libuuid/libblkid/libmount"
 homepage = "https://github.com/util-linux/util-linux"
 license  = ["GPL-2.0-or-later", "LGPL-2.1-or-later", "BSD-3-Clause"]
@@ -11,9 +11,18 @@ depends     = ["glibc", "libcap-ng", "readline", "file", "libxcrypt", "pam", "sq
 makedepends = ["pkgconf"]
 provides    = ["libuuid.so", "libblkid.so", "libmount.so", "libfdisk.so", "libsmartcols.so"]
 
+[upstream]
+# the tarballs live in per-series directories, so the source URL's own
+# directory only ever sees 2.42.x — point the tracker at the parent listing.
+url   = "https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/v2.42/"
+regex = "util-linux-([0-9.]+)\\.tar\\.xz"
+
+# 2.42.2 fixes CVE-2026-27456 (TOCTOU in the setuid mount binary, fixed in
+# 2.41.4) and CVE-2026-13595 (use-after-free in libblkid's nested partition
+# probing, fixed in 2.42.2).
 [[source]]
-url    = "https://www.kernel.org/pub/linux/utils/util-linux/v2.40/util-linux-2.40.2.tar.xz"
-sha256 = "d78b37a66f5922d70edf3bdfb01a6b33d34ed3c3cafd6628203b2a2b67c8e8b3"
+url    = "https://www.kernel.org/pub/linux/utils/util-linux/v2.42/util-linux-2.42.2.tar.xz"
+sha256 = "03a05d3adf9602ef128f2da05b84b3205ce60c351e5737c0370f74000679ce8a"
 
 [steps]
 build = '''
