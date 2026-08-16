@@ -17,6 +17,11 @@ Sources (chosen empirically — see the mapping table below):
 A package with no mapping is reported as "untracked", never silently passed —
 the point is to be honest about coverage, not to look clean.
 
+Known noise: NVD's own version matching mishandles multi-digit components, so a
+CVE bounded at "1.2.x" can come back for 1.22.2 (krb5 reports CVEs from 2000
+this way). Treat old CVEs against a current version as suspect and check the
+range by hand before acting.
+
 Usage:
   tools/pkg/bpm-audit.py [--root /] [--packages name=ver,...] [--json]
                          [--fail-on none|low|medium|high|critical]
@@ -47,6 +52,11 @@ SEV_ORDER = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1, "NONE": 0, "UNKNOW
 CPE_MAP = {
     # crypto / TLS / auth — the crown jewels on a server
     "openssl": ("nvd", "openssl:openssl"),
+    "krb5": ("nvd", "mit:kerberos"),
+    "nss": ("nvd", "mozilla:nss"),
+    "libgpg-error": ("nvd", "gnupg:libgpg-error"),
+    "libassuan": ("nvd", "gnupg:libassuan"),
+    "libksba": ("nvd", "gnupg:libksba"),
     "openssh": ("nvd", "openbsd:openssh"),
     "gnutls": ("nvd", "gnu:gnutls"),
     "nettle": ("nvd", "nettle_project:nettle"),
@@ -61,6 +71,15 @@ CPE_MAP = {
     "ca-certificates": None,
     # init / core system
     "systemd": ("nvd", "systemd_project:systemd"),
+    # the kernel is an OS-part CPE, not an application one
+    "linux": ("nvd", "o:linux:linux_kernel"),
+    "grub": ("nvd", "gnu:grub2"),
+    "mdadm": ("nvd", "mdadm_project:mdadm"),
+    "parted": ("nvd", "parted_project:parted"),
+    "xfsprogs": ("nvd", "sgi:xfsprogs"),
+    "procps-ng": ("nvd", "procps-ng_project:procps-ng"),
+    "strace": ("nvd", "strace_project:strace"),
+    "elfutils": ("nvd", "elfutils_project:elfutils"),
     "dbus": ("nvd", "freedesktop:dbus"),
     "glibc": ("nvd", "gnu:glibc"),
     "util-linux": ("nvd", "kernel:util-linux"),
@@ -86,12 +105,30 @@ CPE_MAP = {
     "pcre2": ("nvd", "pcre:pcre2"),
     "expat": ("nvd", "libexpat_project:libexpat"),
     "libxml2": ("nvd", "xmlsoft:libxml2"),
+    "libxslt": ("nvd", "xmlsoft:libxslt"),
+    "libpng": ("nvd", "libpng:libpng"),
+    "libevent": ("nvd", "libevent_project:libevent"),
+    "glib2": ("nvd", "gnome:glib"),
+    "jq": ("nvd", "jqlang:jq"),
+    "screen": ("nvd", "gnu:screen"),
+    "tmux": ("nvd", "tmux_project:tmux"),
+    "libidn2": ("nvd", "gnu:libidn2"),
     "readline": ("nvd", "gnu:readline"),
     "ncurses": ("nvd", "gnu:ncurses"),
     "libpsl": None,
     "gmp": ("nvd", "gmplib:gmp"),
     # networking userland / servers
     "wget": ("nvd", "gnu:wget"),
+    "curl": ("nvd", "haxx:curl"),
+    "rsync": ("nvd", "samba:rsync"),
+    "libpcap": ("nvd", "tcpdump:libpcap"),
+    "tcpdump": ("nvd", "tcpdump:tcpdump"),
+    "libnl": ("nvd", "libnl_project:libnl"),
+    "libtirpc": ("nvd", "libtirpc_project:libtirpc"),
+    "nmap": ("nvd", "nmap:nmap"),
+    "fail2ban": ("nvd", "fail2ban:fail2ban"),
+    "dhcpcd": ("nvd", "dhcpcd_project:dhcpcd"),
+    "libgit2": ("nvd", "libgit2:libgit2"),
     "iproute2": None,
     "iptables": ("nvd", "netfilter:iptables"),
     "wpa_supplicant": ("nvd", "w1.fi:wpa_supplicant"),
@@ -107,6 +144,8 @@ CPE_MAP = {
     "podman": ("go", "github.com/containers/podman"),
     "rclone": ("go", "github.com/rclone/rclone"),
     "node_exporter": ("go", "github.com/prometheus/node_exporter"),
+    "restic": ("go", "github.com/restic/restic"),
+    "go": ("go", "stdlib"),
     "fzf": ("go", "github.com/junegunn/fzf"),
     "crun": ("nvd", "crun_project:crun"),
     "conmon": None,
@@ -169,7 +208,7 @@ def _applies_to_version(cve, cpe_vp, version):
     every newer release and are stale/mis-scoped far more often than real, so we
     drop them. This is the single biggest source of NVD false positives on a
     rolling distro that always sits at the latest upstream version."""
-    prefix = f"cpe:2.3:a:{cpe_vp}:"
+    prefix = f"cpe:2.3:{_cpe_part(cpe_vp)}:"
     for node in (n for c in cve.get("configurations", []) for n in c.get("nodes", [])):
         for m in node.get("cpeMatch", []):
             crit = m.get("criteria", "")
@@ -184,9 +223,16 @@ def _applies_to_version(cve, cpe_vp, version):
     return False
 
 
+def _cpe_part(cpe_vp):
+    """`vendor:product` means an application (`a`); a mapping may name the part
+    itself for the exceptions — the kernel is `o:linux:linux_kernel`, and
+    querying it as an application silently returns nothing at all."""
+    return cpe_vp if cpe_vp.count(":") == 2 else f"a:{cpe_vp}"
+
+
 def nvd_cves(cpe_vp, version, api_key):
     """CVEs affecting cpe:2.3:a:<cpe_vp>:<version>. Returns [(id, sev, desc)]."""
-    vms = f"cpe:2.3:a:{cpe_vp}:{version}"
+    vms = f"cpe:2.3:{_cpe_part(cpe_vp)}:{version}"
     url = f"{NVD_API}?virtualMatchString={urllib.parse.quote(vms)}&resultsPerPage=200"
     headers = {"apiKey": api_key} if api_key else {}
     data = None
