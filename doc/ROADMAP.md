@@ -2,7 +2,7 @@
 
 Blueberry is a self-hosted, source-built, rolling **CLI server** distribution.
 This is an honest snapshot of what is solid and what is still open. Updated
-2026-07-14.
+2026-08-16.
 
 ## Solid today
 
@@ -45,12 +45,15 @@ This is an honest snapshot of what is solid and what is still open. Updated
   `ghcr.io/zsigisti/blueberry-builder:latest`. `build-bpm-pkg.sh` now **defaults**
   to building in it: each package's build closure (`makedep-closure.py`,
   provides-aware) is installed by extracting the already-built `.bpm` from
-  `obj/bpm-out` — no pacman, no Arch (proven with openssh/curl/shadow). Any
-  package it can't yet build self-hosted (a makedep only Arch's base-devel
-  supplied) falls back to the arch bootstrap path with a loud "self-hosting gap"
-  warning, so the flip is regression-proof while gaps close one recipe at a time.
-  Reaching **zero fallback** needs `make repo-build` (so every dep's `.bpm`
-  exists); self-seeding gcc/glibc from a bootstrap is the deepest remaining layer.
+  `obj/bpm-out` — no pacman, no Arch. As of v0.9.3-beta the toolchains are no
+  exception: gcc, glibc, LLVM and rust are all compiled from our recipes (rust
+  bootstraps from the upstream pinned stage0 and links our libLLVM), and glibc
+  and the kernel are built from source in that container and published to the
+  mirror like any other package rather than being host-copied or pinned
+  artifacts. The arch bootstrap path survives only as the `BASE=auto` safety
+  net: if a makedep can't be satisfied self-hosted it falls back with a loud
+  "self-hosting gap" warning. `BASE=blueberry` fails instead of falling back,
+  which is what the release builds use.
 
 ## Open / decided
 
@@ -91,7 +94,10 @@ This is an honest snapshot of what is solid and what is still open. Updated
   triage, not gospel: NVD's CPE data over-reports, so the tool drops open-ended
   ranges (a match is kept only when the CVE records a fix version or names the
   exact version). Not every package is mapped yet — unmapped ones are reported as
-  untracked, never silently passed.
+  untracked, never silently passed. The last sweep (2026-07-31, shipped in
+  v0.9.3-beta) found CRITICALs in four packages — glibc (CVE-2026-5450, carried
+  as a patch on the 2.43 branch), redis "RediShell", perl, mariadb — all patched
+  and republished.
 
 ### Coverage
 
@@ -102,10 +108,23 @@ This is an honest snapshot of what is solid and what is still open. Updated
   builds; the four high-blast-radius bumps — **systemd** 256→261, **nettle** 3→4
   (+ a gnutls rebuild for the soname change), **binutils** 2.44→2.46.1, and
   **containers-common** 0→1 — went through a full base rebuild + boot test
-  (systemd 261 reaches multi-user.target) + `check-base` closure check. Bumps are
-  still applied by hand; recipes with unusual upstream tag schemes need an
-  `[upstream]` override to be tracked, and `mpc` is pinned (its latest is 1.3.1;
-  it moves with the gcc toolchain).
+  (systemd 261 reaches multi-user.target) + `check-base` closure check.
+
+  The report itself covered only 97 of 225 recipes until 2026-08-16: 114 had no
+  detectable upstream and 11 tag schemes failed to parse, so openssl, curl,
+  openssh, sudo, perl, redis, mariadb, nginx and postgresql were silently
+  untracked. It now covers **every** recipe — 0 unknown, 0 errors — via four
+  auto-detected providers (directory listing, sourceforge, pypi, plus the
+  existing github/gitlab/gnu) and 43 explicit `[upstream]` tables. Packages held
+  on a series on purpose declare it (`track = "6.18"` for linux, `11.4` mariadb,
+  `17` postgresql, `3.14` python); `mpc` stays pinned (latest is 1.3.1; it moves
+  with the gcc toolchain).
+
+  **Bumps are still applied by hand.** ~97 recipes are currently behind upstream
+  and the weekly `auto-bump` queue is capped at 12 open PRs, so the backlog
+  drains at review speed, not upstream's release speed. That queue is the honest
+  bottleneck: freshness is now *measured* everywhere, not *maintained*
+  everywhere.
 - **BUR end-to-end test.** The publish validator's logic is unit-tested, but the
   full authenticated publish flow can't be self-tested (2FA to the owner's email).
 
