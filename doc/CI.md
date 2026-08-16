@@ -15,6 +15,9 @@ runners (no Arch container). Four jobs:
   dependency graph is closed (every `depends` resolves to a recipe or a
   host-provided name), then builds a fixture package with `bpmbuild` and proves
   `bpmbuild --check` accepts it and rejects a payload tampered after packaging.
+  Also runs `tools/test/test-check-updates.py` — the freshness tool's version
+  and tag parsing, unit-tested offline (a tag shape it mis-parses silently
+  drops a package out of the report).
 - **bpm unit + integration tests** — `cargo test` (version compare, manifest
   parsing) plus `tools/test/bpm-integration.sh`, the end-to-end
   install/upgrade/rollback/downgrade/remove + config-preservation lifecycle

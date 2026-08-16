@@ -28,6 +28,8 @@ jobs:
         run: python3 tools/pkg/check-closure.py
       - name: bpmbuild parses
         run: python3 -c "compile(open('tools/pkg/bpmbuild').read(), 'bpmbuild', 'exec')"
+      - name: check-updates unit tests (version/tag parsing, no network)
+        run: python3 tools/test/test-check-updates.py
       - name: bpmbuild builds a package and --check verifies it
         run: |
           set -eux
