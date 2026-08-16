@@ -35,14 +35,32 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.BUMP_TOKEN || secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          QUEUE_MAX: "12"     # most open auto-bump PRs to leave outstanding
         run: |
           set -euo pipefail
           outdated=$(python3 tools/pkg/check-updates.py --json \
             | python3 -c "import sys,json;[print(r['name'],r['latest']) for r in json.load(sys.stdin) if r.get('status')=='OUTDATED']")
           [ -n "$outdated" ] || { echo "nothing behind upstream"; exit 0; }
 
+          # Every bump needs a human to build-verify it, so the queue is capped:
+          # top the open auto-bump PRs up to QUEUE_MAX and say out loud what was
+          # left behind. Without this a wide freshness sweep opens ~90 PRs in one
+          # run and the review queue becomes wallpaper.
+          open=$(gh pr list --state open --limit 200 --json headRefName \
+                   --jq '[.[] | select(.headRefName | startswith("auto-bump/"))] | length')
+          slots=$(( QUEUE_MAX - open ))
+          echo ":: $open auto-bump PRs open, room for $slots more (cap $QUEUE_MAX)"
+          if [ "$slots" -le 0 ]; then
+            echo ":: queue full — review the open bumps first; skipping this run"
+            echo "$outdated" | sed 's/^/   pending: /'
+            exit 0
+          fi
+
           echo "$outdated" | while read -r pkg ver; do
             [ -n "$pkg" ] || continue
+            if [ "$slots" -le 0 ]; then
+              echo ":: cap reached — pending: $pkg $ver"; continue
+            fi
             branch="auto-bump/${pkg}-${ver}"
             if gh pr list --head "$branch" --state all --json number --jq 'length' | grep -qv '^0$'; then
               echo ":: $pkg -> $ver already has a PR/branch, skipping"; continue
@@ -62,5 +80,5 @@ jobs:
               printf -- '- [ ] soname unchanged if this is a shared library\n'
             } | gh pr create --head "$branch" --base master \
                   --title "pkg: bump $pkg to $ver" --body-file - \
-              && echo ":: opened PR for $pkg $ver"
+              && { slots=$(( slots - 1 )); echo ":: opened PR for $pkg $ver ($slots slots left)"; }
           done
