@@ -320,6 +320,7 @@ install: world
 .PHONY: check-base
 check-base:
 	@sh $(TOPDIR)/tools/pkg/check-base-closure.sh $(STAGEDIR)
+	@sh $(TOPDIR)/tools/image/check-libc-single.sh $(STAGEDIR)
 
 _do_install:
 	@# Copy /etc skeleton
@@ -379,6 +380,11 @@ _do_install:
 	@# otherwise stage a too-old libc and panic at boot. bundle-glibc below sources
 	@# the runtime from here (GLIBC_SYSROOT=$(STAGEDIR)).
 	@echo "[install] fetching glibc from mirror"
+	@# Drop any libc already in the stage before fetching. $(STAGEDIR) is
+	@# reused between builds, and the 2026-08-16 ISO shipped a stale 2.43 in
+	@# /usr/lib alongside the packaged 2.44. See check-libc-single.sh.
+	@find $(STAGEDIR) -type f \( -name 'libc.so.6' -o -name 'libm.so.6' \
+	        -o -name 'ld-linux-x86-64.so.2' \) -delete 2>/dev/null || true
 	@sh $(TOPDIR)/tools/pkg/fetch-bpm.sh glibc $(STAGEDIR) $(OBJDIR)/bpm-cache
 	@# Record glibc in the bpm DB too (fetch-bpm already extracted it).
 	@sh $(TOPDIR)/tools/pkg/bpm-extract-record.sh \
