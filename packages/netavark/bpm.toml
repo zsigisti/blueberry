@@ -1,6 +1,6 @@
 [package]
 name     = "netavark"
-version  = "2.0.0"
+version  = "2.1.0"
 release  = 1
 summary  = "Rust network stack for podman (bridge, macvlan, port forwarding)"
 homepage = "https://github.com/containers/netavark"
@@ -12,8 +12,8 @@ depends     = ["glibc", "gcc-libs", "nftables", "iptables"]
 makedepends = ["rust", "git", "protobuf"]
 
 [[source]]
-url    = "https://github.com/containers/netavark/archive/v2.0.0/netavark-2.0.0.tar.gz"
-sha256 = "031aeeacc930382e8635d40a885798eff1da164dfcf9024b698f822e5995d9c8"
+url    = "https://github.com/containers/netavark/archive/v2.1.0/netavark-2.1.0.tar.gz"
+sha256 = "96677048168ddd1abe313e4c2e17f1cace72b60ee1bac8ca12a4bd7dfcadfbbb"
 
 [steps]
 build = '''
