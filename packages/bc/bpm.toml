@@ -1,6 +1,6 @@
 [package]
 name     = "bc"
-version  = "7.0.3"
+version  = "7.1.0"
 release  = 1
 summary  = "An implementation of POSIX bc and dc calculators (GavinHoward bc)"
 homepage = "https://git.gavinhoward.com/gavin/bc"
@@ -15,8 +15,8 @@ makedepends = ["gcc", "make"]
 provides    = ["dc"]
 
 [[source]]
-url    = "https://github.com/gavinhoward/bc/releases/download/7.0.3/bc-7.0.3.tar.xz"
-sha256 = "91eb74caed0ee6655b669711a4f350c25579778694df248e28363318e03c7fc4"
+url    = "https://github.com/gavinhoward/bc/releases/download/7.1.0/bc-7.1.0.tar.xz"
+sha256 = "1f13663ba0f2435b684321714a4d0b9fff32bb951fc78dc7424cd69bba5c0d3a"
 
 [steps]
 build = '''
