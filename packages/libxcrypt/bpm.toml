@@ -1,6 +1,6 @@
 [package]
 name     = "libxcrypt"
-version  = "4.4.38"
+version  = "4.5.2"
 release  = 1
 summary  = "Modern password-hashing library — libcrypt.so.2 (crypt/crypt_r) + crypt.h"
 homepage = "https://github.com/besser82/libxcrypt"
@@ -12,8 +12,8 @@ makedepends = ["pkgconf", "perl"]
 provides    = ["libcrypt.so.2"]
 
 [[source]]
-url    = "https://github.com/besser82/libxcrypt/releases/download/v4.4.38/libxcrypt-4.4.38.tar.xz"
-sha256 = "80304b9c306ea799327f01d9a7549bdb28317789182631f1b54f4511b4206dd6"
+url    = "https://github.com/besser82/libxcrypt/releases/download/v4.5.2/libxcrypt-4.5.2.tar.xz"
+sha256 = "71513a31c01a428bccd5367a32fd95f115d6dac50fb5b60c779d5c7942aec071"
 
 [steps]
 build = '''
