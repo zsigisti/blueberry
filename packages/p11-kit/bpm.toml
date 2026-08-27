@@ -1,6 +1,6 @@
 [package]
 name     = "p11-kit"
-version  = "0.26.4"
+version  = "0.26.5"
 release  = 1
 summary  = "Library to load and enumerate PKCS#11 modules"
 homepage = "https://p11-glue.github.io/p11-glue/p11-kit.html"
@@ -12,8 +12,8 @@ makedepends = ["meson", "ninja", "pkgconf", "libtasn1", "libffi"]
 provides    = ["libp11-kit.so"]
 
 [[source]]
-url    = "https://github.com/p11-glue/p11-kit/releases/download/0.26.4/p11-kit-0.26.4.tar.xz"
-sha256 = "89c3ffb10e076ee036e14732bf6547a1e1c4fb48699a5dee7ceb5ce4f7c0c462"
+url    = "https://github.com/p11-glue/p11-kit/releases/download/0.26.5/p11-kit-0.26.5.tar.xz"
+sha256 = "f2cc09111e44bf3fea58f023180b33acea90aa82d042d6fbb623fbc5ba033bb7"
 
 [steps]
 build = '''
