@@ -1,7 +1,7 @@
 [package]
 name     = "shadow"
-version  = "4.19.4"
-release  = 2
+version  = "4.20.2"
+release  = 1
 summary  = "Password/account management (useradd, groupadd) + newuidmap/newgidmap for rootless containers"
 homepage = "https://github.com/shadow-maint/shadow"
 license  = ["BSD-3-Clause"]
@@ -14,8 +14,8 @@ depends     = ["glibc", "pam", "libbsd", "libxcrypt", "acl", "attr", "systemd"]
 makedepends = ["pkgconf", "pam", "libbsd", "libxcrypt", "systemd"]
 
 [[source]]
-url    = "https://github.com/shadow-maint/shadow/releases/download/4.19.4/shadow-4.19.4.tar.xz"
-sha256 = "ce57a313e315a0a7cb04a8f50cc20753e994e487bbe9b78a2a824ca75cb486c0"
+url    = "https://github.com/shadow-maint/shadow/releases/download/4.20.2/shadow-4.20.2.tar.xz"
+sha256 = "b89f432b75ae55a2d852b446d0365484795fdf533ab97d550e325fa15594a224"
 
 [steps]
 build = '''
