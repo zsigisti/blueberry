@@ -1,6 +1,6 @@
 [package]
 name     = "htop"
-version  = "3.5.1"
+version  = "3.5.3"
 release  = 1
 summary  = "Interactive process viewer"
 homepage = "https://htop.dev/"
@@ -10,8 +10,8 @@ arch     = ["x86_64"]
 depends     = ["glibc", "ncurses", "libcap"]
 
 [[source]]
-url    = "https://github.com/htop-dev/htop/releases/download/3.5.1/htop-3.5.1.tar.xz"
-sha256 = "526cecd62870aa8d14d2a79a35ea197e4e2b5317d275b567cee0574b2ddb2e9a"
+url    = "https://github.com/htop-dev/htop/releases/download/3.5.3/htop-3.5.3.tar.xz"
+sha256 = "a8b164386494cb85bb255a415a3f5f80afe7a0c4491da5d113b3a0f951087e65"
 
 [steps]
 build = '''

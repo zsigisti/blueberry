@@ -1,6 +1,6 @@
 [package]
 name     = "tzdata"
-version  = "2026b"
+version  = "2026d"
 release  = 1
 summary  = "Sources for time zone and daylight saving time data (IANA tzdb)"
 homepage = "https://www.iana.org/time-zones"
@@ -15,8 +15,8 @@ url   = "https://data.iana.org/time-zones/releases/"
 regex = "tzdb-([0-9]{4}[a-z])\\.tar"
 
 [[source]]
-url    = "https://data.iana.org/time-zones/releases/tzdb-2026b.tar.lz"
-sha256 = "ffad46a04c8d1624197056630af475a35f3556d0887f028ac1bd33b7d47dc653"
+url    = "https://data.iana.org/time-zones/releases/tzdb-2026d.tar.lz"
+sha256 = "aab9e59f7b2530b0f98079f7c8645f2cdf59a2cd8992ca0ddfbbec0ec83b65de"
 
 [steps]
 build = '''

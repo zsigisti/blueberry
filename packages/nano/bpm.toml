@@ -1,6 +1,6 @@
 [package]
 name     = "nano"
-version  = "8.2"
+version  = "8.7.1"
 release  = 1
 summary  = "Pico editor clone with enhancements"
 homepage = "https://www.nano-editor.org/"
@@ -10,8 +10,8 @@ arch     = ["x86_64"]
 depends     = ["glibc", "ncurses", "file"]
 
 [[source]]
-url    = "https://www.nano-editor.org/dist/v8/nano-8.2.tar.xz"
-sha256 = "d5ad07dd862facae03051c54c6535e54c7ed7407318783fcad1ad2d7076fffeb"
+url    = "https://www.nano-editor.org/dist/v8/nano-8.7.1.tar.xz"
+sha256 = "76f0dcb248f2e2f1251d4ecd20fd30fb400a360a3a37c6c340e0a52c2d1cdedf"
 
 [steps]
 build = '''
