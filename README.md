@@ -1,106 +1,90 @@
 <p align="center">
-  <img src="assets/banner.png" alt="Blueberry Linux" width="620">
+  <img src="assets/banner.png" alt="blueberry linux" width="620">
 </p>
 
-<h1 align="center">Blueberry Linux</h1>
+<h1 align="center">blueberry linux</h1>
 
 <p align="center">
-  A self-hosted, source-built, rolling <strong>CLI server</strong> distribution — minimal, in the BSD tradition.
+  small rolling linux distro for servers, built from source
 </p>
 
 <p align="center">
-  <a href="https://blueberrylinux.org">Website</a> ·
-  <a href="https://repo.blueberrylinux.org">Repository</a> ·
-  <a href="https://bur.blueberrylinux.org">BUR</a> ·
-  <a href="../../releases">Releases</a>
+  <a href="https://repo.blueberrylinux.org">repo</a> ·
+  <a href="https://github.com/zsigisti/blueberry/releases">releases</a> ·
+  <a href="https://discord.gg/GPfBnbDPHE">discord</a>
 </p>
 
 ---
 
-A single source tree produces the base — a **6.18 LTS** (hardened) kernel, glibc,
-the `bpm` package manager, and the build system — and every package is a recipe
-in `packages/`, built from source and served from the project's own **signed**
-repository at [repo.blueberrylinux.org](https://repo.blueberrylinux.org). There
-are no upstream binary mirrors. The whole base is bpm-tracked, so `bpm upgrade`
-keeps an installed system patched in place.
+everything in the base gets built out of this repo. kernel (6.18 lts, hardened),
+glibc, `bpm` (our package manager), the build scripts. packages are recipes in
+`packages/`. we compile them ourselves and sign them, then they go up on
+[repo.blueberrylinux.org](https://repo.blueberrylinux.org). none of the
+packages are someone else's binaries.
 
-## What you find here
+`bpm` knows about the whole base system, not just the stuff you installed on
+top. so `bpm upgrade` updates the kernel and glibc too and you never have to
+reinstall.
 
-```
-packages/     package recipes (bpm.toml, one directory per package)
-src/          the base system: kernel config, initramfs, installer, bpm
-tools/        build, image and repository tooling (pkg/ kernel/ image/ test/ …)
-doc/          documentation
-wiki/         the user wiki
-assets/       branding (logo, banner, wallpaper)
-```
+## status
 
-## Documentation
+it's beta. it boots, installs and updates fine, but some stuff is still rough.
+if something breaks tell us on discord.
 
-Start with `doc/BUILD.md`. In short:
+what we have right now:
 
-- `doc/BUILD.md` — building the world and the ISO
-- `doc/ARCHITECTURE.md` — how the system fits together
-- `doc/BPM.md` — the package manager and package format
-- `doc/KERNEL.md` — the LTS pinned-kernel model
-- `doc/CI.md` — the CI gate and how releases are cut
-- `doc/ROADMAP.md` — what's solid, what's open, what's out of scope
-- `wiki/` — user-facing guides (installing, networking, mirrors)
+- systemd server + a tui installer (bios and uefi both work)
+- around 225 package recipes
+- `bpm` with signed repos and rollback
+- a web console
+- bur, where people can submit their own recipes
 
-## Status
+ci runs on every push. it checks that recipe deps actually resolve, runs the
+`bpm` tests, checks `.bpm` files for tampering, and prints which packages are
+behind upstream (that last one doesn't fail the build).
 
-Beta, and usable: a bootable systemd server, ~190 source-built packages, a
-signed-repo package manager (`bpm`) with rollback, an installer, a web console,
-and a community recipe repo (BUR). Every push runs a CI gate (recipe closure,
-bpm unit + lifecycle tests, `.bpm` tamper detection, an advisory freshness
-report). Known-open items — Secure Boot, aarch64, BUR server-side rebuilds — and
-the full picture are in [`doc/ROADMAP.md`](doc/ROADMAP.md).
+not done yet: secure boot, aarch64, bur rebuilding stuff on the server. more
+in [`doc/ROADMAP.md`](doc/ROADMAP.md).
 
-## Installing
+## install
 
-Download the installer ISO from the [Releases](../../releases) page and write it
-to a USB stick with `dd` (to the whole device, not a partition):
+get the iso from [releases](https://github.com/zsigisti/blueberry/releases).
+dd it to the usb stick itself, `/dev/sdX` not `/dev/sdX1`:
 
 ```sh
-dd if=blueberry-<...>.iso of=/dev/sdX bs=4M oflag=sync
+dd if=blueberry-<version>.iso of=/dev/sdX bs=4M oflag=sync
 ```
 
-Booting it lands in the TUI installer (BIOS and UEFI). It installs a rolling CLI
-server: systemd, OpenSSH, systemd-networkd (wpa_supplicant for wifi), ufw, and a full
-GNU userland.
+boot it and the installer comes up. you get systemd, openssh, systemd-networkd,
+wpa_supplicant if you need wifi, ufw and the normal gnu tools. no desktop, it's
+a server.
 
-## Building
+## build
 
 ```sh
-make world          # build the base system
-make run            # boot it in QEMU, from RAM
-make iso            # build the installer ISO
-make install        # install the built world into DESTDIR
+make world      # build the base system
+make run        # boot it in qemu, from ram
+make iso        # build the installer iso
+make install    # install the built world into DESTDIR
 ```
 
-See `doc/BUILD.md` for requirements and the full target list.
+what you need installed and the other make targets are in
+[`doc/BUILD.md`](doc/BUILD.md).
 
-## Community packages — BUR
+## docs
 
-Beyond the curated base repo, the **Blueberry User Repository**
-([bur.blueberrylinux.org](https://bur.blueberrylinux.org)) is the community
-recipe site: anyone can submit a `bpm.toml`, get it reviewed, and publish it so
-others can `bpm install` it. Its mirror is `repo1.blueberrylinux.org`.
+| file | what's in it |
+|------|--------------|
+| [`doc/BUILD.md`](doc/BUILD.md) | building everything + the iso, read this first |
+| [`doc/ARCHITECTURE.md`](doc/ARCHITECTURE.md) | how it's put together |
+| [`doc/BPM.md`](doc/BPM.md) | bpm and the `.bpm` format |
+| [`doc/KERNEL.md`](doc/KERNEL.md) | how we pin the lts kernel |
+| [`doc/CI.md`](doc/CI.md) | ci and how we do releases |
+| [`doc/ROADMAP.md`](doc/ROADMAP.md) | done / todo / not doing |
+| [`wiki/`](wiki/) | installing, networking, running a mirror |
 
-## Releases
+## license
 
-Releases are cut from this repository; the ISOs are attached directly as release
-assets. Current releases are **beta** — expect rough edges and report what you
-find.
-
-## License
-
-GPL-3.0-or-later — see `LICENSE`. Bundled components keep their own licenses
-(Linux kernel GPL-2.0 + syscall-note, glibc LGPL-2.1, busybox GPL-2.0, …).
-
-## Discord 
-
-Our developers use discord every day, so please join it if you want to contribute, 
-or if you just want to be updated about Blueberry Linux.
-
-[Discord](https://discord.gg/GPfBnbDPHE)
+gpl-3.0-or-later, see [`LICENSE`](LICENSE). stuff we bundle keeps its own
+license (linux is gpl-2.0 with the syscall note, glibc lgpl-2.1, busybox
+gpl-2.0, etc).
