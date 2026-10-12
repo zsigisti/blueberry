@@ -1,6 +1,6 @@
 [package]
 name     = "gettext"
-version  = "0.26"
+version  = "1.0"
 release  = 1
 summary  = "GNU internationalization tools (msgfmt, xgettext, gettextize)"
 homepage = "https://www.gnu.org/software/gettext/"
@@ -12,8 +12,8 @@ provides    = ["libtextstyle.so", "libintl.so", "libasprintf.so"]
 makedepends = ["gcc", "make"]
 
 [[source]]
-url    = "https://ftp.gnu.org/gnu/gettext/gettext-0.26.tar.xz"
-sha256 = "d1fb86e260cfe7da6031f94d2e44c0da55903dbae0a2fa0fae78c91ae1b56f00"
+url    = "https://ftp.gnu.org/gnu/gettext/gettext-1.0.tar.xz"
+sha256 = "71132a3fb71e68245b8f2ac4e9e97137d3e5c02f415636eb508ae607bc01add7"
 
 # GCC16's glibc declares the const-correct string/wide/stdlib lookup functions as
 # C23 _Generic type-generic macros. gnulib still emits raw redeclarations of them
