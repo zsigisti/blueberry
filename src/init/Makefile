@@ -1,9 +1,5 @@
-# src/init/Makefile — build and install runit
-#
-# Inputs:
-#   RUNIT_SRC   path to admin/runit-X.Y source
-#   CC          host C compiler (glibc)
-#   STAGEDIR    install root
+# runit, plus our stage scripts and service dirs.
+# Needs RUNIT_SRC (admin/runit-X.Y), CC and STAGEDIR.
 
 CC ?= gcc
 
@@ -20,7 +16,6 @@ all: $(RUNIT_SRC)/command/runit
 	@install -Dm755 $(RUNIT_SRC)/command/chpst      $(STAGEDIR)/sbin/chpst
 	@install -Dm755 $(RUNIT_SRC)/command/utmpset    $(STAGEDIR)/sbin/utmpset
 	@ln -sf runit-init $(STAGEDIR)/sbin/init 2>/dev/null || true
-	@# service enable/disable helpers (manage /etc/sv/enabled + /var/service)
 	@install -Dm755 $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/sv-enable  $(STAGEDIR)/usr/bin/sv-enable
 	@install -Dm755 $(dir $(abspath $(lastword $(MAKEFILE_LIST))))/sv-disable $(STAGEDIR)/usr/bin/sv-disable
 	@$(MAKE) install_services
@@ -29,8 +24,7 @@ $(RUNIT_SRC)/command/runit:
 	@echo "[runit] building (dynamic, glibc)"
 	@printf '%s -std=gnu11 -Wno-incompatible-pointer-types -Wno-implicit-function-declaration -Wno-implicit-int\n' "$(CC)" > $(RUNIT_SRC)/src/conf-cc
 	@printf '%s\n' "$(CC)" > $(RUNIT_SRC)/src/conf-ld
-	@# runit's src/Makefile hard-codes `-static` on the runit/runit-init link
-	@# lines; strip it so they link dynamically against glibc.
+	@# runit hard-codes -static for runit/runit-init; we want glibc dynamic
 	@sed -i 's/ -static//g' $(RUNIT_SRC)/src/Makefile
 	@cd $(RUNIT_SRC) && sh package/compile
 

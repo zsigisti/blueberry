@@ -1,27 +1,23 @@
 #!/bin/sh
-# blueberry-secureboot — own-keys UEFI Secure Boot for Blueberry.
+# blueberry-secureboot - Secure Boot with your own keys.
 #
-# Blueberry has no Microsoft-signed shim (that is a months-long external
-# process), so Secure Boot here is the *own-keys* model: you generate a Blueberry
-# key set, enroll it in your firmware, and Blueberry signs its own boot chain:
+# There's no Microsoft-signed shim (getting one takes months), so you make
+# your own keys, enroll them in the firmware, and we sign the boot chain:
 #
-#     firmware --(db / Authenticode)--> GRUB --(GPG / check_signatures)--> kernel
+#     firmware --(db)--> GRUB --(GPG)--> kernel + initramfs
 #
-# The db key (X.509) signs GRUB's EFI binary; firmware verifies it against the
-# enrolled db. GRUB is built with an embedded GPG public key and
-# check_signatures=enforce, so it refuses to boot a kernel/initramfs/grub.cfg
-# whose detached GPG signature does not verify. This gates the whole chain
-# without a shim.
+# GRUB is sbsigned with the db key and has a GPG key baked in, so it won't load
+# anything whose .sig doesn't check out.
 #
 # Commands:
-#   keygen                 generate PK/KEK/db (X.509) + a GPG boot-signing key
-#   enroll-artifacts <dir> write PK/KEK/db .esl + .auth (+ .crt) for enrollment
-#   sign-boot [--esp DIR]  sbsign GRUB + GPG-sign kernel/initramfs/grub.cfg
-#   verify    [--esp DIR]  sbverify GRUB, gpg --verify the boot files
-#   status                 show firmware SB state + key/signature status
+#   keygen                 make PK/KEK/db (X.509) and a GPG signing key
+#   enroll-artifacts <dir> write the .esl/.auth/.crt files to enroll
+#   sign-boot [--esp DIR]  sbsign GRUB, sign kernel + initramfs
+#   verify    [--esp DIR]  check all of the above
+#   status                 firmware Secure Boot state, keys present or not
 #
-# Keys live in /etc/blueberry/secureboot (mode 700). Keep the private keys safe —
-# anyone with db.key can sign a binary your firmware will trust.
+# Keys live in /etc/blueberry/secureboot (mode 700). Whoever has db.key can
+# sign things your firmware will happily boot, so look after it.
 set -eu
 
 KEYDIR=${BLUEBERRY_SB_KEYDIR:-/etc/blueberry/secureboot}
@@ -35,7 +31,7 @@ die()  { printf '\033[1;31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 
 need() { command -v "$1" >/dev/null 2>&1 || die "missing tool: $1 (install $2)"; }
 
-# Default ESP: the first mounted vfat under /boot or /efi, else /boot.
+# first of these with an EFI dir, else /boot
 detect_esp() {
     for m in /efi /boot/efi /boot; do
         [ -d "$m/EFI" ] && { echo "$m"; return; }
@@ -43,7 +39,8 @@ detect_esp() {
     echo /boot
 }
 
-find_one() {  # find_one <dir> <name-glob>...; echo first match
+# find_one <dir> <glob>...: first match
+find_one() {
     d=$1; shift
     for g in "$@"; do
         for f in "$d"/$g; do [ -e "$f" ] && { echo "$f"; return; }; done
@@ -51,7 +48,6 @@ find_one() {  # find_one <dir> <name-glob>...; echo first match
     return 1
 }
 
-# ── keygen ────────────────────────────────────────────────────────────────────
 cmd_keygen() {
     need openssl openssl
     need gpg gnupg
@@ -78,15 +74,14 @@ cmd_keygen() {
     warn "back up $KEYDIR and keep the private keys (*.key, gpg/) offline where possible."
 }
 
-# ── enroll-artifacts ──────────────────────────────────────────────────────────
 cmd_enroll_artifacts() {
     need sbsiglist sbsigntools
     need sbvarsign sbsigntools
     out=${1:-}; [ -n "$out" ] || die "usage: blueberry-secureboot enroll-artifacts <output-dir>"
-    [ -e "$KEYDIR/db.key" ] || die "no keys — run 'blueberry-secureboot keygen' first"
+    [ -e "$KEYDIR/db.key" ] || die "no keys, run 'blueberry-secureboot keygen' first"
     guid=$(cat "$KEYDIR/GUID")
     mkdir -p "$out"
-    # PK is signed by PK (self); KEK by PK; db by KEK.
+    # PK signs itself, PK signs KEK, KEK signs db
     _mk() {  # _mk <var> <signer>
         var=$1; signer=$2
         sbsiglist --owner "$guid" --type x509 --output "$out/$var.esl" "$KEYDIR/$var.der"
@@ -101,18 +96,17 @@ cmd_enroll_artifacts() {
     cat <<EOF
 
 Enrollment artifacts written to $out:
-  PK.auth  KEK.auth  db.auth   — signed variable updates (enroll in this order)
-  *.esl / *.crt                — raw lists / certs for firmware "enroll from file"
+  PK.auth  KEK.auth  db.auth   signed updates, enroll in this order
+  *.esl / *.crt                raw lists / certs for firmware "enroll from file"
 
-Enroll them by either:
-  * Firmware setup: put the ESP in Setup Mode / Custom Mode, then "Enroll" /
-    "Add from file" PK.auth, KEK.auth, db.auth (or the .esl/.crt), OR
-  * From Linux (firmware in Setup Mode): sbkeysync --pk PK.auth (see sbkeysync).
-Then re-enable Secure Boot in firmware and boot a signed Blueberry.
+Two ways to enroll:
+  * firmware setup: switch to Setup Mode / Custom Mode, then "Enroll" or
+    "Add from file" PK.auth, KEK.auth, db.auth (or the .esl/.crt)
+  * from Linux, with the firmware in Setup Mode: sbkeysync --pk PK.auth
+Then turn Secure Boot back on and boot a signed Blueberry.
 EOF
 }
 
-# ── sign-boot ─────────────────────────────────────────────────────────────────
 cmd_sign_boot() {
     need sbsign sbsigntools
     need gpg gnupg
@@ -123,7 +117,7 @@ cmd_sign_boot() {
             *) die "sign-boot: unknown arg $1" ;;
         esac
     done
-    [ -e "$KEYDIR/db.key" ] || die "no keys — run keygen first"
+    [ -e "$KEYDIR/db.key" ] || die "no keys, run keygen first"
     sb() { sbsign --key "$KEYDIR/db.key" --cert "$KEYDIR/db.crt" --output "$1" "$1"; }
     gsign() { GNUPGHOME="$GNUPGHOME_SB" gpg --batch --yes --detach-sign --output "$1.sig" "$1"; }
 
@@ -132,10 +126,9 @@ cmd_sign_boot() {
     log "sbsign GRUB $grub (db key)"
     sb "$grub"
 
-    # The kernel is a PE (EFI stub): sbsign it (db) so GRUB's EFI loader / firmware
-    # LoadImage accepts it, THEN GPG-sign the signed file so GRUB's check_signatures
-    # (pgp verifier) also passes. The initramfs is GPG-signed only (LoadImage never
-    # sees it, so GRUB's pgp verifier is what gates it).
+    # Kernel needs both: sbsign for firmware LoadImage, then GPG over the
+    # *signed* file for GRUB. Order matters, sbsign changes the bytes. The
+    # initramfs never goes through LoadImage, so GPG alone.
     kernel=$(find_one "$esp" vmlinuz 'vmlinuz-*' || true)
     if [ -n "$kernel" ] && [ -e "$kernel" ]; then
         log "sbsign + GPG-sign kernel $kernel"
@@ -147,10 +140,9 @@ cmd_sign_boot() {
         gsign "$initrd"
     fi
     log "boot chain signed. (GRUB itself must have been built with --pubkey"
-    log " $KEYDIR/grub-gpg.pub --disable-shim-lock — done by mkdisk at image time.)"
+    log " $KEYDIR/grub-gpg.pub --disable-shim-lock; mkdisk does that at image time.)"
 }
 
-# ── verify ────────────────────────────────────────────────────────────────────
 cmd_verify() {
     need sbverify sbsigntools
     esp=$(detect_esp)
@@ -170,7 +162,6 @@ cmd_verify() {
     return $rc
 }
 
-# ── status ────────────────────────────────────────────────────────────────────
 cmd_status() {
     printf 'keys:            '
     [ -e "$KEYDIR/db.key" ] && echo "present ($KEYDIR)" || echo "none (run keygen)"
@@ -178,7 +169,7 @@ cmd_status() {
     if [ -d "$sb" ]; then
         v=$(find "$sb" -maxdepth 1 -name 'SecureBoot-*' 2>/dev/null | head -1)
         if [ -n "$v" ]; then
-            # 5th byte of the efivar is the boolean value
+            # first 4 bytes are attributes, the 5th is the value
             state=$(od -An -tu1 -j4 -N1 "$v" 2>/dev/null | tr -d ' ')
             printf 'firmware SecureBoot: %s\n' "$([ "$state" = 1 ] && echo ENABLED || echo disabled)"
         else
@@ -189,7 +180,8 @@ cmd_status() {
     fi
 }
 
-usage() { sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; }
+# the header comment doubles as --help
+usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"; }
 
 case "${1:-}" in
     keygen)            shift; cmd_keygen "$@" ;;

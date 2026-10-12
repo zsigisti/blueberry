@@ -10,50 +10,55 @@
 .Op Ar arguments ...
 .Sh DESCRIPTION
 .Nm
-is the native package manager for Blueberry Linux. It installs
+is the package manager for Blueberry Linux. It installs
 .Pa .bpm
-packages from an HTTP(S) mirror, verifying an ed25519-signed index and a
-per-package SHA-256 before anything is written to disk. Downloaded packages are
-kept in a local cache so they can be reinstalled, rolled back, or downgraded
-offline.
+packages from HTTP(S) mirrors. The repository index is ed25519-signed and lists
+a SHA-256 for every package, and both are checked before anything touches the
+disk. Downloads stay in a local cache, so you can reinstall, roll back or
+downgrade without a network.
 .Sh COMMANDS
 .Bl -tag -width Ds
 .It Cm install Ar name|file ...
-Install one or more packages, resolving dependencies from the repositories. A
-local
+Install packages and whatever they depend on. You can also pass a local
 .Pa .bpm
 or
 .Pa .pkg.tar.zst
-file may be given directly.
+file directly.
 .It Cm remove Ar name ...
-Remove installed package(s). Refuses to strand a still-required package unless
-.Fl f
-is given.
+Remove packages. If something else still needs one, bpm refuses unless you pass
+.Fl f .
 .It Cm autoremove
-Remove dependencies that are no longer required by any explicitly-installed
-package.
+Remove dependencies nothing needs anymore. Without
+.Fl y
+it only lists them.
 .It Cm update
-Sync the repository indices (fetch and verify the signed
-.Pa bpm.index ) .
+Fetch the signed
+.Pa bpm.index
+from each repository and verify it. An index older than the last one accepted is
+rejected, so a stale mirror can't roll you back.
 .It Cm upgrade
-Upgrade every installed package to the newest available version. The kernel is a
-pinned artifact and is not part of this.
+Upgrade every installed package that has a newer version in the index. On a
+btrfs root with
+.Nm blueberry-snapshot
+installed, a snapshot is taken first.
+.It Cm outdated
+List packages with a newer version available, one per line as
+.Ql name<TAB>installed<TAB>available .
+Changes nothing.
 .It Cm audit
-Report known CVEs affecting the installed packages. Each mapped package's
-installed version is checked against NVD (C/system software) or OSV (Go/Rust
-components); packages with no mapping are listed as untracked. Extra arguments
-pass through to the engine, e.g.
+Report known CVEs in the installed packages. Mapped packages are checked against
+NVD (C and system software) or OSV (Go and Rust bits), and anything without a
+mapping is listed as untracked. Extra arguments go to the audit engine, e.g.
 .Fl Fl json
 or
 .Fl Fl fail-on Cm high
-(exit non-zero when a CVE at that severity or above is found). Set
+(exit non-zero if anything at that severity or worse turns up). Set
 .Ev NVD_API_KEY
-to lift NVD's anonymous rate limit.
+to get past NVD's anonymous rate limit.
 .It Cm rollback Ar name
-Reinstall the previous cached version of a package (the newest cached version
-older than the one installed).
+Go back to the newest cached version older than the installed one.
 .It Cm downgrade Ar name Ns Op = Ns Ar version
-Install a specific older cached version, or the previous version when no
+Install a specific cached version, or the previous one if no
 .Ar version
 is given.
 .It Cm search Ar term
@@ -61,30 +66,29 @@ Search the repository index by name and description.
 .It Cm list
 List installed packages and their versions.
 .It Cm info Ar name
-Show a package's metadata (installed record, else the repo entry).
+Show a package's metadata, from the local database if installed, otherwise from
+the index.
 .It Cm why Ar name
-Explain why a package is present: which installed packages require it and
-whether it was installed explicitly.
+Show which installed packages need this one, and whether you installed it
+yourself.
 .It Cm depends Ar name
-Print a package's dependency tree.
+Print a package's dependency tree. Packages the base system provides are marked
+.Ql (base) .
 .It Cm files Ar name
 List the files a package owns.
-.It Cm owns Ar path
-Report which package owns a path.
 .It Cm clean Op Fl -all
-Prune the download cache. By default the two newest versions of each package are
-kept (so
+Prune the download cache. The two newest versions of each package are kept so
 .Cm rollback
 and
 .Cm downgrade
-still work);
+still have something to use;
 .Fl -all
-empties the cache.
+empties it completely.
 .El
 .Sh OPTIONS
 .Bl -tag -width Ds
 .It Fl f , Fl -force
-Skip the disk-space, file-conflict, and reverse-dependency checks.
+Skip the disk space, file conflict and reverse dependency checks.
 .El
 .Sh ENVIRONMENT
 .Bl -tag -width Ds
@@ -95,8 +99,7 @@ Scriptlets and
 .Xr ldconfig 8
 are run chrooted into that root.
 .It Ev BPM_ALLOW_UNSIGNED
-Accept an index whose ed25519 signature is missing or invalid. Insecure; for
-development only.
+Accept an index with a missing or bad signature. For development only.
 .It Ev BPM_NO_SCRIPTLETS
 Skip pre/post-install scriptlets and service enablement.
 .El
@@ -105,20 +108,20 @@ Skip pre/post-install scriptlets and service enablement.
 .It Pa /var/lib/bpm/db
 Installed-package database.
 .It Pa /var/lib/bpm/cache
-Downloaded package cache (source for rollback/downgrade).
+Downloaded packages, also used by rollback and downgrade.
 .It Pa /var/lib/bpm/index
-The synced, verified repository index.
+The synced repository index.
 .It Pa /etc/bpm/repos.conf
-Repository/mirror list.
+Repositories and their mirrors.
 .It Pa /etc/bpm/provided
-Names the base image already provides; treated as satisfied dependencies.
+Packages the base image already provides. Dependencies on them count as met.
 .El
 .Sh SEE ALSO
 .Xr makewhatis 8
 .Pp
-After each transaction
+After every transaction
 .Nm
-rebuilds the man-page index so newly installed pages are found by
+rebuilds the man page index, so new pages show up in
 .Xr man 1
 and
 .Xr apropos 1 .

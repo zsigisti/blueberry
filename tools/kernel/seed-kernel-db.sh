@@ -1,18 +1,11 @@
 #!/bin/sh
-# seed-kernel-db.sh — register the pinned kernel as an installed bpm package in
-# the rootfs, so `bpm upgrade` on the running system can later pull a newer linux
-# .bpm from the repo and install it. The kernel ships as a prebuilt artifact (it
-# is NOT built per image — see tools/kernel/fetch-kernel.sh), so bpm would otherwise not
-# know it is installed and would never offer to upgrade it.
+# usage: seed-kernel-db.sh <stagedir>
 #
-# Writes the bpm local-db entry (var/lib/bpm/db/linux/{desc,files}, the same
-# .PKGINFO shape bpm records on a normal install). The linux .bpm installs the
-# kernel straight to /boot/vmlinuz — the stable path the installer's grub.cfg
-# boots by UUID — so an upgrade just overwrites that file; no hook or grub
-# regeneration is involved. Version/release are read from packages/linux/bpm.toml
-# so the seed always matches the published package.
-#
-# Usage: seed-kernel-db.sh <stagedir>
+# The kernel comes from fetch-kernel.sh, not a .bpm, so bpm has no idea it's
+# installed and would never offer an upgrade. Write the db entry by hand,
+# version taken from packages/linux/bpm.toml so it matches the repo.
+# The linux .bpm just overwrites /boot/vmlinuz (what grub.cfg boots), so
+# upgrades need no hooks or grub regeneration.
 set -eu
 STAGE=${1:?usage: seed-kernel-db.sh <stagedir>}
 TOP=$(cd "$(dirname "$0")/../.." && pwd)
@@ -31,7 +24,6 @@ mkdir -p "$DB"
     printf 'pkgver = %s-%s\n' "$ver" "$rel"
     printf 'pkgdesc = %s\n' "$summary"
 } > "$DB/desc"
-# The kernel owns /boot/vmlinuz; a `bpm upgrade` overwrites it in place.
 printf 'boot/vmlinuz\n' > "$DB/files"
 
 echo "[seed-kernel-db] registered linux $ver-$rel (bpm upgrade will track the kernel)"

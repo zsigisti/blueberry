@@ -1,8 +1,5 @@
-//! alpm/rpmvercmp version comparison — a direct port of the C `vercmp.c`.
-//!
-//! Compares `[epoch:]pkgver[-pkgrel]` (e.g. "16.1.0-2"). A plain string compare
-//! would rank 1.10 below 1.9; this splits into alternating digit/letter runs and
-//! compares run-by-run, numeric runs as integers.
+//! pacman's vercmp, ported straight from the C bpm's vercmp.c.
+//! `[epoch:]ver[-rel]`, compared in digit/letter runs so 1.10 > 1.9.
 
 use std::cmp::Ordering;
 
@@ -10,7 +7,7 @@ fn is_alnum(c: u8) -> bool {
     c.is_ascii_alphanumeric()
 }
 
-/// Compare one segment (epoch / ver / rel).
+/// One segment (epoch, ver or rel).
 fn rpmvercmp(a: &str, b: &str) -> Ordering {
     if a == b {
         return Ordering::Equal;
@@ -48,7 +45,7 @@ fn rpmvercmp(a: &str, b: &str) -> Ordering {
             }
         }
 
-        // One side started numeric where the other has an alpha run (or empty).
+        // one side is a number where the other has letters: number wins
         if s1 == i {
             return if isnum { Ordering::Greater } else { Ordering::Less };
         }
@@ -75,8 +72,7 @@ fn rpmvercmp(a: &str, b: &str) -> Ordering {
         }
     }
 
-    // Whichever still has an alphanumeric run left is newer; a leftover alpha
-    // run loses to "no run" (matches pacman's "1.0" > "1.0alpha").
+    // longer one wins, unless what's left is letters: 1.0 > 1.0alpha, like pacman
     let rest1 = i < one.len();
     let rest2 = j < two.len();
     match (rest1, rest2) {
@@ -99,7 +95,6 @@ fn rpmvercmp(a: &str, b: &str) -> Ordering {
 }
 
 fn split(v: &str) -> (&str, &str, &str) {
-    // [epoch:]ver[-rel]
     let (epoch, rest) = match v.split_once(':') {
         Some((e, r)) => (e, r),
         None => ("0", v),
@@ -111,7 +106,6 @@ fn split(v: &str) -> (&str, &str, &str) {
     (epoch, ver, rel)
 }
 
-/// Full version compare over epoch, then ver, then rel.
 pub fn vercmp(a: &str, b: &str) -> Ordering {
     let (ea, va, ra) = split(a);
     let (eb, vb, rb) = split(b);

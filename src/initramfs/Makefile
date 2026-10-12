@@ -1,11 +1,5 @@
-# src/initramfs/Makefile — build the initramfs CPIO image
-#
-# Produces $(BOOTDIR)/initramfs.cpio.zst
-#
-# Inputs:
-#   STAGEDIR   the assembled OS rootfs (provides busybox + runit)
-#   BOOTDIR    where to write initramfs.cpio.zst
-#   OBJDIR     scratch space
+# Builds $(BOOTDIR)/initramfs.cpio.zst: the live CLI + installer environment.
+# Needs STAGEDIR (the staged rootfs), BOOTDIR and OBJDIR (scratch).
 
 THISDIR    := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 INITRAMDIR := $(OBJDIR)/initramfs
@@ -28,11 +22,8 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	          $(INITRAMDIR)/dev $(INITRAMDIR)/mnt/root $(INITRAMDIR)/run \
 	          $(INITRAMDIR)/tmp
 
-	@# Copy busybox (static binary — provides everything we need). The initramfs
-	@# must not depend on the rootfs being in CLI state: the Desktop edition's
-	@# rootfs is systemd-based and carries no busybox. Prefer the rootfs copy,
-	@# but fall back to the freshly-built binary in OBJDIR so the initramfs is
-	@# always self-contained regardless of which edition staged the rootfs.
+	@# A systemd rootfs has no busybox in it, so fall back to the one in the
+	@# build dir. The initramfs has to work whatever got staged.
 	@if [ -f $(STAGEDIR)/bin/busybox ]; then \
 	    cp $(STAGEDIR)/bin/busybox $(INITRAMDIR)/bin/busybox; \
 	elif bb=$$(ls -1 $(OBJDIR)/src/busybox-*/busybox 2>/dev/null | head -1) && [ -n "$$bb" ]; then \
@@ -42,7 +33,6 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	    echo "FATAL: no busybox in $(STAGEDIR)/bin or $(OBJDIR)/src/busybox-*/" >&2; exit 1; \
 	fi
 
-	@# Create busybox applet symlinks needed in initramfs
 	@for app in sh ash mount umount switch_root mdev blkid sleep setsid \
 	            modprobe insmod lsmod mkdir cp mv rm ln ls cat \
 	            find grep sed awk echo printf head tail dmesg clear \
@@ -64,51 +54,41 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	        cp $(STAGEDIR)/sbin/$$app $(INITRAMDIR)/sbin/ 2>/dev/null || true; \
 	done
 
-	@# (glibc runtime is bundled near the end, once all binaries are in place)
+	@# (glibc gets bundled at the end, once every binary is in)
 
-	@# Install /init (live CLI entry point)
 	@cp $(THISDIR)/init $(INITRAMDIR)/init
 	@chmod 755 $(INITRAMDIR)/init
 
-	@# Install the in-guest self-test (run via kernel cmdline: bbtest)
+	@# self-test, run when the cmdline has bbtest
 	@mkdir -p $(INITRAMDIR)/etc
 	@cp $(THISDIR)/selftest $(INITRAMDIR)/etc/selftest
 	@chmod 755 $(INITRAMDIR)/etc/selftest
 
-	@# Install /etc/profile so the interactive shell has a nice prompt
 	@cp $(THISDIR)/profile $(INITRAMDIR)/etc/profile
 
-	@# DHCP lease handler for udhcpc
 	@cp $(THISDIR)/udhcpc.script $(INITRAMDIR)/etc/udhcpc.script
 	@chmod 755 $(INITRAMDIR)/etc/udhcpc.script
 
-	@# bpm package manager (Rust, src/bpm-rs) + default repo config
 	@mkdir -p $(INITRAMDIR)/usr/bin $(INITRAMDIR)/etc/bpm
 	@ARCH=$(ARCH) sh $(THISDIR)/../../tools/pkg/build-bpm.sh $(INITRAMDIR)/usr/bin/bpm
 	@cp $(THISDIR)/../../etc/bpm/repos.conf $(INITRAMDIR)/etc/bpm/repos.conf
 	@cp $(THISDIR)/../../etc/bpm/provided  $(INITRAMDIR)/etc/bpm/provided
 
-	@# CA trust store so bpm and curl can verify HTTPS (rustls TLS in bpm).
 	@mkdir -p $(INITRAMDIR)/etc/ssl/certs
 	@cp -L /etc/ssl/certs/ca-certificates.crt $(INITRAMDIR)/etc/ssl/certs/ca-certificates.crt 2>/dev/null \
 	    || echo "WARNING: host CA bundle not found; HTTPS repos won't verify"
 
-	@# zstd binary — handy on the live system (the Rust bpm bundles libzstd
-	@# statically, so it doesn't need the shared lib). Picked up by bundle-glibc.
+	@# bpm has libzstd built in; this is just for people at the shell
 	@cp $$(command -v zstd) $(INITRAMDIR)/usr/bin/zstd
 
-	@# blueberry-install + its disk tools (sgdisk, mkfs.fat, mkfs.ext4) plus
-	@# cryptsetup + its libs (device-mapper, json-c, openssl, popt) for LUKS
-	@# unlock at boot and luksFormat at install. Bundled so it works offline.
-	@# bash + ncurses (libtinfo) so the live shell is bash, not busybox sh —
-	@# matching the installed system's default login shell.
-	@# Native .bpm toolchain (build-pkgs.sh / .pkg.tar.zst was retired). grub gives
-	@# the Rust installer grub-install + both module trees (i386-pc/x86_64-efi).
+	@# Everything the installer shells out to, so it works offline:
+	@#   gptfdisk/dosfstools/e2fsprogs/xfsprogs/btrfs-progs  partition + mkfs
+	@#   cryptsetup (+ device-mapper json-c openssl popt)    LUKS, at boot and install
+	@#   lvm2 (+ libaio readline)                            LVM, and `vgchange -ay` at boot
+	@#   grub                                                grub-install + both module trees
+	@#   bash + ncurses                                      live shell = installed login shell
+	@# liburcu/libinih/lzo are xfsprogs/btrfs-progs runtime deps.
 	@echo "[initramfs] bundling installer + disk + crypto + grub + bash"
-	@# xfsprogs/btrfs-progs (+ their lib deps liburcu/libinih/lzo) give the
-	@# installer mkfs.xfs / mkfs.btrfs so root can be XFS or Btrfs, not just ext4.
-	@# lvm2 (+ libaio/readline) gives the installer pvcreate/vgcreate/lvcreate and
-	@# the boot-time `vgchange -ay` for LVM (and LVM-on-LUKS) roots.
 	@sh $(THISDIR)/../../tools/pkg/build-bpm-pkg.sh $(OBJDIR)/instpkgs \
 	    popt e2fsprogs dosfstools gptfdisk json-c device-mapper openssl zlib cryptsetup \
 	    grub kbd ncurses bash xfsprogs btrfs-progs liburcu libinih lzo lvm2 libaio readline
@@ -117,60 +97,50 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	    f=$$(ls -t $(OBJDIR)/instpkgs/$$p-[0-9]*.bpm | head -1); \
 	    zstd -dcq "$$f" | tar -x -C $(INITRAMDIR) --exclude .BPM 2>/dev/null; \
 	done
-	@# glibc: pull the pinned, container-built package from the MIRROR into a
-	@# SYSROOT (not the initramfs itself). The initramfs is assembled before the
-	@# rootfs is populated, so there's no staged glibc to bundle yet — fetching it
-	@# from the mirror is what makes the runtime independent of the build host's
-	@# glibc (an older host libc, e.g. Ubuntu 2.39 vs the container's 2.43, would
-	@# panic at boot). bundle-glibc below copies ONLY the runtime libs it needs from
-	@# this sysroot, so the initramfs stays small — extracting the whole glibc here
-	@# added ~25 MB (gconv, static libs, glibc tools) and made low-RAM boots fail to
-	@# unpack the initramfs.
+	@# glibc from the mirror, into a side sysroot. There's no staged glibc yet
+	@# at this point, and the host's can be older (Ubuntu 2.39 vs our 2.43) which
+	@# panics at boot. Don't extract it straight into the initramfs: the full
+	@# package is ~25 MB extra and low-RAM machines then can't unpack it.
+	@# bundle-glibc copies just the libs that are needed.
 	@echo "[initramfs] fetching glibc from mirror (into sysroot)"
 	@rm -rf $(OBJDIR)/glibc-sysroot
 	@sh $(THISDIR)/../../tools/pkg/fetch-bpm.sh glibc $(OBJDIR)/glibc-sysroot $(OBJDIR)/bpm-cache
-	@# bash lands in /usr/bin; make /bin/bash resolve too (login shell path).
+	@# /bin/bash is what passwd says
 	@ln -sf /usr/bin/bash $(INITRAMDIR)/bin/bash
-	@# Login wrapper: getty -l runs its program non-login, so bash would skip
-	@# /etc/profile and show the bare "bash-5.2#" prompt. Exec bash --login so it
-	@# reads /etc/profile (PS1 = \u@\h:\w\$$, sets HOME) -> root@blueberry:~#.
+	@# getty -l doesn't start a login shell, so bash skips /etc/profile and you
+	@# get a bare "bash-5.2#". --login fixes the prompt and HOME.
 	@printf '#!/bin/sh\nexec /usr/bin/bash --login\n' > $(INITRAMDIR)/usr/bin/bblogin
 	@chmod 755 $(INITRAMDIR)/usr/bin/bblogin
-	@# trim dev cruft from the bundled tools (keep binaries + shared libs)
+	@# trim dev cruft
 	@rm -rf $(INITRAMDIR)/usr/include $(INITRAMDIR)/usr/share/man \
 	        $(INITRAMDIR)/usr/share/info $(INITRAMDIR)/usr/share/doc \
 	        $(INITRAMDIR)/usr/share/locale $(INITRAMDIR)/usr/lib/pkgconfig
-	@# grub: drop themes/fonts + image-authoring tools the installer never calls
-	@# (keep grub-install/-bios-setup/-probe/-mkimage/-editenv + both module trees).
+	@# grub themes/fonts and tools the installer never calls. It does need
+	@# grub-install/-bios-setup/-probe/-mkimage/-editenv and the module trees.
 	@rm -rf $(INITRAMDIR)/usr/share/grub
 	@for g in mkfont mkrescue mkstandalone shell script-check syslinux2cfg \
 	          mknetdir menulst2cfg fstest mount sparc64-setup ofpathname; do \
 	    rm -f $(INITRAMDIR)/usr/bin/grub-$$g $(INITRAMDIR)/usr/sbin/grub-$$g; \
 	done
 	@find $(INITRAMDIR)/usr/lib -name '*.a' -delete 2>/dev/null || true
-	@# blueberry-install is now the Rust guided CLI installer (src/installer/,
-	@# built like bpm via cargo). It links glibc+libgcc_s, picked up by bundle-glibc.
 	@sh $(THISDIR)/../../tools/build/build-installer.sh $(INITRAMDIR)/usr/bin/blueberry-install
 	@chmod 755 $(INITRAMDIR)/usr/bin/blueberry-install
-	@# short aliases — people reach for `bb-install` / `bb-installer` at the shell
+	@# because people keep typing these
 	@ln -sf blueberry-install $(INITRAMDIR)/usr/bin/bb-install
 	@ln -sf blueberry-install $(INITRAMDIR)/usr/bin/bb-installer
 
-	@# Minimal account + hostname so \u resolves and the prompt reads root@blueberry
+	@# just enough for the prompt to say root@blueberry
 	@printf 'root:x:0:0:root:/root:/bin/bash\n' > $(INITRAMDIR)/etc/passwd
 	@printf 'root:x:0:\n'                     > $(INITRAMDIR)/etc/group
 	@printf 'blueberry\n'                     > $(INITRAMDIR)/etc/hostname
 
-	@# Default root credentials for SSH (password: blueberry — change in production)
+	@# root password is "blueberry". It's a live CD.
 	@cp $(THISDIR)/shadow $(INITRAMDIR)/etc/shadow
 	@chmod 600 $(INITRAMDIR)/etc/shadow
 
-	@# Dropbear SSH server + client (single static multi-call binary)
 	@mkdir -p $(INITRAMDIR)/usr/sbin $(INITRAMDIR)/usr/bin $(INITRAMDIR)/root/.ssh
-	@# The installed system uses OpenSSH; Dropbear is the initramfs SSH server
-	@# only (small static multi-call binary for the live/installer environment).
-	@# The systemd rootfs doesn't stage it, so fall back to the freshly-built
-	@# binary in OBJDIR so the initramfs always has SSH.
+	@# dropbear is only for the live environment (installs get OpenSSH), so a
+	@# systemd stage won't have it - take it from the build dir then
 	@db=$(STAGEDIR)/usr/sbin/dropbearmulti; \
 	 [ -f "$$db" ] || db=$$(ls -1 $(OBJDIR)/src/dropbear-*/dropbearmulti 2>/dev/null | head -1); \
 	 if [ -n "$$db" ] && [ -f "$$db" ]; then \
@@ -181,10 +151,9 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	    ln -sf ../sbin/dropbearmulti $(INITRAMDIR)/usr/bin/scp; \
 	    mkdir -p $(INITRAMDIR)/etc/dropbear; \
 	 else \
-	    echo "WARNING: dropbear not built — run 'make dropbear' (no SSH in image)"; \
+	    echo "WARNING: dropbear not built, run 'make dropbear' (no SSH in image)"; \
 	 fi
 
-	@# Create device nodes
 	@mknod -m 600 $(INITRAMDIR)/dev/console  c 5 1 2>/dev/null || true
 	@mknod -m 666 $(INITRAMDIR)/dev/null     c 1 3 2>/dev/null || true
 	@mknod -m 666 $(INITRAMDIR)/dev/zero     c 1 5 2>/dev/null || true
@@ -192,9 +161,8 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	@mknod -m 444 $(INITRAMDIR)/dev/random   c 1 8 2>/dev/null || true
 	@mknod -m 666 $(INITRAMDIR)/dev/tty      c 5 0 2>/dev/null || true
 
-	@# Bundle the glibc runtime: the ELF interpreter + the shared libs every
-	@# binary here needs, plus the compat set + NSS modules, so the dynamic
-	@# busybox/dropbear run AND external prebuilt glibc software works.
+	@# ld.so + whatever these link, plus the compat libs and NSS modules so
+	@# random prebuilt glibc binaries work too
 	@echo "[initramfs] bundling glibc runtime (from mirror glibc, not the host)"
 	@GLIBC_SYSROOT=$(OBJDIR)/glibc-sysroot bash $(THISDIR)/../../tools/image/bundle-glibc.sh $(INITRAMDIR) \
 	    $(INITRAMDIR)/bin/busybox \
@@ -216,9 +184,8 @@ $(BOOTDIR)/initramfs.cpio.zst: $(THISDIR)/init $(THISDIR)/selftest \
 	    $(INITRAMDIR)/sbin/cryptsetup \
 	    $(INITRAMDIR)/sbin/blkid
 
-	@# Pack as CPIO. -R 0:0 forces root:root: the build is rootless (uid 1000),
-	@# so without it the archived files (and any setuid bits) are owned by the
-	@# build user instead of root.
+	@# -R 0:0 because we build as uid 1000; without it everything (setuid
+	@# bits included) ends up owned by the build user
 	@echo "[initramfs] packing"
 	@cd $(INITRAMDIR) && \
 	    find . | sort | \

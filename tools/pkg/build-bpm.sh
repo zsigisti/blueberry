@@ -1,17 +1,16 @@
 #!/bin/sh
-# build-bpm.sh — build the (Rust) bpm and install the binary to $1.
+# build-bpm.sh - build bpm (Rust) and install the binary to $1.
 #
-# Used by the image build (installed rootfs) and the initramfs build so both
-# ship the same bpm the repo distributes. The release binary links only glibc +
-# libgcc_s (libzstd is bundled statically), and needs glibc <= the build host's
-# — Blueberry ships the same glibc, so a host build runs as-is.
+# The image and initramfs builds both use this so they ship the same bpm as the
+# repo. It links only glibc + libgcc_s (zstd is static) and needs glibc <= the
+# build host's, which holds since Blueberry ships the same glibc.
 set -eu
 
 OUT=${1:?usage: build-bpm.sh <out-binary>}
 DIR=$(cd "$(dirname "$0")/../../src/bpm-rs" && pwd)
 
 command -v cargo >/dev/null 2>&1 || {
-    echo "build-bpm: cargo not found — install the Rust toolchain" >&2
+    echo "build-bpm: cargo not found, install the Rust toolchain" >&2
     exit 1
 }
 

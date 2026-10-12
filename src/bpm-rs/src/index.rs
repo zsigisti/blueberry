@@ -1,7 +1,7 @@
-//! The repo index, repos.conf, the "provided" base set, and .PKGINFO parsing.
+//! The synced repo index, repos.conf, the "provided" list, and .PKGINFO parsing.
 //!
-//! Local index line:  name|version|filename|sha256|deps(comma)|repo
-//! repos.conf line:   <name> <url1> [url2 ...]   (extra urls are mirrors)
+//! index line:       name|version|filename|sha256|deps|size|desc|repo
+//! repos.conf line:  <name> <url> [mirror ...]
 
 use crate::config::Config;
 use std::fs;
@@ -14,13 +14,13 @@ pub struct Entry {
     pub filename: String,
     pub sha256: String,
     pub deps: Vec<String>,
-    pub size: u64,    // installed size in bytes (0 if unknown)
-    pub desc: String, // one-line description
+    pub size: u64, // installed bytes, 0 if unknown
+    pub desc: String,
     pub repo: String,
 }
 
-// Line: name|version|filename|sha256|deps|size|desc|repo  (repo appended on
-// `bpm update`; desc is free text with separators stripped by mkrepo).
+// deps are comma-separated, repo gets tacked on by `bpm update`, and mkrepo
+// strips any | out of desc
 fn parse_line(line: &str) -> Option<Entry> {
     let f: Vec<&str> = line.split('|').collect();
     if f.first().map(|s| s.is_empty()).unwrap_or(true) {
@@ -45,13 +45,12 @@ fn parse_line(line: &str) -> Option<Entry> {
     })
 }
 
-/// Every entry in the synced index (empty if `bpm update` hasn't run).
 pub fn load_all(cfg: &Config) -> Vec<Entry> {
     let txt = fs::read_to_string(&cfg.index).unwrap_or_default();
     txt.lines().filter_map(parse_line).collect()
 }
 
-/// First entry matching `name`.
+/// First match wins, so repo order in repos.conf is priority order.
 pub fn lookup(cfg: &Config, name: &str) -> Option<Entry> {
     let txt = fs::read_to_string(&cfg.index).ok()?;
     txt.lines()
@@ -59,15 +58,13 @@ pub fn lookup(cfg: &Config, name: &str) -> Option<Entry> {
         .find_map(parse_line)
 }
 
-/// The monotonic serial carried in a signed index as `|serial|<epoch>`, if
-/// present. Rollback/replay protection: an untrusted mirror must not be able to
-/// hand us an index older than one we've already accepted. The line has an empty
-/// name field, so every existing parser ignores it as a package entry.
+/// The `|serial|<epoch>` line of a signed index, used to catch mirrors serving
+/// an old index. Its name field is empty, so older parsers just skip it.
 pub fn parse_serial(body: &[u8]) -> Option<u64> {
     for line in body.split(|&b| b == b'\n') {
         if let Some(rest) = line.strip_prefix(b"|serial|") {
             let s = std::str::from_utf8(rest).ok()?;
-            // Tolerate a trailing "|repo" if it was ever appended.
+            // in case a "|repo" got appended to it
             let s = s.split('|').next().unwrap_or(s).trim();
             return s.parse().ok();
         }
@@ -79,7 +76,7 @@ fn serials_path(cfg: &Config) -> std::path::PathBuf {
     cfg.index.with_file_name("serials")
 }
 
-/// Last-accepted serial per repo (`repo <epoch>` lines). Empty if never seen.
+/// Last accepted serial per repo, stored as `repo <epoch>` lines.
 pub fn load_serials(cfg: &Config) -> std::collections::BTreeMap<String, u64> {
     let mut m = std::collections::BTreeMap::new();
     if let Ok(txt) = fs::read_to_string(serials_path(cfg)) {
@@ -95,7 +92,6 @@ pub fn load_serials(cfg: &Config) -> std::collections::BTreeMap<String, u64> {
     m
 }
 
-/// Persist the per-repo serials accepted this run.
 pub fn save_serials(cfg: &Config, m: &std::collections::BTreeMap<String, u64>) {
     let mut out = String::new();
     for (r, s) in m {
@@ -104,7 +100,6 @@ pub fn save_serials(cfg: &Config, m: &std::collections::BTreeMap<String, u64>) {
     let _ = fs::write(serials_path(cfg), out);
 }
 
-/// Mirror URLs for a repo, in order (first is primary).
 pub fn mirrors(cfg: &Config, repo: &str) -> Vec<String> {
     let txt = match fs::read_to_string(&cfg.conf) {
         Ok(t) => t,
@@ -123,7 +118,7 @@ pub fn mirrors(cfg: &Config, repo: &str) -> Vec<String> {
     Vec::new()
 }
 
-/// Strip a dependency atom of version/provider syntax: "glibc>=2.38" -> "glibc".
+/// "glibc>=2.38" -> "glibc"
 pub fn dep_name(atom: &str) -> &str {
     let end = atom
         .find(['<', '>', '=', ':'])
@@ -131,8 +126,8 @@ pub fn dep_name(atom: &str) -> &str {
     &atom[..end]
 }
 
-/// Base packages the live image already provides (built-in list, extended by
-/// /etc/bpm/provided). A dep in this set is treated as already satisfied.
+/// Stuff the base image always has. Deps on these count as satisfied;
+/// /etc/bpm/provided adds more.
 const BASE: &[&str] = &[
     "glibc", "gcc-libs", "bash", "sh", "dash", "filesystem", "busybox", "coreutils", "util-linux",
     "findutils", "grep", "sed", "gawk", "awk", "gzip", "procps-ng", "iproute2", "iputils",
@@ -157,7 +152,7 @@ pub fn is_provided(cfg: &Config, name: &str) -> bool {
     false
 }
 
-/// Value of a `key = value` field in .PKGINFO text.
+/// First `key = value` in .PKGINFO text.
 pub fn pkginfo_field(info: &str, key: &str) -> Option<String> {
     for line in info.lines() {
         if let Some((k, v)) = line.split_once('=') {
@@ -169,7 +164,7 @@ pub fn pkginfo_field(info: &str, key: &str) -> Option<String> {
     None
 }
 
-/// All values for a repeated .PKGINFO field (e.g. every `depend`).
+/// Every value of a repeated key, like `depend`.
 pub fn pkginfo_all<'a>(info: &'a str, key: &str) -> Vec<&'a str> {
     info.lines()
         .filter_map(|l| l.split_once('='))
@@ -178,7 +173,6 @@ pub fn pkginfo_all<'a>(info: &'a str, key: &str) -> Vec<&'a str> {
         .collect()
 }
 
-/// Lowercase hex SHA-256 of a file, streamed.
 pub fn sha256_file(path: &Path) -> std::io::Result<String> {
     use sha2::{Digest, Sha256};
     let mut f = fs::File::open(path)?;

@@ -1,15 +1,11 @@
-//! Authentication for the console. Two ways in, both ending in the same
-//! short-lived in-memory session cookie:
+//! Console login. Two ways in, both ending in an in-memory session:
 //!
-//!   1. PAM (primary, Proxmox-style) — a real system user authenticates with
-//!      their password against /etc/shadow through the PAM stack, then must pass
-//!      an authorization check (root, or a member of the admin group) to actually
-//!      manage the box. Authentication ≠ authorization.
-//!   2. Bootstrap token (fallback/automation) — on first start the daemon writes
-//!      a random admin token to a root-only file; handy for headless setup before
-//!      an admin account exists, or for scripts.
+//! - PAM: a real system user and password. Passing PAM only proves who you are;
+//!   you also have to be root or in the admin group to get a session.
+//! - Bootstrap token: written to a root-only file on first start. For headless
+//!   setup before there's an admin account, and for scripts.
 //!
-//! Every API call re-checks the session (1h idle expiry).
+//! Sessions expire after 1h idle or 8h total.
 
 use std::collections::HashMap;
 use std::fs;
@@ -21,7 +17,7 @@ use std::time::{Duration, Instant};
 
 const SESSION_TTL: Duration = Duration::from_secs(60 * 60); // 1h idle
 
-/// 32 random bytes as lowercase hex, sourced from the kernel CSPRNG.
+/// 32 random bytes from /dev/urandom, as hex.
 pub fn random_hex() -> String {
     let mut buf = [0u8; 32];
     let mut f = fs::File::open("/dev/urandom").expect("open /dev/urandom");
@@ -33,7 +29,7 @@ pub fn random_hex() -> String {
     s
 }
 
-/// Constant-time-ish equality (length-independent short-circuit avoided).
+/// Constant-time compare for equal lengths. Lengths themselves aren't secret.
 pub fn ct_eq(a: &str, b: &str) -> bool {
     let (a, b) = (a.as_bytes(), b.as_bytes());
     if a.len() != b.len() {
@@ -46,7 +42,7 @@ pub fn ct_eq(a: &str, b: &str) -> bool {
     diff == 0
 }
 
-/// Load the admin token, creating a fresh one (0600) on first run.
+/// Read the bootstrap token, or make a new 0600 one on first run.
 pub fn load_or_create_token(path: &Path) -> std::io::Result<String> {
     if let Ok(s) = fs::read_to_string(path) {
         let t = s.trim().to_string();
@@ -64,10 +60,10 @@ pub fn load_or_create_token(path: &Path) -> std::io::Result<String> {
     Ok(token)
 }
 
-/// Authenticate a system user's password via PAM (service `blueberry-console`,
-/// falling back to `login`). Returns true only if PAM accepts the credentials.
+/// Check a password through PAM. Tries the `blueberry-console` service, then
+/// falls back to `login`.
 pub fn pam_authenticate(user: &str, pass: &str) -> bool {
-    // Reject obviously bogus usernames before touching PAM.
+    // don't hand PAM anything weird
     if user.is_empty() || !user.bytes().all(|b| b.is_ascii_alphanumeric() || b"-_.".contains(&b)) {
         return false;
     }
@@ -82,13 +78,13 @@ pub fn pam_authenticate(user: &str, pass: &str) -> bool {
     false
 }
 
-/// Authorization: only root or members of the admin group may manage the box.
-/// (PAM says "valid user + password"; this says "allowed to be here".)
+/// Root or a member of the admin group. PAM says "right password", this says
+/// "allowed in".
 pub fn is_admin(user: &str, admin_group: &str) -> bool {
     if user == "root" {
         return true;
     }
-    // Membership via /etc/group: "<group>:x:<gid>:<members,comma>".
+    // "<group>:x:<gid>:<a,b,c>"
     if let Ok(groups) = fs::read_to_string("/etc/group") {
         for line in groups.lines() {
             let mut f = line.split(':');
@@ -102,20 +98,19 @@ pub fn is_admin(user: &str, admin_group: &str) -> bool {
     false
 }
 
-/// Per-source-IP failed-login throttle — slows password brute force.
+/// Failed-login counter per source IP, to slow down password guessing.
 pub struct Throttle {
     fails: Mutex<HashMap<String, (u32, Instant)>>,
 }
 
 const MAX_FAILS: u32 = 8;
-const FAIL_WINDOW: Duration = Duration::from_secs(300); // 5 min lockout window
+const FAIL_WINDOW: Duration = Duration::from_secs(300);
 
 impl Throttle {
     pub fn new() -> Throttle {
         Throttle { fails: Mutex::new(HashMap::new()) }
     }
 
-    /// True if `ip` is allowed another attempt right now.
     pub fn allowed(&self, ip: &str) -> bool {
         let mut m = self.fails.lock().unwrap();
         m.retain(|_, (_, t)| t.elapsed() < FAIL_WINDOW);
@@ -144,16 +139,12 @@ pub struct Sessions {
 #[derive(Clone)]
 pub struct Session {
     pub user: String,
-    pub csrf: String,     // paired anti-CSRF token (for cookie-authed writes)
-    pub created: Instant, // for the absolute-lifetime cap
+    pub csrf: String,     // needed for writes made with the cookie
+    pub created: Instant, // for the 8h cap
     pub seen: Instant,    // for the idle timeout
 }
 
-/// What a successful login hands back: an opaque bearer session token, its paired
-/// CSRF token, and the resolved username. The bearer token is the primary
-/// credential — the client sends it as `Authorization: Bearer <session>`, which
-/// (unlike a cookie) is never attached ambiently, so it can't be dropped by a
-/// cert-error browser and isn't reachable by CSRF.
+/// What a login hands back. The client sends `session` as a Bearer header.
 pub struct Issued {
     pub session: String,
     pub csrf: String,
@@ -176,7 +167,6 @@ impl Sessions {
         Issued { session: sid, csrf, user: user.to_string() }
     }
 
-    /// PAM login: authenticate the password, then authorize the user.
     pub fn login_pam(&self, user: &str, pass: &str, admin_group: &str) -> Option<Issued> {
         if pam_authenticate(user, pass) && is_admin(user, admin_group) {
             Some(self.start(user))
@@ -185,8 +175,7 @@ impl Sessions {
         }
     }
 
-    /// Bootstrap-token login (automation / first run). An empty configured token
-    /// never matches (fail closed).
+    /// An empty token never matches, on either side.
     pub fn login_token(&self, token: &str) -> Option<Issued> {
         if !self.admin_token.is_empty() && !token.is_empty() && ct_eq(token, &self.admin_token) {
             Some(self.start("token"))
@@ -195,8 +184,8 @@ impl Sessions {
         }
     }
 
-    /// A live session — idle under SESSION_TTL *and* total age under ABSOLUTE_TTL.
-    /// Refreshes the idle timestamp and returns a snapshot (incl. its CSRF token).
+    /// Look up a live session and bump its idle timer. Prunes expired ones on
+    /// the way.
     pub fn check(&self, sid: &str) -> Option<Session> {
         if sid.is_empty() {
             return None;
@@ -215,13 +204,12 @@ impl Sessions {
         self.live.lock().unwrap().remove(sid);
     }
 
-    /// Revoke every session belonging to a user (e.g. after a password change).
+    /// Kick all of a user's sessions, e.g. after a password change.
     #[allow(dead_code)]
     pub fn revoke_user(&self, user: &str) {
         self.live.lock().unwrap().retain(|_, s| s.user != user);
     }
 
-    /// Number of live sessions (after pruning) — for a future sessions panel.
     #[allow(dead_code)]
     pub fn active(&self) -> usize {
         let mut live = self.live.lock().unwrap();

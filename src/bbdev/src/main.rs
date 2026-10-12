@@ -1,19 +1,15 @@
-//! bbdev — the Blueberry repository developer tool.
+//! bbdev: run it in a Blueberry checkout after touching recipes. With no args it
+//! builds whatever changed under packages/ (self-hosted, via
+//! tools/pkg/build-bpm-pkg.sh) and then runs the closure check.
 //!
-//! Run it inside a checkout of the Blueberry source tree after editing recipes.
-//! With no arguments it does the obvious thing: looks at what you changed under
-//! `packages/`, builds those recipes in the ephemeral Arch build container (via
-//! tools/pkg/build-bpm-pkg.sh), runs the dependency-closure check, and reports.
+//!   bbdev                 build the recipes you changed, then closure-check
+//!   bbdev status          show changed / never-built recipes, no build
+//!   bbdev build [pkg...]  build these (default: the changed set)
+//!   bbdev check           dependency-closure check
+//!   bbdev list            list every recipe
 //!
-//!   bbdev              auto — build the recipes you changed, then closure-check
-//!   bbdev status       show changed / never-built recipes; don't build
-//!   bbdev build [pkg…] build the given packages (default: the changed set)
-//!   bbdev check        run the dependency-closure check
-//!   bbdev list         list every recipe
-//!   bbdev help
-//!
-//! Pure std; shells out to git + the repo's existing tools. Needs git and a
-//! container engine (podman or docker) on PATH to actually build.
+//! Just std. Shells out to git and the repo's own scripts; building needs
+//! podman or docker.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -51,7 +47,7 @@ fn main() {
 
 fn usage() {
     print!(
-        "bbdev {} — Blueberry repository developer tool\n\n\
+        "bbdev {} - Blueberry repo dev tool\n\n\
          \x20 bbdev              auto: build the recipes you changed, then closure-check\n\
          \x20 bbdev status       show changed / never-built recipes (no build)\n\
          \x20 bbdev build [pkg…] build the given packages (default: the changed set)\n\
@@ -62,7 +58,6 @@ fn usage() {
     );
 }
 
-// ── repo discovery ────────────────────────────────────────────────────────────
 fn repo_root() -> PathBuf {
     let out = Command::new("git")
         .args(["rev-parse", "--show-toplevel"])
@@ -75,7 +70,7 @@ fn repo_root() -> PathBuf {
             }
             die("this git repo isn't a Blueberry source tree (missing packages/ or tools/pkg/build-bpm-pkg.sh)");
         }
-        _ => die("not inside a git repository — run bbdev from a Blueberry checkout"),
+        _ => die("not in a git repo, run bbdev from a Blueberry checkout"),
     }
 }
 
@@ -84,7 +79,6 @@ fn die(msg: &str) -> ! {
     exit(1);
 }
 
-// ── recipe discovery ──────────────────────────────────────────────────────────
 fn all_recipes(root: &Path) -> BTreeSet<String> {
     let mut set = BTreeSet::new();
     if let Ok(rd) = std::fs::read_dir(root.join("packages")) {
@@ -98,7 +92,7 @@ fn all_recipes(root: &Path) -> BTreeSet<String> {
     set
 }
 
-/// Package names whose recipe or files changed in the working tree or index.
+/// Recipes with changes in the working tree or index.
 fn changed(root: &Path) -> BTreeSet<String> {
     let out = Command::new("git")
         .arg("-C")
@@ -120,7 +114,7 @@ fn changed(root: &Path) -> BTreeSet<String> {
     set
 }
 
-/// Recipes with no built .bpm, or whose bpm.toml is newer than the newest build.
+/// No .bpm yet, or bpm.toml is newer than the newest one.
 fn stale(root: &Path) -> BTreeSet<String> {
     let outdir = root.join(OUT);
     let mut set = BTreeSet::new();
@@ -147,7 +141,7 @@ fn newest_bpm(outdir: &Path, name: &str) -> Option<SystemTime> {
     let mut newest: Option<SystemTime> = None;
     for e in rd.flatten() {
         let f = e.file_name().to_string_lossy().into_owned();
-        // <name>-<version>-<rel>-<arch>.bpm ; anchor on a digit after "name-"
+        // <name>-<ver>-<rel>-<arch>.bpm. need a digit after "name-" or foo would match foo-bar
         if f.starts_with(&prefix)
             && f.ends_with(".bpm")
             && f[prefix.len()..].chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false)
@@ -160,7 +154,6 @@ fn newest_bpm(outdir: &Path, name: &str) -> Option<SystemTime> {
     newest
 }
 
-// ── commands ──────────────────────────────────────────────────────────────────
 fn cmd_status(root: &Path) -> i32 {
     let ch = changed(root);
     let st = stale(root);
@@ -198,12 +191,11 @@ fn cmd_build(root: &Path, names: &[String]) -> i32 {
     let targets: Vec<String> = if names.is_empty() {
         let ch = changed(root);
         if ch.is_empty() {
-            println!("bbdev: nothing changed under packages/ — nothing to build");
+            println!("bbdev: nothing changed under packages/, nothing to build");
             return 0;
         }
         ch.into_iter().collect()
     } else {
-        // validate the names are real recipes
         let recipes = all_recipes(root);
         for n in names {
             if !recipes.contains(n) {
@@ -213,9 +205,8 @@ fn cmd_build(root: &Path, names: &[String]) -> i32 {
         names.to_vec()
     };
     println!("bbdev: building {}: {}", targets.len(), targets.join(" "));
-    // Pass an ABSOLUTE out-dir: build-bpm-pkg.sh bind-mounts it into the build
-    // container (podman -v "$OUT:/out"), and podman rejects a relative path as an
-    // invalid named-volume name.
+    // has to be absolute: the script does podman -v "$OUT:/out" and podman reads
+    // a relative path as a (bad) named volume
     let outdir = root.join(OUT).to_string_lossy().into_owned();
     let mut argv = vec!["tools/pkg/build-bpm-pkg.sh".to_string(), outdir];
     argv.extend(targets);
@@ -230,7 +221,7 @@ fn cmd_auto(root: &Path) -> i32 {
         let st = stale(root);
         if !st.is_empty() {
             println!(
-                "  {} recipe(s) have no fresh build — run `bbdev build {}` to build them.",
+                "  {} recipe(s) have no fresh build, run `bbdev build {}` first.",
                 st.len(),
                 st.iter().take(6).cloned().collect::<Vec<_>>().join(" ")
             );
@@ -240,22 +231,20 @@ fn cmd_auto(root: &Path) -> i32 {
     println!("== bbdev: building changed recipes ==");
     let b = cmd_build(root, &[]);
     if b != 0 {
-        eprintln!("bbdev: build failed — not running closure check");
+        eprintln!("bbdev: build failed, skipping the closure check");
         return b;
     }
     println!("== bbdev: dependency-closure check ==");
     cmd_check(root)
 }
 
-// ── process helper ────────────────────────────────────────────────────────────
-/// Like `run`, but pins the builder to the self-hosted path.
+/// `run`, but with BASE=blueberry unless you set BASE yourself.
 ///
-/// build-bpm-pkg.sh defaults to BASE=auto, which degrades to the Arch bootstrap
-/// container when a package won't build self-hosted — it prints a warning and
-/// still writes a .bpm. That artifact is then linked against Arch's libraries,
-/// which is exactly what this distro is not. A bump that can't build on our own
-/// toolchain has to fail loudly instead (libgcrypt 1.12 needing a newer
-/// libgpg-error is how this was found). Set BASE=auto explicitly to bootstrap.
+/// build-bpm-pkg.sh defaults to BASE=auto, which quietly falls back to the Arch
+/// bootstrap container when something won't build self-hosted. You get a warning
+/// and a .bpm linked against Arch's libs, i.e. not Blueberry at all. If a bump
+/// can't build on our own toolchain it should fail loudly (found this when
+/// libgcrypt 1.12 wanted a newer libgpg-error). BASE=auto to bootstrap on purpose.
 fn run_selfhosted(root: &Path, prog: &str, args: &[&str]) -> i32 {
     let base = std::env::var("BASE").unwrap_or_else(|_| "blueberry".into());
     match Command::new(prog)

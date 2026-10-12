@@ -1,18 +1,14 @@
 #!/bin/sh
-# fetch-kernel.sh — install a PREBUILT, pinned Blueberry kernel instead of
-# compiling it. Blueberry's kernel is not rolling: it's a fixed binary artifact
-# (vmlinuz + System.map + modules) hosted on the package repo, bumped only when
-# someone runs `make kernel-publish` on a build box. A normal `make` just
-# downloads ~20 MB and unpacks it — no multi-hour kernel compile on small boxes.
+# usage: fetch-kernel.sh <bootdir> <stagedir> <linux_version> <localversion> <arch>
 #
-# Usage: fetch-kernel.sh <bootdir> <stagedir> <linux_version> <localversion> <arch>
-# Env:   KERNEL_BASE_URL  (default https://repo.blueberrylinux.org/kernel)
+# Downloads the pinned prebuilt kernel (~20 MB) instead of compiling for hours.
+# It only changes when someone runs `make kernel-publish`.
+# KERNEL_BASE_URL overrides https://repo.blueberrylinux.org/kernel.
 #
-# Layout of the artifact (zstd tarball, rooted):
+# The artifact is a zstd tarball, checked against a .sha256 next to it:
 #   boot/vmlinuz
 #   boot/System.map-<ver><localversion>
 #   lib/modules/<release>/...
-# It is verified against a sibling .sha256 before unpacking.
 set -eu
 
 BOOTDIR=${1:?usage: fetch-kernel.sh <bootdir> <stagedir> <ver> <localversion> <arch>}
@@ -28,14 +24,13 @@ CACHE_DIR="$(dirname "$BOOTDIR")/src"
 CACHE="$CACHE_DIR/$ART"
 mkdir -p "$BOOTDIR" "$CACHE_DIR" "$STAGEDIR/usr/lib/modules"
 
-# Already installed? vmlinuz present and a marker matching this exact artifact.
+# marker says which artifact is unpacked here
 MARKER="$BOOTDIR/.kernel-artifact"
 if [ -f "$BOOTDIR/vmlinuz" ] && [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$ART" ]; then
     echo "[kernel] prebuilt $ART already installed"
     exit 0
 fi
 
-# Download (cached) + verify sha256.
 if [ ! -f "$CACHE" ]; then
     echo "[kernel] fetching prebuilt $ART"
     curl -fL --retry 3 -o "$CACHE.tmp" "$URL" || {
@@ -53,10 +48,9 @@ if curl -fsL "$URL.sha256" -o "$CACHE.sha256" 2>/dev/null; then
     [ "$want" = "$got" ] || { echo "ERROR: sha256 mismatch for $ART (want $want got $got)" >&2; rm -f "$CACHE"; exit 1; }
     echo "[kernel] sha256 verified"
 else
-    echo "[kernel] WARNING: no .sha256 published for $ART — skipping integrity check" >&2
+    echo "[kernel] WARNING: no .sha256 published for $ART, skipping integrity check" >&2
 fi
 
-# Unpack: vmlinuz/System.map → bootdir, modules → stagedir.
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 zstd -dcq "$CACHE" | tar -x -C "$TMP"
 install -Dm644 "$TMP/boot/vmlinuz" "$BOOTDIR/vmlinuz"
@@ -69,4 +63,4 @@ if [ -d "$TMP/lib/modules" ]; then
     cp -a "$TMP/lib/modules/." "$STAGEDIR/usr/lib/modules/"
 fi
 echo "$ART" > "$MARKER"
-echo "[kernel] installed prebuilt $ART → vmlinuz + modules"
+echo "[kernel] installed prebuilt $ART -> vmlinuz + modules"

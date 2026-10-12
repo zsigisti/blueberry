@@ -1,6 +1,4 @@
 #!/bin/sh
-# Dropbear SSH server (disk-boot / runit path).
-# -F: foreground (runit supervises it).  -E: log to stderr (svlogd captures it).
-# -R: generate host keys on demand, stored in /etc/dropbear.
+# dropbear: -F foreground, -E log to stderr, -R make host keys on first connect
 mkdir -p /etc/dropbear
 exec /usr/sbin/dropbear -F -E -R -p 22

@@ -1,19 +1,14 @@
 #!/bin/sh
-# bpm-extract-record.sh — extract a .bpm into the rootfs AND record it in the
-# local bpm database (var/lib/bpm/db/<name>/{desc,files}), exactly as a normal
-# `bpm install` would. This is what makes the base packages baked into an image
-# first-class, bpm-tracked packages, so `bpm upgrade` on the installed system can
-# pull security/version updates for them from the repo (openssl, openssh, sudo,
-# expat, …). Previously the base was extracted with `--exclude .BPM` and never
-# recorded, so bpm treated it as unmanaged and never offered upgrades.
+# bpm-extract-record.sh - extract a .bpm into a rootfs and record it in the bpm
+# database (var/lib/bpm/db/<name>/{desc,files}) like `bpm install` would.
+# Without the record, base packages baked into an image are invisible to bpm
+# and `bpm upgrade` never offers fixes for openssl, sudo and friends.
 #
-# The desc is the same .PKGINFO shape bpm writes (src/bpm-rs/src/pkg.rs::translate):
-# pkgname / pkgver=ver-rel / size / arch / pkgdesc / depend= / provides=. The files
-# list is the payload paths (no directories, no leading ./ , excluding .BPM).
+# desc has the same .PKGINFO shape bpm writes (pkg.rs translate()), files is
+# the payload paths without dirs, ./ or .BPM.
 #
-# Usage: bpm-extract-record.sh <bpm-file> <stagedir> [--record-only]
-#   --record-only : just write the DB entry; the payload is already extracted
-#                   (used for glibc, which fetch-bpm.sh already unpacked).
+# usage: bpm-extract-record.sh <bpm-file> <stagedir> [--record-only]
+#   --record-only  only write the DB entry (glibc: fetch-bpm.sh already unpacked it)
 set -eu
 BPM=${1:?usage: bpm-extract-record.sh <bpm-file> <stagedir> [--record-only]}
 STAGE=${2:?missing stagedir}
@@ -32,7 +27,7 @@ name=$(python3 -c "import sys,tomllib;print(tomllib.load(open(sys.argv[1],'rb'))
 DB="$STAGE/var/lib/bpm/db/$name"
 mkdir -p "$DB"
 
-# desc — byte-compatible with bpm's own translate() output.
+# has to match bpm's translate() byte for byte
 python3 - "$tmp/.BPM" > "$DB/desc" <<'PY'
 import sys, tomllib
 m = tomllib.load(open(sys.argv[1], "rb"))
@@ -47,18 +42,16 @@ for p in m.get("provides", []): out.append(f"provides = {p}")
 print("\n".join(out))
 PY
 
-# files — payload paths only: drop directory entries (trailing /), the .BPM
-# manifest, and the leading ./ , matching what bpm records.
+# files: no dir entries, no .BPM, no leading ./ (same as bpm records)
 zstd -dcq "$BPM" | tar -tf - \
     | grep -vE '/$' \
     | grep -vE '(^\./|^)\.BPM$' \
     | sed 's#^\./##' > "$DB/files"
 
 if [ "$MODE" != "--record-only" ]; then
-    # -p preserves setuid/setgid/sticky mode bits. Without it, extracting as an
-    # unprivileged build user silently drops them, so sudo/su/mount/passwd land
-    # as 0755 (non-setuid) in the rootfs and can't elevate for non-root users.
-    # The image step later forces root ownership but keeps the (preserved) mode.
+    # -p or the setuid bits vanish: as an unprivileged build user tar quietly
+    # drops them and sudo/su/mount/passwd end up plain 0755. the image step
+    # chowns to root later but keeps the mode.
     zstd -dcq "$BPM" | tar -xp -C "$STAGE" --exclude .BPM
 fi
 

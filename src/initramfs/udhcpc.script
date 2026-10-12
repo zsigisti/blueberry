@@ -1,7 +1,5 @@
 #!/bin/sh
-# /etc/udhcpc.script — busybox udhcpc lease handler.
-# Applies the DHCP lease using iproute2-style `ip` (busybox applet).
-# busybox exports: interface, ip, subnet, mask, router, dns, domain, ...
+# udhcpc lease hook. udhcpc hands us $interface $ip $mask $router $dns $domain.
 
 case "$1" in
     deconfig)

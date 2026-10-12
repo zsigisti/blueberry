@@ -1,13 +1,10 @@
-//! blueberry-install — the Blueberry Linux installer.
+//! blueberry-install: puts Blueberry on a disk.
 //!
-//! Three front-ends over one engine (engine.rs):
-//!   • TUI (default on a terminal)      — full-screen ratatui, easy to use
-//!   • CLI (`--cli`)                    — dialoguer prompts (serial-safe)
-//!   • unattended (BLUEBERRY_* env)     — no UI at all; used by `bbinstall`
-//!     kernel-cmdline installs and CI (BLUEBERRY_YES=1 BLUEBERRY_TARGET=… )
-//!
-//! The boot medium carries a single server base payload (rootfs.tar.zst) that
-//! the installer lays down on the target — see engine::Payload.
+//! Three front-ends, one engine (engine.rs):
+//!   TUI           default on a terminal
+//!   --cli         dialoguer prompts, fine over serial
+//!   unattended    BLUEBERRY_YES=1 / BLUEBERRY_TARGET=..., no UI at all
+//!                 (this is what `bbinstall` on the kernel cmdline and CI use)
 
 mod boot;
 mod disk;
@@ -44,11 +41,14 @@ fn real_main() -> R<()> {
     )?;
 
     let unattended = ui::yes_mode() || env::var("BLUEBERRY_TARGET").is_ok();
-    let cli = env::args().any(|a| a == "--cli");
-
-    if unattended {
-        println!("\n=== Blueberry Linux installer ({}) — unattended ===", payload.name);
-        let cfg = config_from_env(&payload)?;
+    if unattended || env::args().any(|a| a == "--cli") {
+        let cfg = if unattended {
+            println!("\n=== Blueberry Linux installer ({}) — unattended ===", payload.name);
+            config_from_env()?
+        } else {
+            println!("\n=== Blueberry Linux installer ({}) ===", payload.name);
+            config_from_prompts(&payload)?
+        };
         let mut emit = |e: Ev| match e {
             Ev::Step(s) => println!("\n:: {s}"),
             Ev::Log(s) => println!("   {s}"),
@@ -58,29 +58,18 @@ fn real_main() -> R<()> {
         return Ok(());
     }
 
-    if cli {
-        println!("\n=== Blueberry Linux installer ({}) ===", payload.name);
-        let cfg = config_from_prompts(&payload)?;
-        let mut emit = |e: Ev| match e {
-            Ev::Step(s) => println!("\n:: {s}"),
-            Ev::Log(s) => println!("   {s}"),
-        };
-        engine::run_install(&cfg, &payload, &mut emit)?;
-        println!("\n=== Installation complete. Remove the install medium and reboot. ===");
-        return Ok(());
-    }
-
-    // Default: the TUI. If it can't start (dumb terminal), fall back to CLI.
-    let disks = disk::list();
-    match tui::run(payload, disks, boot::detect_firmware()) {
-        Ok(true) => Ok(()),   // installed — exit 0, init reboots
+    match tui::run(payload, disk::list(), boot::detect_firmware()) {
+        Ok(true) => Ok(()), // exit 0 and init reboots us
         Ok(false) => Err("installation cancelled".into()),
         Err(e) => Err(format!("TUI failed ({e}); re-run with --cli for prompt mode")),
     }
 }
 
-/// Unattended config straight from BLUEBERRY_* (defaults where unset).
-fn config_from_env(payload: &Payload) -> R<Config> {
+fn env_true(key: &str) -> bool {
+    matches!(env::var(key).unwrap_or_default().as_str(), "1" | "y" | "yes" | "true")
+}
+
+fn config_from_env() -> R<Config> {
     let disks = disk::list();
     if disks.is_empty() {
         return Err("no installable disks found".into());
@@ -101,15 +90,6 @@ fn config_from_env(payload: &Payload) -> R<Config> {
         )),
         _ => None,
     };
-    let luks_on = matches!(
-        env::var("BLUEBERRY_LUKS").unwrap_or_default().as_str(),
-        "1" | "y" | "yes" | "true"
-    );
-    let lvm_on = matches!(
-        env::var("BLUEBERRY_LVM").unwrap_or_default().as_str(),
-        "1" | "y" | "yes" | "true"
-    );
-    let _ = payload; // only the base rootfs matters; nothing to select
     Ok(Config {
         disk_dev,
         firmware,
@@ -120,13 +100,12 @@ fn config_from_env(payload: &Payload) -> R<Config> {
         root_pw: env::var("BLUEBERRY_ROOTPW").unwrap_or_else(|_| "blueberry".into()),
         user,
         swap_gib: env::var("BLUEBERRY_SWAP").ok().and_then(|s| s.parse().ok()).unwrap_or(0),
-        luks_pw: if luks_on { env::var("BLUEBERRY_LUKSPW").ok() } else { None },
-        lvm: lvm_on,
+        luks_pw: if env_true("BLUEBERRY_LUKS") { env::var("BLUEBERRY_LUKSPW").ok() } else { None },
+        lvm: env_true("BLUEBERRY_LVM"),
         extra_pkgs: env::var("BLUEBERRY_PKGS").unwrap_or_default(),
     })
 }
 
-/// Interactive dialoguer prompts (the `--cli` path, serial-safe).
 fn config_from_prompts(payload: &Payload) -> R<Config> {
     let disks = disk::list();
     if disks.is_empty() {
@@ -156,9 +135,6 @@ fn config_from_prompts(payload: &Payload) -> R<Config> {
     let fsi = ui::select("Root filesystem", &fs_items, 0, "BLUEBERRY_FS");
     let fs = Filesystem::ALL[fsi];
 
-    // Network stack is systemd-networkd (the only supported stack) — no prompt.
-    let net = NetStack::Networkd;
-
     println!("\nThis will ERASE ALL DATA on {}.", disks[di].dev);
     if !ui::confirm("Proceed and erase this disk?", false, "BLUEBERRY_ERASE_OK") {
         return Err("aborted by user".into());
@@ -167,7 +143,7 @@ fn config_from_prompts(payload: &Payload) -> R<Config> {
     let km_items: Vec<String> = engine::KEYMAPS.iter().map(|(c, _, l)| format!("{l} ({c})")).collect();
     let ki = ui::select("Keyboard layout", &km_items, 0, "BLUEBERRY_KEYMAP");
     let keymap = engine::KEYMAPS[ki].0.to_string();
-    let _ = crate::run::out(&["loadkeys", &keymap]); // apply live for the prompts below
+    let _ = run::out(&["loadkeys", &keymap]); // so the passwords below get typed in the right layout
     let hostname = ui::input("Hostname", "blueberry", "BLUEBERRY_HOSTNAME");
     let root_pw = ui::password("Root password", "BLUEBERRY_ROOTPW", false)
         .ok_or("a root password is required")?;
@@ -195,7 +171,7 @@ fn config_from_prompts(payload: &Payload) -> R<Config> {
         disk_dev: disks[di].dev.clone(),
         firmware: fw_kinds[fi],
         fs,
-        net,
+        net: NetStack::Networkd, // the only stack we ship, so no prompt
         keymap,
         hostname,
         root_pw,

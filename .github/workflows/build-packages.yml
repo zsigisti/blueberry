@@ -1,0 +1,143 @@
+name: build-packages
+
+# Package builds, but on GitHub's computer instead of mine.
+#
+# Same builder container as at home, BASE=blueberry, so it self-hosts or fails.
+# No quiet fallback to Arch - that has bitten us before.
+#
+# Build deps come prebuilt from the signed mirror (same trick as
+# repo-selfhost.sh), so only the recipes you touched get compiled. PRs build
+# what they changed; "Run workflow" takes an explicit list.
+#
+# Output is only an artifact. Publishing to the mirror happens on the repo
+# host, because that's where the signing key lives and it stays there.
+
+on:
+  pull_request:
+    paths: ["packages/**"]
+  workflow_dispatch:
+    inputs:
+      packages:
+        description: "Recipes to build, space separated (leave empty = whatever this branch changed vs master)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  build:
+    name: build recipes (self-hosted toolchain)
+    runs-on: ubuntu-latest
+    timeout-minutes: 330   # glibc + gcc on a free runner. go make coffee
+    env:
+      ENGINE: podman
+      BUILDER_IMAGE: ghcr.io/zsigisti/blueberry-builder:latest
+      BASE: blueberry
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # need master in here to diff against
+
+      - name: Make some room
+        # stock runner has ~14 GB free and the builder image is ~3.5 GB.
+        # nobody here needs .NET, Android or Haskell
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /usr/local/share/boost "$AGENT_TOOLSDIRECTORY" || true
+          df -h / | tail -1
+
+      - name: Tools
+        # fetch-bpm and bpmbuild --check both unpack zstd
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends zstd
+
+      - name: What are we building
+        id: pick
+        env:
+          # through env, not pasted into the script - a recipe named
+          # `$(rm -rf ~)` is funny exactly once
+          WANTED: ${{ github.event.inputs.packages }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -eu
+          if [ -n "$WANTED" ]; then
+            pkgs=$WANTED
+          else
+            base=${PR_BASE:-$(git merge-base origin/master HEAD)}
+            pkgs=$(git diff --name-only "$base"...HEAD -- packages/ | cut -d/ -f2 | sort -u)
+          fi
+
+          # a deleted recipe still shows up in the diff, but there's nothing left
+          # to build. skip it instead of failing on it
+          keep=""
+          for p in $pkgs; do
+            if [ -f "packages/$p/bpm.toml" ]; then
+              keep="$keep $p"
+            else
+              echo ":: $p has no recipe (deleted?), skipping"
+            fi
+          done
+          keep=$(echo $keep)   # squash the whitespace
+
+          echo "packages=$keep" >> "$GITHUB_OUTPUT"
+          echo ":: building: ${keep:-nothing}"
+
+      - name: Pull the builder image
+        if: steps.pick.outputs.packages != ''
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" \
+            | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+          podman pull "$BUILDER_IMAGE"
+
+      - name: Grab the build deps from the mirror
+        if: steps.pick.outputs.packages != ''
+        env:
+          PKGS: ${{ steps.pick.outputs.packages }}
+        run: |
+          set -eu
+          mkdir -p obj/bpm-out
+          need=$(python3 tools/pkg/makedep-closure.py $PKGS)
+          echo ":: need $(echo $need | wc -w) package(s) to build against"
+          for p in $need; do
+            ls obj/bpm-out/"$p"-[0-9]*.bpm >/dev/null 2>&1 && continue
+            if BPM_CACHE=obj/bpm-out sh tools/pkg/fetch-bpm.sh "$p" - obj/bpm-out >/dev/null 2>&1; then
+              echo "  got $p"
+            else
+              echo "  not on the mirror: $p"
+            fi
+          done
+          # if something's missing, fail now (same message as a local build)
+          # rather than three hours into gcc
+          python3 tools/pkg/makedep-closure.py --check obj/bpm-out $PKGS
+
+      - name: Build
+        if: steps.pick.outputs.packages != ''
+        env:
+          PKGS: ${{ steps.pick.outputs.packages }}
+        run: sh tools/pkg/build-bpm-pkg.sh obj/bpm-out $PKGS
+
+      - name: Does each package match its own manifest
+        if: steps.pick.outputs.packages != ''
+        env:
+          PKGS: ${{ steps.pick.outputs.packages }}
+        run: |
+          set -eu
+          for p in $PKGS; do
+            f=$(ls -t obj/bpm-out/"$p"-[0-9]*.bpm | head -1)
+            python3 tools/pkg/bpmbuild --check "$f"
+            printf 'ok  %s  (%s)\n' "${f##*/}" "$(du -h "$f" | cut -f1)"
+          done
+
+      - name: Recipe deps still close
+        if: steps.pick.outputs.packages != ''
+        run: python3 tools/pkg/check-closure.py
+
+      - name: Upload the packages
+        if: steps.pick.outputs.packages != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: bpm-packages
+          path: obj/bpm-out/*.bpm   # the seeded deps come along too. fine, it's 14 days
+          retention-days: 14
+          if-no-files-found: error

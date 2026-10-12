@@ -1,31 +1,23 @@
 #!/usr/bin/env python3
-"""bpm-audit.py — report known CVEs affecting the installed packages.
+"""bpm-audit.py - known CVEs in the installed (or shipped) package versions.
 
-Freshness (`check-updates.py`) tells you when upstream *moves*; this tells you
-when an installed version is *vulnerable* — the difference between "rolling" and
-"rolling toward a fix." It reads the local installed database and, for every
-package it has a mapping for, asks an authoritative source which published CVEs
-affect that exact version.
+check-updates.py says when upstream moves, this says when what we ship is
+actually vulnerable. Sources:
+  NVD 2.0  - C/system packages. virtualMatchString with our version only
+             returns CVEs whose CPE range covers it. NVD_API_KEY lifts the
+             anonymous 5 requests / 30s limit.
+  OSV.dev  - Go and Rust stuff. OSV matches ranges server-side, no key.
+Packages with no mapping are listed as untracked, never quietly passed.
 
-Sources (chosen empirically — see the mapping table below):
-  * NVD 2.0  — C/system packages. `virtualMatchString` with the installed
-    version returns only CVEs whose CPE range covers it, so no client-side
-    range matching. Set NVD_API_KEY to lift the 5-request/30s anonymous limit.
-  * OSV.dev  — language-ecosystem packages (our Go binaries, Rust helpers).
-    OSV does the range matching server-side and needs no key.
+Gotcha: NVD's version matching gets multi-digit components wrong, so a CVE
+capped at "1.2.x" can come back for 1.22.2 (that's how krb5 gets CVEs from
+2000). Old CVEs against a current version are suspect, check the range by hand.
 
-A package with no mapping is reported as "untracked", never silently passed —
-the point is to be honest about coverage, not to look clean.
-
-Known noise: NVD's own version matching mishandles multi-digit components, so a
-CVE bounded at "1.2.x" can come back for 1.22.2 (krb5 reports CVEs from 2000
-this way). Treat old CVEs against a current version as suspect and check the
-range by hand before acting.
-
-Usage:
-  tools/pkg/bpm-audit.py [--root /] [--packages name=ver,...] [--json]
+  tools/pkg/bpm-audit.py [--root /] [--packages name=ver,...] [--recipes DIR]
+                         [--json] [--no-throttle]
                          [--fail-on none|low|medium|high|critical]
-Exit: 0 unless --fail-on is set and a CVE at/above that severity is found.
+
+Exit 0 unless --fail-on is set and something at/above it turns up.
 """
 import argparse
 import json
@@ -42,15 +34,14 @@ UA = {"User-Agent": "blueberry-bpm-audit"}
 TIMEOUT = 30
 SEV_ORDER = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1, "NONE": 0, "UNKNOWN": 0}
 
-# name -> source spec:
-#   ("nvd", "vendor:product")            query NVD by CPE
-#   ("go",  "module/path")               query OSV Go ecosystem
-#   ("cargo", "crate")                   query OSV crates.io
-#   None                                 explicitly not security-tracked
-# Only the packages where a CVE actually matters on a server are mapped; the CPE
-# vendor:product strings are the finicky part and are the maintenance surface.
+# name -> where to look:
+#   ("nvd", "vendor:product")   NVD by CPE
+#   ("go", "module/path")       OSV, Go
+#   ("cargo", "crate")          OSV, crates.io
+#   None                        deliberately not tracked
+# getting the vendor:product strings right is the annoying part
 CPE_MAP = {
-    # crypto / TLS / auth — the crown jewels on a server
+    # crypto / TLS / auth
     "openssl": ("nvd", "openssl:openssl"),
     "krb5": ("nvd", "mit:kerberos"),
     "nss": ("nvd", "mozilla:nss"),
@@ -71,7 +62,7 @@ CPE_MAP = {
     "ca-certificates": None,
     # init / core system
     "systemd": ("nvd", "systemd_project:systemd"),
-    # the kernel is an OS-part CPE, not an application one
+    # the kernel is an OS-part CPE (o:), as an a: CPE it silently matches nothing
     "linux": ("nvd", "o:linux:linux_kernel"),
     "grub": ("nvd", "gnu:grub2"),
     "mdadm": ("nvd", "mdadm_project:mdadm"),
@@ -140,7 +131,7 @@ CPE_MAP = {
     "python": ("nvd", "python:python"),
     "perl": ("nvd", "perl:perl"),
     "ufw": None,
-    # containers stack — Go/Rust, best served by OSV
+    # containers stack, Go/Rust -> OSV
     "podman": ("go", "github.com/containers/podman"),
     "rclone": ("go", "github.com/rclone/rclone"),
     "node_exporter": ("go", "github.com/prometheus/node_exporter"),
@@ -151,7 +142,7 @@ CPE_MAP = {
     "conmon": None,
     "netavark": ("cargo", "netavark"),
     "aardvark-dns": ("cargo", "aardvark-dns"),
-    # toolchain (a CVE here matters less at runtime but we track the big ones)
+    # toolchain, matters less at runtime but worth knowing
     "binutils": ("nvd", "gnu:binutils"),
     "gcc": ("nvd", "gnu:gcc"),
 }
@@ -163,7 +154,7 @@ def die(msg):
 
 
 def read_installed(root):
-    """Return {name: version} from <root>/var/lib/bpm/db/<name>/desc."""
+    # {name: version} from <root>/var/lib/bpm/db/<name>/desc
     db = os.path.join(root, "var/lib/bpm/db")
     if not os.path.isdir(db):
         die(f"no installed database at {db} (wrong --root?)")
@@ -199,15 +190,13 @@ def _post(url, body):
 
 
 def _applies_to_version(cve, cpe_vp, version):
-    """Keep a CVE only if a CPE match for our product names our exact version or
-    carries an UPPER bound (versionEnd*). NVD's virtualMatchString already
-    confirmed our version falls within any bounded range server-side, so an upper
-    bound means "fixed in a later version" — a real, actionable finding. Matches
-    that are open-ended (a bare `product:*` with only versionStartIncluding, e.g.
-    a 2013 glibc CVE recorded as "affects >= 2.17" with no fix version) match
-    every newer release and are stale/mis-scoped far more often than real, so we
-    drop them. This is the single biggest source of NVD false positives on a
-    rolling distro that always sits at the latest upstream version."""
+    # keep a CVE only if a CPE match for our product pins our exact version or
+    # has an upper bound (versionEnd*). NVD already checked we're inside the
+    # range, so an upper bound means "fixed in a later version": real.
+    # open-ended matches (only versionStartIncluding, like a 2013 glibc CVE
+    # filed as ">= 2.17" with no fix) hit every newer release and are almost
+    # always mis-scoped. they're most of NVD's false positives on a distro
+    # that tracks latest upstream, so drop them.
     prefix = f"cpe:2.3:{_cpe_part(cpe_vp)}:"
     for node in (n for c in cve.get("configurations", []) for n in c.get("nodes", [])):
         for m in node.get("cpeMatch", []):
@@ -219,19 +208,19 @@ def _applies_to_version(cve, cpe_vp, version):
             if ver_field not in ("*", "-", "") and ver_field == version:
                 return True  # exact vulnerable version pinned in the CPE
             if any(k in m for k in ("versionEndIncluding", "versionEndExcluding")):
-                return True  # bounded above → a real "fixed in X" finding
+                return True  # bounded above, a real "fixed in X"
     return False
 
 
 def _cpe_part(cpe_vp):
-    """`vendor:product` means an application (`a`); a mapping may name the part
-    itself for the exceptions — the kernel is `o:linux:linux_kernel`, and
-    querying it as an application silently returns nothing at all."""
+    # vendor:product is an application (a:). a mapping can name the part itself
+    # for the odd ones out: the kernel is o:linux:linux_kernel, and asking for
+    # it as an application returns nothing at all, no error
     return cpe_vp if cpe_vp.count(":") == 2 else f"a:{cpe_vp}"
 
 
 def nvd_cves(cpe_vp, version, api_key):
-    """CVEs affecting cpe:2.3:a:<cpe_vp>:<version>. Returns [(id, sev, desc)]."""
+    # [(id, severity, description)] for cpe:2.3:<part>:<cpe_vp>:<version>
     vms = f"cpe:2.3:{_cpe_part(cpe_vp)}:{version}"
     url = f"{NVD_API}?virtualMatchString={urllib.parse.quote(vms)}&resultsPerPage=200"
     headers = {"apiKey": api_key} if api_key else {}
@@ -249,7 +238,7 @@ def nvd_cves(cpe_vp, version, api_key):
     for v in data.get("vulnerabilities", []):
         cve = v.get("cve", {})
         if not _applies_to_version(cve, cpe_vp, version):
-            continue  # drop open-ended / mis-scoped matches
+            continue
         cid = cve.get("id", "?")
         metrics = cve.get("metrics", {})
         sev = "UNKNOWN"
@@ -270,7 +259,7 @@ def osv_vulns(name, ecosystem, version):
     for v in data.get("vulns", []):
         cid = v.get("id", "?")
         sev = "UNKNOWN"
-        # OSV: CVSS vector in severity[], or a text severity in database_specific
+        # only the text severity in database_specific, the CVSS vector in severity[] is ignored
         ds = (v.get("database_specific") or {}).get("severity")
         if isinstance(ds, str):
             sev = ds.upper()
@@ -287,7 +276,7 @@ def audit(installed, api_key, throttle):
             untracked.append(name)
             continue
         if spec is None:
-            continue  # explicitly not tracked
+            continue
         src, ident = spec
         try:
             if src == "nvd":
@@ -300,7 +289,7 @@ def audit(installed, api_key, throttle):
                 cves = osv_vulns(ident, "crates.io", ver)
             else:
                 continue
-        except Exception as e:  # never let one package abort the whole audit
+        except Exception as e:  # one bad lookup shouldn't kill the whole audit
             rows.append((name, ver, "ERROR", str(e)[:80], []))
             continue
         if cves:
@@ -346,7 +335,7 @@ def main():
     api_key = os.environ.get("NVD_API_KEY", "").strip()
     rows, untracked = audit(installed, api_key, throttle=not args.no_throttle)
 
-    vuln = [r for r in rows if r[2] not in ("ERROR",) and r[4]]
+    vuln = [r for r in rows if r[2] != "ERROR" and r[4]]
     if args.json:
         print(json.dumps({
             "installed": len(installed),
@@ -367,7 +356,7 @@ def main():
             for n, v, s, cnt, cves in sorted(vuln, key=lambda r: -SEV_ORDER.get(r[2], 0)):
                 ids = " ".join(i for i, _, _ in cves[:8])
                 more = "" if len(cves) <= 8 else f" (+{len(cves) - 8} more)"
-                print(f"  [{s:8}] {n} {v} — {cnt}: {ids}{more}")
+                print(f"  [{s:8}] {n} {v} - {cnt}: {ids}{more}")
             print(f"\n  {len(untracked)} package(s) untracked (no CPE mapping).")
         errs = [r for r in rows if r[2] == "ERROR"]
         if errs:
@@ -375,8 +364,7 @@ def main():
             for n, v, _, e, _ in errs:
                 print(f"    {n} {v}: {e}")
 
-    threshold = SEV_ORDER[{"none": "NONE", "low": "LOW", "medium": "MEDIUM",
-                           "high": "HIGH", "critical": "CRITICAL"}[args.fail_on]]
+    threshold = SEV_ORDER[args.fail_on.upper()]
     if args.fail_on != "none":
         worst = max((SEV_ORDER.get(r[2], 0) for r in vuln), default=0)
         if worst >= threshold:

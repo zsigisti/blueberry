@@ -1,16 +1,10 @@
 #!/bin/sh
-# mirror-setup.sh — turn a fresh box into a Blueberry bpm mirror.
+# Turn a fresh box into a mirror: sync script, timer, nginx vhost, first sync.
+# Run as root on the mirror. --enable also turns on the timer and reloads nginx.
 #
-# Installs the sync script + systemd timer that pull a read-only replica from the
-# origin, drops in the nginx vhost with the correct cache policy, does a first
-# sync, and (optionally) enables the timer. Run as root ON THE MIRROR.
-#
-# Usage:
 #   ORIGIN_RSYNC=rsync://<origin>/blueberry-repo sh mirror-setup.sh [--enable]
 #
-# Env:
-#   ORIGIN_RSYNC   rsync source on the origin (required)
-#   REPO_DIR       where to store the replica (default /srv/blueberry-repo)
+# REPO_DIR defaults to /srv/blueberry-repo.
 set -eu
 
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -21,7 +15,7 @@ ENABLE=0
 [ "$(id -u)" = 0 ] || { echo "mirror-setup: run as root" >&2; exit 1; }
 : "${ORIGIN_RSYNC:?set ORIGIN_RSYNC=rsync://<origin>/blueberry-repo}"
 for t in rsync nginx; do
-    command -v "$t" >/dev/null 2>&1 || echo "mirror-setup: WARNING '$t' not found — install it" >&2
+    command -v "$t" >/dev/null 2>&1 || echo "mirror-setup: WARNING '$t' not found, install it" >&2
 done
 
 echo "==> installing sync script -> /usr/local/bin/blueberry-mirror-sync"

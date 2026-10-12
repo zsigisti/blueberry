@@ -1,11 +1,9 @@
-//! Install-root layout, matching the C bpm exactly so the two are
-//! interchangeable on a live system (same DB, cache and index on disk).
+//! Where everything lives. Same paths as the C bpm, keep it that way.
 
 use std::path::PathBuf;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Resolved paths for the active install root (`BPM_ROOT`, default `/`).
 pub struct Config {
     pub root: String,   // "" for "/", else an absolute dir with no trailing slash
     pub dest: PathBuf,  // real fs target, never "" ("/" when unrooted)
@@ -22,7 +20,7 @@ impl Config {
         if root.is_empty() {
             root = "/".to_string();
         }
-        // strip trailing slashes; "/" collapses to ""
+        // drop trailing slashes, and "/" becomes ""
         while root.len() > 1 && root.ends_with('/') {
             root.pop();
         }
@@ -46,8 +44,7 @@ impl Config {
         }
     }
 
-    /// True when installing into an alternate root (so scriptlets/ldconfig must
-    /// chroot into `dest` instead of acting on the host).
+    /// Installing somewhere other than / (scriptlets have to chroot).
     pub fn rooted(&self) -> bool {
         !self.root.is_empty()
     }

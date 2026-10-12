@@ -1,13 +1,12 @@
 #!/bin/sh
-# mkrepokey.sh — (re)generate src/bpm-rs/src/repokey.rs from an ed25519 keypair.
+# mkrepokey.sh - write src/bpm-rs/src/repokey.rs from an ed25519 keypair.
 #
-# Usage: tools/pkg/mkrepokey.sh [signing-key.pem]
-#   Default key: ~/.config/bpm/repo-ed25519.pem (generated if absent).
-#   Extracts the raw 32-byte ed25519 public key and writes it as a Rust byte
-#   array into src/bpm-rs/src/repokey.rs. Rebuild bpm afterwards.
+# usage: tools/pkg/mkrepokey.sh [signing-key.pem]
+#   default key ~/.config/bpm/repo-ed25519.pem, generated if it isn't there.
+#   rebuild bpm afterwards.
 #
-# The PRIVATE key never enters the repo; only the public key is baked in.
-# tools/pkg/bpmrepo.sh signs bpm.index with the private key; bpm verifies (src/sig.rs).
+# only the public key goes in the repo. bpmrepo.sh signs bpm.index with the
+# private one, bpm checks it (src/sig.rs).
 
 set -eu
 KEY="${1:-$HOME/.config/bpm/repo-ed25519.pem}"
@@ -23,7 +22,7 @@ if [ ! -f "$KEY" ]; then
     echo "mkrepokey: generated $KEY"
 fi
 
-# ed25519 SubjectPublicKeyInfo (DER) = 12-byte prefix + the 32-byte raw key.
+# ed25519 SubjectPublicKeyInfo DER is a 12-byte prefix and then the raw 32-byte key
 HEX=$(openssl pkey -in "$KEY" -pubout -outform DER 2>/dev/null | tail -c 32 | xxd -p -c 32)
 [ "${#HEX}" -eq 64 ] || { echo "mkrepokey: expected 32-byte key, got $(( ${#HEX} / 2 ))" >&2; exit 1; }
 

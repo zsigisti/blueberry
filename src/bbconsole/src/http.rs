@@ -1,19 +1,16 @@
-//! Minimal HTTP/1.1 plumbing — pure std, no web framework.
-//!
-//! One request per connection (`Connection: close`), with hard size limits, so
-//! the parser stays small and auditable. TLS and internet exposure are a reverse
-//! proxy's job (see doc/WEBUI.md); this daemon binds localhost.
+//! Just enough HTTP/1.1, std only. One request per connection, hard size
+//! limits, so the parser stays small enough to actually read.
 
 use std::collections::HashMap;
 use std::io::{BufRead, Write};
 
 const MAX_HEADERS: usize = 32 * 1024;
 const MAX_BODY: usize = 2 * 1024 * 1024; // 2 MiB request cap
-const MAX_LINE: usize = 8 * 1024; // per-line cap (request line / one header)
+const MAX_LINE: usize = 8 * 1024; // request line or a single header
 
-/// Read one line (up to and including '\n') without letting a newline-less flood
-/// grow the buffer unbounded — `BufRead::read_line` would allocate the whole
-/// thing before any size check. Returns "" at EOF, None on overflow or error.
+/// Read a line, giving up past `max` bytes. Plain `read_line` would happily
+/// buffer a newline-less flood forever before we got to check the size.
+/// "" at EOF, None on overflow or error.
 fn read_line_capped<R: BufRead>(r: &mut R, max: usize) -> Option<String> {
     let mut buf: Vec<u8> = Vec::new();
     loop {
@@ -56,7 +53,6 @@ impl Request {
         self.headers.get(&k.to_ascii_lowercase()).map(String::as_str)
     }
 
-    /// Value of a cookie by name from the `Cookie` header.
     pub fn cookie(&self, name: &str) -> Option<String> {
         let raw = self.header("cookie")?;
         for part in raw.split(';') {
@@ -70,20 +66,18 @@ impl Request {
         None
     }
 
-    /// Parse the JSON body, or None if it isn't valid JSON.
     pub fn json(&self) -> Option<serde_json::Value> {
         serde_json::from_slice(&self.body).ok()
     }
 }
 
-/// Read exactly one request from any buffered stream (plain TCP or TLS).
-/// Returns None on EOF or a malformed/oversized request.
+/// One request off the stream. None on EOF or anything malformed or too big.
 pub fn read_request<R: BufRead>(reader: &mut R) -> Option<Request> {
     let line = read_line_capped(reader, MAX_LINE)?;
     if line.is_empty() {
         return None; // EOF before a request line
     }
-    let mut it = line.trim_end().split_whitespace();
+    let mut it = line.split_whitespace();
     let method = it.next()?.to_string();
     let target = it.next()?.to_string();
     let (path, query) = match target.split_once('?') {
@@ -177,14 +171,11 @@ impl Response {
             self.content_type,
             self.body.len()
         );
-        // Security headers on every response.
         head.push_str("X-Content-Type-Options: nosniff\r\n");
         head.push_str("X-Frame-Options: DENY\r\n");
         head.push_str("Referrer-Policy: no-referrer\r\n");
-        // Always-HTTPS: pin the browser to TLS for a year.
         head.push_str("Strict-Transport-Security: max-age=31536000\r\n");
-        // No inline styles/scripts anywhere (pure external app.js, no CSS), so the
-        // CSP can stay tight: self-only, no framing, no base-tag hijack.
+        // the UI has no inline scripts or styles, so the CSP can stay this tight
         head.push_str(
             "Content-Security-Policy: default-src 'self'; frame-ancestors 'none'; base-uri 'none'\r\n",
         );

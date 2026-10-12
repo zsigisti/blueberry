@@ -1,18 +1,16 @@
 #!/bin/sh
-# service-smoke.sh — does each server service actually RUN, not just install?
+# service-smoke.sh - do the server services actually run, not just install?
 #
-# test-install proves the box boots; this proves the *software works*. For each
-# server package it builds the Blueberry .bpm, extracts it into an ephemeral
-# container, starts the daemon, and probes it with a real client (redis PING,
-# an HTTP GET from nginx, a SQL SELECT from postgres, …). Catches the whole
-# "it installed but doesn't run / doesn't serve / was built without a feature"
-# class that a boot test can't see.
+# test-install shows the box boots. This builds each service's .bpm, unpacks it
+# in a throwaway container, starts the daemon and pokes it with a real client
+# (redis PING, a GET from nginx, a SELECT from postgres...). Catches "installed
+# fine but doesn't serve" and "built without that feature".
 #
-# The Blueberry-built binaries run against the build container's shared libraries
-# (a pure-Blueberry runtime is the self-hosted-container track); that's still a
-# faithful test of *our build* of each service — its code, config and features.
+# The binaries run against the container's (Arch) shared libs; a pure Blueberry
+# runtime is the self-hosted container's job. Still tests our build of the code,
+# config and features.
 #
-# Usage: tools/test/service-smoke.sh [service...]   (default: the whole matrix)
+# usage: tools/test/service-smoke.sh [service...]   (default: all of them)
 set -eu
 
 cd "$(dirname "$0")/../.."
@@ -27,9 +25,8 @@ echo "[services] building: $SERVICES"
 # shellcheck disable=SC2086
 sh "$TOP/tools/pkg/build-bpm-pkg.sh" "$OUT" $SERVICES
 
-# The probe matrix runs inside one container. Each service extracts its .bpm (and
-# gets its runtime libs from pacman), starts, and is probed; failures are
-# collected and reported at the end.
+# one container for all of them: unpack the .bpm, runtime libs from pacman,
+# start, probe. failures are collected and reported at the end
 "$ENGINE" run --rm \
     -v "$CACHE:/var/cache/pacman/pkg" \
     -v "$OUT:/out:ro,z" \
@@ -37,7 +34,7 @@ sh "$TOP/tools/pkg/build-bpm-pkg.sh" "$OUT" $SERVICES
     "$IMAGE" bash -euc '
 pacman -Sy --noconfirm --needed zstd curl >/dev/null 2>&1
 
-extract() {  # extract a Blueberry .bpm payload into /
+extract() {  # unpack a .bpm payload into /
     f=$(ls -1 /out/"$1"-[0-9]*.bpm 2>/dev/null | head -1)
     [ -n "$f" ] || { echo "  no .bpm for $1"; return 1; }
     zstd -dcq "$f" | tar -x -C / --exclude=.BPM 2>/dev/null

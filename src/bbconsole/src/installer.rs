@@ -1,7 +1,6 @@
-//! Web installer — drive the unattended `blueberry-install` from the console, so
-//! a headless box can be installed to a disk from a browser. Deliberately gated
-//! to the LIVE installer environment (root on live/RAM media): it erases a disk,
-//! so it must never be offered on an already-installed running system.
+//! Web installer: runs the unattended `blueberry-install` so a headless box can
+//! be installed from a browser. It wipes a disk, so it only shows up when we're
+//! booted from live media, never on an installed system.
 
 use serde_json::{json, Value};
 use std::fs;
@@ -9,7 +8,7 @@ use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 
-/// In-memory state of the single install job (there is only ever one).
+/// There's only ever one install job.
 #[derive(Default)]
 pub struct InstallJob {
     pub running: bool,
@@ -24,8 +23,7 @@ impl InstallJob {
     }
 }
 
-/// True when `/` is a live/RAM filesystem — the only context where offering to
-/// erase a disk and install is safe (an installed system has a real root fs).
+/// `/` is a live/RAM filesystem. An installed system has a real root fs.
 fn root_is_live() -> bool {
     if let Ok(m) = fs::read_to_string("/proc/mounts") {
         for l in m.lines() {
@@ -44,7 +42,7 @@ fn installer_present() -> bool {
         .any(|p| std::path::Path::new(p).exists())
 }
 
-/// Candidate install-target disks (scan /sys/block, like the installer does).
+/// Disks you could install to, from /sys/block (same as the installer).
 pub fn list_disks() -> Vec<Value> {
     let mut v: Vec<(String, Value)> = Vec::new();
     if let Ok(rd) = fs::read_dir("/sys/block") {
@@ -68,7 +66,7 @@ pub fn list_disks() -> Vec<Value> {
     v.into_iter().map(|(_, j)| j).collect()
 }
 
-/// GET /api/v1/installer — availability + target disks + detected firmware.
+/// GET installer
 pub fn info() -> Value {
     let live = root_is_live();
     let present = installer_present();
@@ -95,7 +93,7 @@ fn valid_user(s: &str) -> bool {
             && s.bytes().enumerate().all(|(i, b)| b.is_ascii_lowercase() || b.is_ascii_digit() || (i > 0 && (b == b'-' || b == b'_'))))
 }
 
-/// Validate a start request and return the `BLUEBERRY_*` env for the installer.
+/// Check a start request and turn it into `BLUEBERRY_*` env for the installer.
 pub fn build_env(req: &Value) -> Result<Vec<(String, String)>, String> {
     if !(root_is_live() && installer_present()) {
         return Err("installer not available in this environment".into());
@@ -146,8 +144,7 @@ pub fn build_env(req: &Value) -> Result<Vec<(String, String)>, String> {
     Ok(env)
 }
 
-/// Spawn the install on a background thread, streaming combined output into the
-/// shared job log. Errors if an install is already running.
+/// Run the install in the background, piping its output into the job log.
 pub fn start(job: Arc<Mutex<InstallJob>>, env: Vec<(String, String)>) -> Result<(), String> {
     {
         let mut j = job.lock().unwrap();

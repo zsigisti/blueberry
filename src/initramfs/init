@@ -1,30 +1,26 @@
 #!/bin/sh
-# /init — Blueberry Linux initramfs entry point (PID 1)
+# initramfs /init, PID 1. With nothing on the cmdline it's a live CLI running
+# from RAM; otherwise it switch_roots somewhere.
 #
-# Blueberry boots as a self-contained live CLI: the kernel loads this
-# initramfs and runs straight into an interactive busybox shell. No disk,
-# no package manager, no network required.
+# cmdline:
+#   bbtest                run /etc/selftest and power off
+#   bbtui                 straight into the installer
+#   bbinstall             unattended install, then power off (blueberry.* below)
+#   blueberry.live=1      squashfs + overlay root from the boot medium
+#   root=live:CDLABEL=ID  which medium for blueberry.live (scans if missing)
+#   root=<dev|LABEL|UUID> boot that disk
+#   rootfstype= rootflags= init=   the usual (auto, ro, /sbin/init)
+#   cryptdevice=<src>:<name>       unlock LUKS before mounting root
+#   quiet                 no banner
+#   debug                 set -x
 #
-# Kernel command-line parameters understood:
-#   bbtest                run the in-guest self-test, print result, power off
-#   blueberry.live=1      live desktop boot: mount the medium's squashfs as an
-#                         overlayfs root and switch_root into systemd (graphical)
-#   root=live:CDLABEL=ID  names the live medium for blueberry.live (else scanned)
-#   root=<dev|LABEL|UUID> mount that device and switch_root into it instead
-#   rootfstype=<type>     filesystem type for root= (default: auto)
-#   rootflags=<flags>     mount flags for root= (default: ro)
-#   init=<path>           init to exec after switch_root (default: /sbin/init,
-#                         which points at runit-init or systemd per the image)
-#   quiet                 suppress the banner and most output
-#   debug                 verbose shell tracing
+# This runs under busybox ash. Keep it POSIX.
 
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export HOME=/root TERM="${TERM:-linux}"
-# Interactive shells (the console getty spawns) source /etc/profile via $ENV,
-# which sets the prompt and aliases.
+# ash reads $ENV for interactive shells - that's where the prompt comes from
 export ENV=/etc/profile
 
-# ── Mount the early filesystems ───────────────────────────────────────────────
 mount -t proc     proc     /proc       2>/dev/null
 mount -t sysfs    sysfs    /sys        2>/dev/null
 mount -t devtmpfs devtmpfs /dev        2>/dev/null || \
@@ -35,10 +31,9 @@ mount -t tmpfs  shm    /dev/shm -o nosuid,nodev                 2>/dev/null
 mount -t tmpfs  run    /run     -o nosuid,nodev,mode=755        2>/dev/null
 chmod 1777 /tmp 2>/dev/null
 
-# ── Populate /dev from sysfs ──────────────────────────────────────────────────
 [ -x /bin/mdev ] && mdev -s 2>/dev/null
 
-# ── Parse /proc/cmdline ───────────────────────────────────────────────────────
+# `cmdline foo` -> 1 for a bare flag, the value for foo=bar, nothing if absent
 cmdline() {
     for tok in $(cat /proc/cmdline 2>/dev/null); do
         case "$tok" in
@@ -60,14 +55,11 @@ ROOT=$(cmdline root)
 
 hostname -F /etc/hostname 2>/dev/null || hostname blueberry 2>/dev/null
 
-# ── Networking ────────────────────────────────────────────────────────────────
-# Bring up loopback and DHCP every real Ethernet interface (ARPHRD_ETHER=1).
-# udhcpc -b backgrounds itself and keeps renewing; the lease is applied by
-# /etc/udhcpc.script. Not started on the disk-boot path — runit owns that.
+# DHCP on every ethernet interface (type 1). Live/test only - a disk boot
+# leaves networking to the real init.
 setup_network() {
     ip link set lo up 2>/dev/null
-    # NIC drivers (e1000 etc.) probe asynchronously and may not have created
-    # their interface yet; wait briefly for at least one Ethernet device.
+    # NIC drivers probe async, so give the first interface ~3s to show up
     _n=0
     while [ $_n -lt 10 ]; do
         for _p in /sys/class/net/*; do
@@ -85,36 +77,27 @@ setup_network() {
         ip link set "$iface" up 2>/dev/null
         udhcpc -b -i "$iface" -s /etc/udhcpc.script -t 4 -T 1 2>/dev/null &
     done
-    # QEMU SLIRP advertises a useless site-local IPv6 (fec0::) with no route to
-    # the internet; dual-stack name lookups then prefer an unreachable AAAA and
-    # downloads stall. If nothing got a global IPv6, turn IPv6 off so resolution
-    # sticks to IPv4. A real network with SLAAC/DHCPv6 keeps IPv6 on.
+    # QEMU's SLIRP hands out a fec0:: address that goes nowhere, lookups then
+    # prefer the AAAA and downloads hang. No global v6 -> turn v6 off.
     sleep 1
     if ! ip -6 addr show scope global 2>/dev/null | grep -q "inet6"; then
         echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6 2>/dev/null || true
     fi
 }
 
-# ── SSH ───────────────────────────────────────────────────────────────────────
-# Start the Dropbear SSH server. -R auto-generates host keys on first use (kept
-# in /etc/dropbear, RAM). Log in as root with the default password "blueberry"
-# (set in /etc/shadow) — change it in any real deployment.
+# dropbear, host keys made on first connect (RAM only). root / blueberry.
 start_sshd() {
     [ -x /usr/sbin/dropbear ] || return 0
     mkdir -p /etc/dropbear
     dropbear -R -p 22 2>/dev/null &
 }
 
-# ── Time sync ─────────────────────────────────────────────────────────────────
-# busybox ntpd: step the clock on first sync, then discipline it. Backgrounded;
-# needs working DNS + outbound UDP 123 (it just keeps retrying if unavailable).
+# keeps retrying on its own if there's no network yet
 start_ntpd() {
     ntpd -p 0.pool.ntp.org -p 1.pool.ntp.org 2>/dev/null &
 }
 
-# ── Self-test mode (CI) ───────────────────────────────────────────────────────
-# Boot with `bbtest` on the kernel cmdline to run the automated checks and
-# power off. `make test` greps the serial log for BLUEBERRY_TEST=PASS.
+# `make test` greps the serial log for BLUEBERRY_TEST=PASS (printed by selftest)
 if [ -n "$BBTEST" ]; then
     setup_network
     start_sshd
@@ -125,35 +108,31 @@ if [ -n "$BBTEST" ]; then
     exec sh
 fi
 
-# ── Interactive installer mode (TUI) ──────────────────────────────────────────
-# Boot with `bbtui` (the installer ISOs' default menu entry) to land straight in
-# the full-screen installer. Exit 0 = installed → reboot; otherwise drop to a
-# shell for debugging, and relaunch the installer when that shell exits.
+# bbtui is the installer ISO's default entry. Installer exits 0 -> reboot,
+# anything else -> a shell, and leaving the shell restarts the installer.
 if [ -n "$BBTUI" ]; then
     export TERM=linux
-    # Kernel printk over the TUI desyncs the terminal-diff renderer → ghost rows.
+    # printk on top of the TUI confuses its diff renderer and leaves ghost rows
     dmesg -n 1 2>/dev/null || echo 1 > /proc/sys/kernel/printk 2>/dev/null
     while :; do
         setsid cttyhack /usr/bin/blueberry-install && {
-            echo "Rebooting into the installed system…"
+            echo "Rebooting into the installed system..."
             sync; sleep 1
             reboot -f 2>/dev/null
         }
         echo
-        echo "Installer exited — dropping to a shell (exit to relaunch the installer)."
+        echo "Installer exited, here's a shell. Exit it to start the installer again."
         setsid cttyhack /bin/sh
     done
 fi
 
-# ── Unattended install mode ───────────────────────────────────────────────────
-# Boot with `bbinstall` to run blueberry-install non-interactively, then power
-# off. Target/password come from the cmdline (defaults: /dev/sda, "blueberry").
-# Extra packages: blueberry.pkgs=vim,git (comma-separated; needs networking).
+# Unattended install, settings from the cmdline, e.g.
 #   bbinstall blueberry.target=/dev/sda blueberry.rootpw=secret blueberry.pkgs=vim,git
+# test-install.sh waits for the BLUEBERRY_INSTALL= line.
 if [ -n "$BBINSTALL" ]; then
     BLUEBERRY_TARGET=$(cmdline blueberry.target); : "${BLUEBERRY_TARGET:=/dev/sda}"
     BLUEBERRY_ROOTPW=$(cmdline blueberry.rootpw); : "${BLUEBERRY_ROOTPW:=blueberry}"
-    # cmdline can't carry spaces, so packages are comma-separated -> spaces.
+    # no spaces on a cmdline, so commas
     BLUEBERRY_PKGS=$(cmdline blueberry.pkgs | tr ',' ' ')
     BLUEBERRY_HOSTNAME=$(cmdline blueberry.hostname)
     BLUEBERRY_SWAP=$(cmdline blueberry.swap)
@@ -162,7 +141,7 @@ if [ -n "$BBINSTALL" ]; then
     BLUEBERRY_LUKS=$(cmdline blueberry.luks)
     BLUEBERRY_LUKSPW=$(cmdline blueberry.lukspw)
     BLUEBERRY_LVM=$(cmdline blueberry.lvm)
-    # bios | uefi | auto (default: match the firmware we booted as)
+    # bios | uefi | auto (default: whatever we booted as)
     BLUEBERRY_BOOTLOADER=$(cmdline blueberry.bootloader)
     BLUEBERRY_KEYMAP=$(cmdline blueberry.keymap)
     # ext4 (default) | xfs | btrfs
@@ -173,17 +152,15 @@ if [ -n "$BBINSTALL" ]; then
     blueberry-install; rc=$?
     echo "BLUEBERRY_INSTALL_EXIT=$rc"
     [ "$rc" = 0 ] && echo "BLUEBERRY_INSTALL=OK" || echo "BLUEBERRY_INSTALL=FAIL"
-    sync; sleep 1   # let the serial markers flush before poweroff printk races them
+    sync; sleep 1   # let the markers reach the serial log before poweroff spam
     echo o > /proc/sysrq-trigger 2>/dev/null
     poweroff -f 2>/dev/null
     exec sh
 fi
 
-# ── LUKS unlock (optional) ────────────────────────────────────────────────────
-# `cryptdevice=<src>:<name>` on the cmdline unlocks an encrypted partition
-# before the root mount, so root= can point at /dev/mapper/<name>. <src> is a
-# device node or UUID=/PARTUUID=/LABEL=. cryptsetup prompts for the passphrase
-# on the console; three tries then falls through to a rescue shell.
+# cryptdevice=<src>:<name> -> /dev/mapper/<name> for root=. <src> can be a
+# node or UUID=/PARTUUID=/LABEL=. Three wrong passphrases and you get the
+# live shell instead.
 CRYPTDEV=$(cmdline cryptdevice)
 if [ -n "$CRYPTDEV" ] && command -v cryptsetup >/dev/null 2>&1; then
     _csrc=${CRYPTDEV%%:*}; _cname=${CRYPTDEV#*:}; : "${_cname:=cryptroot}"
@@ -195,41 +172,31 @@ if [ -n "$CRYPTDEV" ] && command -v cryptsetup >/dev/null 2>&1; then
         until cryptsetup open "$_csrc" "$_cname"; do
             _n=$((_n + 1))
             [ "$_n" -ge 3 ] && { echo "init: too many failed unlock attempts" >&2; break; }
-            echo "Unlock failed — try again."
+            echo "Unlock failed, try again."
         done
     else
         echo "init: LUKS source not found: $_csrc" >&2
     fi
 fi
 
-# LVM: activate any volume groups so root= can point at a logical volume. Runs
-# after the LUKS unlock above (LVM-on-LUKS) and is harmless when there is no LVM.
+# after LUKS, so LVM-on-LUKS works. no-op without LVM
 if command -v vgchange >/dev/null 2>&1; then
     vgchange -ay >/dev/null 2>&1
 fi
 
-# ── Live desktop mode (squashfs + overlay) ────────────────────────────────────
-# `blueberry.live=1` (set by the desktop ISO's GRUB menu) boots the live image:
-# find the install medium, mount its read-only squashfs as the lower layer of an
-# overlayfs with a tmpfs upper, and switch_root into it so systemd reaches the
-# graphical target. The medium stays mounted at /run/live/medium so Calamares'
-# unpackfs can copy the squashfs to disk. root=live:CDLABEL=<volid> names it.
+# blueberry.live=1: find the boot medium, put a tmpfs overlay on its squashfs
+# and switch_root into that.
 if [ -n "$LIVE" ]; then
-    # Pull the volume label out of root=live:CDLABEL=<volid> (fallback: scan).
     LABEL=""
     case "$ROOT" in live:CDLABEL=*) LABEL=${ROOT#live:CDLABEL=} ;; esac
-    # Load the modules a live root needs if they aren't built in.
     for m in loop squashfs overlay isofs cdrom sr_mod usb_storage; do
         modprobe "$m" 2>/dev/null || true
     done
-    # IMPORTANT: keep the overlay backing OUTSIDE /run. Mounting it under /run and
-    # then `mount --move /run` into the new root nests the overlay's own
-    # upperdir/lowerdir inside the overlay → an inconsistent mount that makes
-    # switch_root fail (kernel panic "Attempted to kill init"). /live is a
-    # top-level initramfs dir that is never moved into the new root.
+    # The overlay's backing dirs must NOT live under /run. Moving /run into the
+    # new root then nests upper/lower inside the overlay itself and
+    # switch_root panics ("Attempted to kill init"). /live never gets moved.
     mkdir -p /live/medium /live/rootfs.ro /live/overlay /mnt/root
-    # Locate the medium: by label first, else probe every block device for the
-    # live squashfs (handles USB sticks whose label differs from the ISO volid).
+    # by label, else try every block device (a dd'd USB stick may not keep the label)
     MEDIUM=""
     if [ -n "$LABEL" ]; then
         _d=$(findfs "LABEL=$LABEL" 2>/dev/null) && [ -b "$_d" ] && MEDIUM=$_d
@@ -258,48 +225,40 @@ if [ -n "$LIVE" ]; then
             if mount -t overlay overlay \
                  -o lowerdir=/live/rootfs.ro,upperdir=/live/overlay/upper,workdir=/live/overlay/work \
                  /mnt/root 2>/dev/null; then
-                # Move only the API filesystems; leave /run so systemd mounts a
-                # fresh one. The overlay backing lives in /live (the initramfs
-                # root), which the kernel keeps referenced after switch_root.
+                # not /run - systemd wants to mount a fresh one
                 for d in proc sys dev; do
                     mkdir -p "/mnt/root/$d"
                     mount --move "/$d" "/mnt/root/$d" 2>/dev/null
                 done
-                # Preserve the install medium for Calamares' unpackfs. systemd
-                # mounts /run as tmpfs at boot, so stage the bind under /lib/live
-                # (persisted in the overlay upper) instead of /run.
+                # keep the medium reachable after boot. under /lib/live
+                # because systemd would cover anything in /run
                 mkdir -p /mnt/root/lib/live/medium
                 mount --bind /live/medium /mnt/root/lib/live/medium 2>/dev/null
                 echo "BLUEBERRY_LIVE_BOOT=OK medium=$MEDIUM"
-                # Honor an init= override (e.g. init=/bin/bash) for live rescue.
+                # init=/bin/bash works here too, for rescue
                 LIVEINIT=$(cmdline init); : "${LIVEINIT:=/sbin/init}"
                 exec switch_root /mnt/root "$LIVEINIT"
             fi
         fi
     fi
-    echo "init: live medium not found/usable — falling back to live CLI shell" >&2
+    echo "init: live medium not found/usable, falling back to live CLI shell" >&2
 fi
 
-# ── Disk boot mode (optional) ─────────────────────────────────────────────────
-# If root= was given, mount it and hand off to the real init. Otherwise we
-# run as a live system entirely from RAM.
+# root= given: mount it and hand off. Otherwise stay a live system in RAM.
 if [ -n "$ROOT" ] && [ -z "$LIVE" ]; then
     ROOTFSTYPE=$(cmdline rootfstype); : "${ROOTFSTYPE:=auto}"
     ROOTFLAGS=$(cmdline rootflags);   : "${ROOTFLAGS:=ro}"
-    # /sbin/init is the init-agnostic entry point: runit images symlink it to
-    # runit-init, systemd images to /usr/lib/systemd/systemd. Either boots here.
+    # /sbin/init is runit-init or systemd depending on the image
     INIT=$(cmdline init);             : "${INIT:=/sbin/init}"
-    # Resolve UUID=/LABEL= to a device node (what the installer writes). Fall
-    # back to the raw value if findfs can't (older mount handles some itself).
+    # the installer writes UUID=; if findfs can't resolve it, let mount try
     case "$ROOT" in
         UUID=*|LABEL=*|PARTUUID=*|PARTLABEL=*)
             _dev=$(findfs "$ROOT" 2>/dev/null) && [ -n "$_dev" ] && ROOT="$_dev" ;;
     esac
     mkdir -p /mnt/root
-    # Accept the init if it's executable OR a symlink: an absolute symlink (e.g.
-    # systemd's /sbin/init -> /usr/lib/systemd/systemd) can't be -x tested from
-    # here because its target resolves against the initramfs root, not the
-    # mounted rootfs; switch_root resolves it correctly inside the new root.
+    # -L too: an absolute symlink like /sbin/init -> /usr/lib/systemd/systemd
+    # resolves against *our* root here, so -x fails on it. switch_root gets
+    # it right inside the new root.
     if mount -t "$ROOTFSTYPE" -o "$ROOTFLAGS" "$ROOT" /mnt/root 2>/dev/null \
        && { [ -x "/mnt/root$INIT" ] || [ -L "/mnt/root$INIT" ]; }; then
         for d in proc sys dev run; do
@@ -309,18 +268,16 @@ if [ -n "$ROOT" ] && [ -z "$LIVE" ]; then
         echo "BLUEBERRY_DISK_BOOT=OK root=$ROOT"
         exec switch_root /mnt/root "$INIT"
     fi
-    echo "init: could not boot root=$ROOT — falling back to live shell" >&2
+    echo "init: could not boot root=$ROOT, falling back to live shell" >&2
 fi
 
-# ── Live CLI ──────────────────────────────────────────────────────────────────
+# live CLI from here on
 setup_network
 start_sshd
 start_ntpd
 
-# Hush late/runtime kernel messages on the console so they don't interleave with
-# the interactive prompt (e.g. the i8042 input devices that probe after init has
-# started). Boot messages already printed, errors still show, and the full ring
-# buffer is always available via `dmesg`. Skipped when `debug` is set.
+# stop late kernel chatter (i8042 probing etc.) landing on top of the prompt.
+# errors still show, and dmesg has the rest
 [ -z "$DEBUG" ] && [ -w /proc/sys/kernel/printk ] && echo 4 > /proc/sys/kernel/printk
 
 banner() {
@@ -340,15 +297,11 @@ banner() {
 EOF
 }
 
-# Put an interactive root shell on every console the kernel is using, so you get
-# a prompt whether you are on a physical monitor (tty0 -> tty1) or a serial/IPMI
-# console (ttyS0). getty opens the tty, makes it controlling (job control works),
-# and -n -l <shell> skips the login prompt to drop straight into a root shell.
-# Prefer bash (bundled in the live image) and fall back to busybox sh.
-# Each shell respawns when it exits so PID 1 never dies.
+# A root shell on every active console (monitor and serial/IPMI alike),
+# respawned when it exits. getty gives it a controlling tty so job control
+# works; -n -l skips the login prompt. bblogin is `bash --login` (plain bash
+# here would skip /etc/profile and lose the prompt).
 LOGIN_SHELL=/bin/sh
-# bblogin execs `bash --login` so /etc/profile is read (sets the
-# root@blueberry:~# prompt); plain bash here would be non-login.
 [ -x /usr/bin/bblogin ] && LOGIN_SHELL=/usr/bin/bblogin
 run_shell() {
     tty="$1"; baud="$2"
@@ -377,13 +330,11 @@ for c in $CONSOLES; do
     esac
 done
 
-# Act like a minimal init for shutdown: busybox halt/poweroff/reboot signal
-# PID 1 (SIGUSR1/SIGUSR2/SIGTERM respectively). Catch them and perform the
-# actual reboot(2) syscall, after syncing disks. This makes a bare `poweroff`,
-# `reboot`, or `halt` from any shell or script work, not just `... -f`.
+# busybox halt/poweroff/reboot just signal PID 1 (USR1/USR2/TERM), and that's
+# us. Do the real thing so a bare `poweroff` works.
 trap 'sync; halt -f'     USR1
 trap 'sync; poweroff -f' USR2
 trap 'sync; reboot -f'   TERM INT
 
-# PID 1 must never exit.
+# PID 1 doesn't get to exit
 while : ; do wait; sleep 1; done

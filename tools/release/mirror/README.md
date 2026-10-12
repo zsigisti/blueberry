@@ -1,20 +1,19 @@
 # Blueberry mirror kit
 
-Everything needed to run a Blueberry bpm mirror (a read-only replica of the
-origin repo) or to configure the origin itself. A mirror is an **untrusted file
-server** — the index is ed25519-signed and every package is sha256-verified by
-the client — so replication is a plain rsync pull with no secrets and no push
-access. See the [Hosting a Mirror](../../../wiki/Hosting-a-Mirror.md) wiki page
-for the walkthrough.
+Files for running a bpm mirror, or setting up the origin so mirrors can pull
+from it. Clients check the index signature and every package hash themselves,
+so a mirror is just a dumb file server: an rsync pull, no secrets, no push
+access. The full walkthrough is on the [Hosting a Mirror](../../../wiki/Hosting-a-Mirror.md)
+wiki page.
 
 | File | Where it runs | Purpose |
 |------|---------------|---------|
-| `nginx-repo.conf` | origin **and** mirror | vhost with the correct cache policy: `.bpm` immutable (cache forever), `bpm.index`/`.sig` no-cache, `.index-backups/` hidden |
+| `nginx-repo.conf` | origin and mirror | vhost: `.bpm` cached forever, `bpm.index`/`.sig` never, `.index-backups/` hidden |
 | `rsyncd-blueberry.conf` | origin | read-only rsync module `blueberry-repo` so mirrors can pull |
-| `mirror-sync.sh` | mirror | three-phase pull (add packages → swap index → prune) → `/usr/local/bin/blueberry-mirror-sync` |
-| `blueberry-mirror-sync.service` / `.timer` | mirror | run the sync every 15 min (jittered, persistent) |
-| `mirror-setup.sh` | mirror | one-shot installer: drops the above into place + first sync |
-| `mirrorlist` | reference | canonical mirror URLs for `repos.conf` |
+| `mirror-sync.sh` | mirror | three-pass pull (add packages, swap index, prune); installed as `/usr/local/bin/blueberry-mirror-sync` |
+| `blueberry-mirror-sync.service` / `.timer` | mirror | runs the sync every 15 min |
+| `mirror-setup.sh` | mirror | puts all of the above in place and does the first sync |
+| `mirrorlist` | reference | known mirror URLs for `repos.conf` |
 
 ## Origin (one-time)
 
@@ -24,18 +23,17 @@ systemctl enable --now rsync
 cp nginx-repo.conf /etc/nginx/sites-available/blueberry-repo   # already deployed
 ```
 
-> **Exposing rsync (873):** Cloudflare only proxies HTTP, so an off-site mirror
-> can't reach the module through the CDN. Either open 873 to a grey-clouded DNS
-> record (publishes the origin's real IP) or pull over rsync-over-SSH with a
-> command-forced key. The origin's `ufw` currently keeps 873 localhost-only, so
-> the module is verified working locally but not yet publicly reachable — make
-> this call when the first off-site mirror is provisioned. Alternatively, a
-> mirror can sync entirely over HTTPS through the CDN (fetch `bpm.index`, then
-> `GET` each `.bpm`); slower and no delta, but needs no new port.
+> **About port 873:** Cloudflare only proxies HTTP, so an off-site mirror can't
+> reach rsync through it. Options: open 873 on a grey-clouded DNS name (which
+> publishes the origin's real IP), or rsync over SSH with a command-forced key.
+> Right now `ufw` keeps 873 localhost-only. It works locally, nobody outside can
+> reach it yet. Decide when the first real mirror shows up. A mirror could also
+> just sync over HTTPS (fetch `bpm.index`, then `GET` each `.bpm`): slower, no
+> deltas, but no new port.
 
-Publishing packages goes through [`../repo-publish.sh`](../repo-publish.sh),
-which re-indexes with the hardened `bpmrepo.sh` (count-floor, backups, atomic
-swap).
+Publish packages with [`../repo-publish.sh`](../repo-publish.sh). It re-indexes
+through `bpmrepo.sh`, which refuses a shrinking package count, keeps backups and
+swaps the index atomically.
 
 ## New mirror
 
@@ -43,29 +41,27 @@ swap).
 ORIGIN_RSYNC=rsync://<origin>/blueberry-repo sh mirror-setup.sh --enable
 ```
 
-Then add the mirror's URL to clients' `repos.conf` (nearest first); `bpm` fails
-over across mirrors automatically.
+Then add its URL to clients' `repos.conf`, nearest first. `bpm` fails over on
+its own.
 
-## Scaling notes (forward plan)
+## Scaling notes
 
-Already in place:
+Already handled:
 
-- **Multiple versions per name are safe.** `bpmrepo.sh` indexes the newest
-  version per package (version-aware `sort -V`), so leaving old `.bpm` in the
-  pool never shadows the newer one (`bpm` resolves the first index line). Prune
-  old versions only to reclaim disk.
-- **Rollback/replay protection.** The signed index carries a monotonic serial;
-  `bpm` refuses a mirror serving an older one, so an untrusted replica can't
-  hand clients a stale index.
+- **Old versions lying around are fine.** `bpmrepo.sh` indexes the newest
+  version of each package (`sort -V`) and `bpm` takes the first index line, so
+  an old `.bpm` never shadows a new one. Prune only when you want the disk back.
+- **No rollbacks.** The signed index has an increasing serial and `bpm` refuses
+  an older one, so a mirror can't feed clients a stale index.
 
-Not yet needed (do when there's a driver, not before — each changes the
-download-URL contract for already-deployed clients, so it needs a compat story):
+Later, when something actually needs it. Both change the download URLs that
+deployed clients use, so each needs a compatibility plan first:
 
-- **`pool/` split.** Move blobs into `pool/` and keep only metadata at the root.
-  Backward compatible only if the index's filename field carries the `pool/`
-  prefix (clients fetch `<url>/<filename>` verbatim). Defer until the flat pool
-  is actually unwieldy.
-- **Per-arch index.** Today every package is `x86_64` and the arch is in the
-  filename. When `aarch64` servers appear, split into `<arch>/bpm.index` (or
-  `bpm.index.<arch>`) and teach `bpm` to fetch its arch's index. No aarch64
-  target exists yet, so this is deliberately deferred.
+- **`pool/` split.** Blobs in `pool/`, metadata at the root. Only backward
+  compatible if the index's filename field includes the `pool/` prefix, since
+  clients fetch `<url>/<filename>` as-is. Not worth it until the flat dir gets
+  unwieldy.
+- **Per-arch index.** Everything is `x86_64` today and the arch is in the
+  filename. Once there are `aarch64` machines, split into `<arch>/bpm.index`
+  (or `bpm.index.<arch>`) and teach `bpm` to fetch its own. There's no aarch64
+  target yet.

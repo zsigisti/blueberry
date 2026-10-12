@@ -1,14 +1,13 @@
 name: auto-bump
 
-# Weekly (and on demand) it finds recipes behind upstream and opens ONE pull
-# request per package with the mechanical bump already applied — version, source
-# URL, a freshly-computed sha256, release reset, and any hard-coded version in
-# the build steps. It never pushes to master: every bump is a PR you review and
-# merge. Build-verify with bbdev before merging (CI can't build the world).
+# Weekly: find recipes behind upstream and open one PR per package with the
+# boring part done (version, URL, new sha256, release reset, versions baked
+# into the build steps). Never pushes to master. Build it with bbdev before
+# merging, CI can't.
 #
-# Note: PRs opened with the default GITHUB_TOKEN do not themselves trigger CI
-# (a GitHub safeguard). Set a BUMP_TOKEN repo secret (a fine-grained PAT with
-# contents+pull-requests write) if you want the CI gate to run on these PRs.
+# PRs opened with the default GITHUB_TOKEN don't trigger CI (GitHub's rule).
+# Add a BUMP_TOKEN secret (fine-grained PAT, contents + pull-requests write)
+# if you want CI on them.
 
 on:
   schedule:
@@ -42,16 +41,15 @@ jobs:
             | python3 -c "import sys,json;[print(r['name'],r['latest']) for r in json.load(sys.stdin) if r.get('status')=='OUTDATED']")
           [ -n "$outdated" ] || { echo "nothing behind upstream"; exit 0; }
 
-          # Every bump needs a human to build-verify it, so the queue is capped:
-          # top the open auto-bump PRs up to QUEUE_MAX and say out loud what was
-          # left behind. Without this a wide freshness sweep opens ~90 PRs in one
-          # run and the review queue becomes wallpaper.
+          # every bump needs a human build, so cap the queue at QUEUE_MAX and
+          # list what got left out. uncapped, one sweep opened ~90 PRs and
+          # nobody looked at any of them
           open=$(gh pr list --state open --limit 200 --json headRefName \
                    --jq '[.[] | select(.headRefName | startswith("auto-bump/"))] | length')
           slots=$(( QUEUE_MAX - open ))
           echo ":: $open auto-bump PRs open, room for $slots more (cap $QUEUE_MAX)"
           if [ "$slots" -le 0 ]; then
-            echo ":: queue full — review the open bumps first; skipping this run"
+            echo ":: queue full, review the open bumps first; skipping this run"
             echo "$outdated" | sed 's/^/   pending: /'
             exit 0
           fi
@@ -59,7 +57,7 @@ jobs:
           echo "$outdated" | while read -r pkg ver; do
             [ -n "$pkg" ] || continue
             if [ "$slots" -le 0 ]; then
-              echo ":: cap reached — pending: $pkg $ver"; continue
+              echo ":: cap reached, pending: $pkg $ver"; continue
             fi
             branch="auto-bump/${pkg}-${ver}"
             if gh pr list --head "$branch" --state all --json number --jq 'length' | grep -qv '^0$'; then

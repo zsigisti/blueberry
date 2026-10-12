@@ -1,9 +1,7 @@
 #!/bin/sh
-# test-bpm.sh — fast, self-contained tests for the bpm package manager's
-# install / upgrade / config-preservation logic. Runs against a throwaway
-# BPM_ROOT (no QEMU). Builds bpm from src/bpm-rs and two versions of a synthetic
-# config-shipping package, then asserts the pacman/dpkg backup behaviour and a
-# basic install/remove round-trip. Exits non-zero on the first failure.
+# test-bpm.sh - quick bpm checks against a throwaway BPM_ROOT, no QEMU.
+# Builds bpm and two versions of a tiny package with a config file, then checks
+# install/remove and the pacman-style backup handling. Stops at the first failure.
 set -eu
 
 TOP=$(cd "$(dirname "$0")/../.." && pwd)
@@ -12,7 +10,7 @@ W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
 fail() { printf '  FAIL: %s\n' "$*" >&2; exit 1; }
 ok()   { printf '  ok: %s\n' "$*"; }
 
-# ── build bpm if not supplied ────────────────────────────────────────────────
+# BPM_BIN to use an existing binary
 if [ -z "$BPM" ]; then
     echo "[test-bpm] building bpm"
     ( cd "$TOP/src/bpm-rs" && cargo build --release >/dev/null 2>&1 ) || fail "bpm build failed"
@@ -20,7 +18,6 @@ if [ -z "$BPM" ]; then
 fi
 [ -x "$BPM" ] || fail "no bpm binary at $BPM"
 
-# ── build two versions of a synthetic config package ─────────────────────────
 mkrec() { # <ver> <config-content>
     mkdir -p "$W/rec/tcfg"
     cat > "$W/rec/tcfg/bpm.toml" <<EOF

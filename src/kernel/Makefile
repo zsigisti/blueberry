@@ -1,14 +1,6 @@
-# src/kernel/Makefile — Linux kernel build rules
-#
-# Called by the top-level GNUmakefile with:
-#   LINUX_SRC        path to extracted linux-X.Y source tree
-#   LINUX_VERSION    e.g. 7.0
-#   KERNEL_LOCALVERSION  e.g. -blueberry
-#   BOOTDIR          destination for vmlinuz + System.map
-#   STAGEDIR         destination for kernel modules
-#   ARCH             e.g. x86_64
-#   CROSS_COMPILE    cross-compiler prefix (may be empty)
-#   JOBS             parallel jobs
+# Kernel compile, only used with KERNEL_BUILD=1 (normally we fetch a prebuilt).
+# The top GNUmakefile passes LINUX_SRC, LINUX_VERSION, KERNEL_LOCALVERSION,
+# BOOTDIR (vmlinuz, System.map), STAGEDIR (modules), ARCH, CROSS_COMPILE, JOBS.
 
 THISDIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 CONFIG  := $(THISDIR)/config
@@ -20,10 +12,9 @@ KARCH   := $(ARCH)
 
 all: _patch _configure
 	@echo "[kernel] make -j$(JOBS)"
-	@# LOCALVERSION is set EMPTY on purpose: the suffix comes solely from
-	@# CONFIG_LOCALVERSION="-blueberry" in the config. Passing $(KERNEL_LOCALVERSION)
-	@# here too would double it (uname -r = 7.1.3-blueberry-blueberry). Empty (not
-	@# unset) also suppresses the kernel's "+" scm-dirty auto-suffix.
+	@# LOCALVERSION stays empty: the suffix already comes from
+	@# CONFIG_LOCALVERSION, and passing it here too gives you
+	@# 7.1.3-blueberry-blueberry. Empty rather than unset also kills the "+".
 	@$(MAKE) -C $(LINUX_SRC) \
 	    ARCH=$(KARCH) \
 	    CROSS_COMPILE=$(CROSS_COMPILE) \

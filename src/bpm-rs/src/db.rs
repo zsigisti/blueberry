@@ -1,6 +1,8 @@
-//! The local installed-package database, byte-compatible with the C bpm:
-//!   <root>/var/lib/bpm/db/<name>/desc   = the package's .PKGINFO text
-//!   <root>/var/lib/bpm/db/<name>/files  = installed paths, one per line
+//! Installed-package db, same layout as the C bpm:
+//!   db/<name>/desc        the package's .PKGINFO text
+//!   db/<name>/files       installed paths, one per line
+//!   db/<name>/backuphash  `path\tsha256` of each config file as shipped
+//!   db/<name>/explicit    empty marker, user asked for this one
 
 use crate::config::Config;
 use crate::index;
@@ -42,8 +44,7 @@ pub fn read_files(cfg: &Config, name: &str) -> Vec<String> {
         .collect()
 }
 
-/// Config files the package declares as user-editable (`backup =` in the desc).
-/// These are preserved across upgrades (never blindly overwritten or removed).
+/// The package's `backup =` config files.
 pub fn read_backup(cfg: &Config, name: &str) -> Vec<String> {
     let desc = cfg.db.join(name).join("desc");
     let txt = fs::read_to_string(desc).unwrap_or_default();
@@ -53,9 +54,8 @@ pub fn read_backup(cfg: &Config, name: &str) -> Vec<String> {
         .collect()
 }
 
-/// The sha256 the *packaged* version of a backup file had when this package was
-/// installed (db/<name>/backuphash, one `path\tsha256` per line). Lets an upgrade
-/// tell "user edited it" from "package changed it".
+/// Hash of the config file as we shipped it, so an upgrade can tell a user
+/// edit from a package change.
 pub fn backup_hash(cfg: &Config, name: &str, path: &str) -> Option<String> {
     let p = cfg.db.join(name).join("backuphash");
     let txt = fs::read_to_string(p).ok()?;
@@ -69,7 +69,6 @@ pub fn backup_hash(cfg: &Config, name: &str, path: &str) -> Option<String> {
     None
 }
 
-/// Record the packaged sha256 of each backup file (overwrites the previous set).
 pub fn write_backup(cfg: &Config, name: &str, entries: &[(String, String)]) -> std::io::Result<()> {
     let dir = cfg.db.join(name);
     fs::create_dir_all(&dir)?;
@@ -77,7 +76,7 @@ pub fn write_backup(cfg: &Config, name: &str, entries: &[(String, String)]) -> s
     fs::write(dir.join("backuphash"), body)
 }
 
-/// Declared dependencies of an installed package (atoms stripped to names).
+/// Dep names only, version constraints stripped.
 pub fn package_deps(cfg: &Config, name: &str) -> Vec<String> {
     let desc = cfg.db.join(name).join("desc");
     let txt = fs::read_to_string(desc).unwrap_or_default();
@@ -88,8 +87,8 @@ pub fn package_deps(cfg: &Config, name: &str) -> Vec<String> {
         .collect()
 }
 
-/// Installed packages that depend on `target`, excluding any in `ignore`
-/// (e.g. packages being removed in the same transaction).
+/// Who depends on `target`. `ignore` is for packages going away in the same
+/// transaction.
 pub fn requirers(cfg: &Config, target: &str, ignore: &std::collections::HashSet<String>) -> Vec<String> {
     let mut out = Vec::new();
     for name in installed_names(cfg) {
@@ -103,8 +102,7 @@ pub fn requirers(cfg: &Config, target: &str, ignore: &std::collections::HashSet<
     out
 }
 
-/// Map of every installed file path -> owning package, excluding `skip`'s files
-/// (the package currently being (re)installed). Used for conflict detection.
+/// path -> owner for every installed file, minus `skip`'s own.
 pub fn file_owners(cfg: &Config, skip: &str) -> std::collections::HashMap<String, String> {
     let mut map = std::collections::HashMap::new();
     for name in installed_names(cfg) {
@@ -118,12 +116,10 @@ pub fn file_owners(cfg: &Config, skip: &str) -> std::collections::HashMap<String
     map
 }
 
-/// Remove an installed package's files from disk (deepest first), pruning empty
-/// parent directories — the same teardown the C bpm does before an upgrade.
+/// Delete a package's files, deepest first, and prune dirs that end up empty.
 pub fn remove_files(cfg: &Config, name: &str) {
-    // Never delete declared config files — on upgrade the installer compares +
-    // preserves them; on removal they're left behind (like pacsave) so a user's
-    // edits are never lost.
+    // config files stay. on upgrade the installer deals with them, on remove
+    // they're just left behind (like pacsave) so nobody loses their edits
     let backup: std::collections::HashSet<String> = read_backup(cfg, name).into_iter().collect();
     let mut files: Vec<String> = read_files(cfg, name)
         .into_iter()
@@ -142,7 +138,7 @@ pub fn remove_files(cfg: &Config, name: &str) {
         } else {
             let _ = fs::remove_file(&full);
         }
-        // best-effort prune of now-empty parents
+        // remove_dir fails on anything non-empty, which is the stop condition
         let mut parent = full.parent().map(Path::to_path_buf);
         while let Some(dir) = parent {
             if dir == cfg.dest || fs::remove_dir(&dir).is_err() {
@@ -169,8 +165,7 @@ pub fn remove(cfg: &Config, name: &str) {
     let _ = fs::remove_dir_all(cfg.db.join(name));
 }
 
-/// Mark a package as explicitly installed (user-requested), so autoremove never
-/// reaps it. Dependencies pulled in transitively are left unmarked.
+/// User asked for it by name, so autoremove leaves it alone.
 pub fn mark_explicit(cfg: &Config, name: &str) {
     let _ = fs::write(cfg.db.join(name).join("explicit"), b"");
 }

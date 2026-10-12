@@ -1,13 +1,10 @@
-//! Prompt helpers. Every question first honours a `BLUEBERRY_*` environment
-//! variable (for unattended / CI / dev-disk installs); if `BLUEBERRY_YES` is set
-//! and no override is given, the built-in default is used silently. Otherwise the
-//! user is asked interactively with `dialoguer` (arrow-key selects + prompts),
-//! which works fine over a serial console.
+//! Prompts for --cli mode. Each one checks its BLUEBERRY_* env var first, then
+//! takes the default if BLUEBERRY_YES is set, and only then actually asks
+//! (dialoguer, which is happy on a serial console).
 
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Password, Select};
 use std::env;
 
-/// Non-interactive mode: take defaults, never prompt.
 pub fn yes_mode() -> bool {
     env::var("BLUEBERRY_YES").map(|v| !v.is_empty()).unwrap_or(false)
 }
@@ -16,8 +13,6 @@ fn env_val(key: &str) -> Option<String> {
     env::var(key).ok().filter(|v| !v.is_empty())
 }
 
-/// Free-text input with a default. `env_key` overrides; `BLUEBERRY_YES` accepts
-/// the default.
 pub fn input(prompt: &str, default: &str, env_key: &str) -> String {
     if let Some(v) = env_val(env_key) {
         return v;
@@ -33,8 +28,7 @@ pub fn input(prompt: &str, default: &str, env_key: &str) -> String {
         .unwrap_or_else(|_| default.to_string())
 }
 
-/// A password with confirmation. `env_key` supplies it non-interactively.
-/// Returns None when skipped (empty and allowed).
+/// Asks twice. None when it's allowed to be empty and was left empty.
 pub fn password(prompt: &str, env_key: &str, allow_empty: bool) -> Option<String> {
     if let Some(v) = env_val(env_key) {
         return Some(v);
@@ -57,7 +51,7 @@ pub fn password(prompt: &str, env_key: &str, allow_empty: bool) -> Option<String
     }
 }
 
-/// Yes/No. `env_key` of 1/y/yes → true, else default; `BLUEBERRY_YES` → default.
+/// From env, 1/y/yes/true means yes and anything else means no.
 pub fn confirm(prompt: &str, default: bool, env_key: &str) -> bool {
     if let Some(v) = env_val(env_key) {
         let v = v.to_ascii_lowercase();
@@ -73,8 +67,7 @@ pub fn confirm(prompt: &str, default: bool, env_key: &str) -> bool {
         .unwrap_or(default)
 }
 
-/// Pick one of `items`. `env_key` may name the item (case-insensitive substring)
-/// or a 1-based index; `BLUEBERRY_YES` takes `default_idx`. Returns the index.
+/// The env value can be a 1-based index or a case-insensitive substring of an item.
 pub fn select(prompt: &str, items: &[String], default_idx: usize, env_key: &str) -> usize {
     if let Some(v) = env_val(env_key) {
         if let Ok(n) = v.parse::<usize>() {

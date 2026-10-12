@@ -1,5 +1,5 @@
-//! bpm — Blueberry Package Manager (Rust). Drop-in for the C bpm: same on-disk
-//! DB/cache/index, same repo index + signature scheme, same commands.
+//! bpm, the Blueberry package manager. Rust rewrite of the old C bpm; it reads
+//! and writes the same db, cache and index, so the two can be swapped freely.
 
 mod cache;
 mod config;
@@ -49,7 +49,7 @@ fn main() -> ExitCode {
         }
         "-V" | "--version" => {
             println!(
-                "bpm {} — Blueberry Package Manager\n\
+                "bpm {} - Blueberry Package Manager\n\
                  the native package manager for Blueberry Linux\n\
                  https://github.com/zsigisti/blueberry",
                 config::VERSION
@@ -69,7 +69,7 @@ fn main() -> ExitCode {
 
 fn usage() {
     print!(
-        "bpm {} — Blueberry Package Manager\n\n\
+        "bpm {} - Blueberry Package Manager\n\n\
          \x20 bpm install <name|file.pkg.tar.zst>...   install (resolve deps from repos)\n\
          \x20 bpm remove  <name>...                    remove installed package(s)\n\
          \x20 bpm autoremove                           remove orphaned dependencies\n\
@@ -92,16 +92,15 @@ fn usage() {
     );
 }
 
-/// Pull -f/--force out of the argument list, returning (force, positionals).
+/// Returns (force, positional args).
 fn split_flags(args: &[String]) -> (bool, Vec<String>) {
     let mut force = false;
     let mut pos = Vec::new();
     for a in args {
         match a.as_str() {
             "-f" | "--force" => force = true,
-            // -y/--yes is meaningful for confirmation prompts (autoremove);
-            // install/remove don't prompt, so accept and ignore it rather than
-            // mistaking it for a package name.
+            // only autoremove asks before doing anything, but people type -y
+            // everywhere. swallow it so it doesn't become a package called "-y"
             "-y" | "--yes" => {}
             _ => pos.push(a.clone()),
         }
@@ -109,7 +108,6 @@ fn split_flags(args: &[String]) -> (bool, Vec<String>) {
     (force, pos)
 }
 
-// ── install ──────────────────────────────────────────────────────────────────
 fn cmd_install(cfg: &Config, args: &[String]) -> Result<(), String> {
     let (force, names) = split_flags(args);
     if names.is_empty() {
@@ -126,14 +124,14 @@ fn cmd_install(cfg: &Config, args: &[String]) -> Result<(), String> {
         }
     }
     if !plan.is_empty() {
-        // One disk-space check over the whole transitive set (index sizes).
+        // one space check for the whole set, using the sizes from the index
         if !force {
             let need: u64 = plan.iter().map(|(e, _)| e.size).sum();
             if need > 0 {
                 if let Some(free) = pkg::free_space(cfg) {
                     if free < need {
                         return Err(format!(
-                            "not enough space — need {} MiB, {} MiB free (use -f to override)",
+                            "not enough space: need {} MiB, only {} MiB free (-f to try anyway)",
                             need / 1048576,
                             free / 1048576
                         ));
@@ -147,7 +145,7 @@ fn cmd_install(cfg: &Config, args: &[String]) -> Result<(), String> {
             .clamp(1, 8);
         println!(":: downloading {} package(s) ({jobs} parallel)", plan.len());
         let paths = parallel_fetch(cfg, &plan, jobs)?;
-        // Install in resolved order (dependencies before dependents).
+        // resolve() put deps first, so plain order is install order
         for ((entry, explicit), path) in plan.iter().zip(paths.iter()) {
             pkg::install_file(cfg, path, force).map_err(|e| e.to_string())?;
             if *explicit {
@@ -163,9 +161,8 @@ fn cmd_install(cfg: &Config, args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-/// Collect the transitive install set in dependency order (deps before
-/// dependents), skipping provided/already-installed packages. Pure resolution —
-/// no downloads — so the set can then be fetched in parallel.
+/// Walk the dep graph and build the install plan, deps before dependents.
+/// Doesn't download anything, so the whole plan can be fetched in parallel after.
 fn resolve(
     cfg: &Config,
     name: &str,
@@ -203,8 +200,7 @@ fn resolve(
     plan.push((entry, explicit));
 }
 
-/// Download every package in `plan` concurrently (bounded by `jobs`), preserving
-/// order in the returned paths. Each fetch verifies its sha256 (repo::fetch).
+/// Fetch the plan with `jobs` workers. Paths come back in plan order.
 fn parallel_fetch(
     cfg: &Config,
     plan: &[(index::Entry, bool)],
@@ -232,8 +228,7 @@ fn parallel_fetch(
                 })
             })
             .collect();
-        // A monitor thread repaints the aggregate progress line while the workers
-        // stream; stop it once every worker is done.
+        // one extra thread just to repaint the progress line
         let mon = s.spawn(|| progress.run());
         for w in workers {
             let _ = w.join();
@@ -252,9 +247,9 @@ fn parallel_fetch(
     Ok(paths)
 }
 
-/// Resolve `name` from the repos and install it with its dependencies first.
-/// `explicit` (the user named it) installs even if it's in the provided base
-/// set; transitive deps recurse with explicit=false and honour is_provided.
+/// One-at-a-time install. Only upgrade uses it now, to pull in new deps.
+/// `explicit` means the user asked for it by name, so it gets installed even if
+/// the base already "provides" it. Deps go through with explicit=false.
 fn install_name(
     cfg: &Config,
     name: &str,
@@ -287,13 +282,13 @@ fn install_name(
             install_name(cfg, dn, false, force, seen)?;
         }
     }
-    // Pre-download disk check from the index size — avoids fetching a big
-    // package (gcc is ~84MB) only to fail at extraction on a full disk.
+    // check space before downloading, not after. no point pulling 84MB of gcc
+    // just to fail halfway through extracting it
     if !force && entry.size > 0 {
         if let Some(free) = pkg::free_space(cfg) {
             if free < entry.size {
                 return Err(format!(
-                    "not enough space for {} — need {} MiB, {} MiB free (use -f to override)",
+                    "not enough space for {}: need {} MiB, only {} MiB free (-f to try anyway)",
                     entry.name,
                     entry.size / 1048576,
                     free / 1048576
@@ -310,7 +305,6 @@ fn install_name(
     Ok(())
 }
 
-// ── remove ───────────────────────────────────────────────────────────────────
 fn cmd_remove(cfg: &Config, args: &[String]) -> Result<(), String> {
     let (force, names) = split_flags(args);
     if names.is_empty() {
@@ -323,7 +317,7 @@ fn cmd_remove(cfg: &Config, args: &[String]) -> Result<(), String> {
     }
     let removing: HashSet<String> = names.iter().cloned().collect();
 
-    // Refuse to strand a still-needed package (e.g. `bpm remove glibc`).
+    // don't let anyone `bpm remove glibc` by accident
     if !force {
         for name in &names {
             let req = db::requirers(cfg, name, &removing);
@@ -336,7 +330,7 @@ fn cmd_remove(cfg: &Config, args: &[String]) -> Result<(), String> {
         }
     }
 
-    // Gather the removed packages' dependencies first, to report new orphans.
+    // grab their deps before the db entries go away, so we can point out orphans
     let mut dep_candidates: Vec<String> = Vec::new();
     for name in &names {
         for d in db::package_deps(cfg, name) {
@@ -360,7 +354,7 @@ fn cmd_remove(cfg: &Config, args: &[String]) -> Result<(), String> {
         .collect();
     if !orphans.is_empty() {
         eprintln!(
-            "bpm: note: now unneeded (orphans): {} — remove with 'bpm remove {}'",
+            "bpm: note: nothing needs these anymore: {} (bpm remove {})",
             orphans.join(", "),
             orphans.join(" ")
         );
@@ -368,10 +362,8 @@ fn cmd_remove(cfg: &Config, args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-// ── clean ────────────────────────────────────────────────────────────────────
-/// Prune the package cache. By default keep the KEEP newest versions of each
-/// package (so `bpm rollback`/`downgrade` still have something to fall back to);
-/// `--all` empties the cache entirely. Also sweeps stray `.part` downloads.
+/// Keep the KEEP newest versions of each package so rollback/downgrade still
+/// have something to go back to. --all wipes everything.
 fn cmd_clean(cfg: &Config, args: &[String]) -> Result<(), String> {
     const KEEP: usize = 2;
     let all = args.iter().any(|a| a == "--all" || a == "-a");
@@ -391,7 +383,7 @@ fn cmd_clean(cfg: &Config, args: &[String]) -> Result<(), String> {
             rm(&c.path);
         }
     }
-    // Interrupted partial downloads are never worth keeping.
+    // leftover .part files from interrupted downloads
     if let Ok(rd) = std::fs::read_dir(&cfg.cache) {
         for e in rd.flatten() {
             let p = e.path();
@@ -402,7 +394,7 @@ fn cmd_clean(cfg: &Config, args: &[String]) -> Result<(), String> {
     }
 
     if all {
-        println!(":: emptied cache — removed {n} file(s), freed {} MiB", bytes / 1048576);
+        println!(":: emptied cache, removed {n} file(s), freed {} MiB", bytes / 1048576);
     } else {
         println!(
             ":: pruned {n} old cached package(s) (kept {KEEP} newest each), freed {} MiB",
@@ -412,8 +404,7 @@ fn cmd_clean(cfg: &Config, args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-// ── rollback / downgrade ─────────────────────────────────────────────────────
-/// Reinstall a package's previous version from the local cache.
+/// Go back to the previous version sitting in the cache.
 fn cmd_rollback(cfg: &Config, args: &[String]) -> Result<(), String> {
     let (force, names) = split_flags(args);
     let name = names.first().ok_or("usage: bpm rollback [-f] <name>")?;
@@ -441,8 +432,7 @@ fn cmd_rollback(cfg: &Config, args: &[String]) -> Result<(), String> {
     }
 }
 
-/// Install a specific older cached version (`bpm downgrade foo=1.2.3`), or the
-/// previous version when no `=<ver>` is given.
+/// `bpm downgrade foo=1.2.3`, or just `bpm downgrade foo` for the previous one.
 fn cmd_downgrade(cfg: &Config, args: &[String]) -> Result<(), String> {
     let (force, names) = split_flags(args);
     let spec = names.first().ok_or("usage: bpm downgrade [-f] <name>[=<version>]")?;
@@ -469,9 +459,8 @@ fn cmd_downgrade(cfg: &Config, args: &[String]) -> Result<(), String> {
     install_cached(cfg, &name, &target.path, force)
 }
 
-/// Shared tail for rollback/downgrade: install a cached artifact (force, since
-/// it is an intentional version change), preserving the explicit flag, then
-/// refresh ldconfig + the man index.
+/// Common end of rollback/downgrade. Keeps the explicit flag, otherwise
+/// autoremove would happily eat a package you just downgraded on purpose.
 fn install_cached(cfg: &Config, name: &str, path: &Path, force: bool) -> Result<(), String> {
     let was_explicit = db::is_explicit(cfg, name);
     pkg::install_file(cfg, path, force).map_err(|e| e.to_string())?;
@@ -482,13 +471,11 @@ fn install_cached(cfg: &Config, name: &str, path: &Path, force: bool) -> Result<
     Ok(())
 }
 
-// ── autoremove ───────────────────────────────────────────────────────────────
 fn cmd_autoremove(cfg: &Config, args: &[String]) -> Result<(), String> {
     let yes = args.iter().any(|a| a == "-y" || a == "--yes");
 
-    // An orphan is an installed package that wasn't explicitly requested and
-    // that nothing else still depends on. Removing one can orphan its own deps,
-    // so iterate until the set is stable.
+    // orphan = not explicit and nothing depends on it. removing one can orphan
+    // its deps in turn, so keep going until nothing changes
     let mut removed = 0;
     loop {
         let mut orphans: Vec<String> = Vec::new();
@@ -529,7 +516,6 @@ fn cmd_autoremove(cfg: &Config, args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-// ── update ───────────────────────────────────────────────────────────────────
 fn cmd_update(cfg: &Config) -> Result<(), String> {
     let conf = std::fs::read_to_string(&cfg.conf)
         .map_err(|_| format!("no repo config: {}", cfg.conf.display()))?;
@@ -538,8 +524,8 @@ fn cmd_update(cfg: &Config) -> Result<(), String> {
     }
     let tmp = cfg.index.with_extension("repo");
 
-    // Rollback/replay protection: remember the highest signed serial we've
-    // accepted per repo, and refuse a mirror that serves an older one.
+    // highest signed serial we've accepted per repo. a mirror serving anything
+    // older is stale or replaying an old index at us
     let mut serials = index::load_serials(cfg);
 
     let mut combined = String::new();
@@ -567,9 +553,8 @@ fn cmd_update(cfg: &Config) -> Result<(), String> {
                     continue;
                 }
             };
-            // Verify the detached ed25519 signature over the raw index bytes
-            // (bpm.index.sig, next to the index). Never trust an unsigned/invalid
-            // index unless BPM_ALLOW_UNSIGNED is set.
+            // bpm.index.sig is a raw ed25519 sig over the exact index bytes.
+            // no valid sig, no index (unless BPM_ALLOW_UNSIGNED)
             if sig::required() {
                 let sigtmp = cfg.index.with_extension("sig");
                 let ok = net::get(&format!("{url}/bpm.index.sig"), &sigtmp, None).is_ok()
@@ -582,19 +567,18 @@ fn cmd_update(cfg: &Config) -> Result<(), String> {
                     continue;
                 }
             }
-            // Downgrade guard: the signed index carries a monotonic serial. A
-            // mirror serving one older than we've already accepted (or none at
-            // all, once we've seen one) is stale or replaying — skip it.
+            // the serial is inside the signed bytes, so a mirror can't fake it.
+            // older than last time, or missing once we've seen one = skip
             let last = serials.get(repo).copied().unwrap_or(0);
             match index::parse_serial(&body) {
                 Some(s) if s < last => {
-                    eprintln!("bpm: warning: index from {url} is OLDER than last seen \
-                               (serial {s} < {last}) — possible rollback/stale mirror; skipping");
+                    eprintln!("bpm: warning: index from {url} is older than the last one we saw \
+                               (serial {s} < {last}), stale or rolled-back mirror? skipping it");
                     continue;
                 }
                 None if last > 0 => {
-                    eprintln!("bpm: warning: index from {url} has no serial but serial {last} \
-                               was seen — possible rollback/stale mirror; skipping");
+                    eprintln!("bpm: warning: index from {url} has no serial but we've seen {last}, \
+                               stale or rolled-back mirror? skipping it");
                     continue;
                 }
                 other => {
@@ -620,11 +604,10 @@ fn cmd_update(cfg: &Config) -> Result<(), String> {
     }
     let _ = std::fs::remove_file(&tmp);
 
-    // Never clobber a good index with an empty one: if every repo failed (all
-    // mirrors down, or a rejected rollback/replay), keep what we already have.
+    // everything failed? then keep the old index instead of writing an empty one
     if combined.is_empty() && cfg.index.exists() {
         index::save_serials(cfg, &serials);
-        return Err("no repository could be synced — keeping the existing index".into());
+        return Err("couldn't sync any repo, keeping the old index".into());
     }
 
     let itmp = cfg.index.with_extension("tmp");
@@ -637,10 +620,8 @@ fn cmd_update(cfg: &Config) -> Result<(), String> {
     Ok(())
 }
 
-// ── upgrade ──────────────────────────────────────────────────────────────────
-/// List packages with a newer version available, one per line as
-/// `name<TAB>installed<TAB>available` — a dry run of `upgrade` for tooling
-/// (e.g. the web console) and users who want to see what would change.
+/// Dry run of upgrade. Prints `name\tinstalled\tavailable` per line; the web
+/// console parses this, so don't get creative with the format.
 fn cmd_outdated(cfg: &Config) -> Result<(), String> {
     for name in db::installed_names(cfg) {
         let Some(have) = db::installed_version(cfg, &name) else { continue };
@@ -653,11 +634,9 @@ fn cmd_outdated(cfg: &Config) -> Result<(), String> {
     Ok(())
 }
 
-/// `bpm audit` — report known CVEs affecting the installed packages. Thin
-/// wrapper around the bundled Python engine (tools/pkg/bpm-audit.py), which does
-/// the NVD/OSV lookups; python3 ships in the base. Extra args pass through
-/// (e.g. `bpm audit --json`, `bpm audit --fail-on high`). Exits with the
-/// engine's own status so scripts/CI can gate on it.
+/// Just hands off to bpm-audit.py (the NVD/OSV stuff lives there, python3 is in
+/// the base anyway). Extra args go straight through, and we exit with its status
+/// so CI can gate on `--fail-on high`.
 fn cmd_audit(cfg: &Config, args: &[String]) -> Result<(), String> {
     let script = audit_script().ok_or(
         "audit engine not found (expected /usr/share/bpm/bpm-audit.py); \
@@ -674,8 +653,7 @@ fn cmd_audit(cfg: &Config, args: &[String]) -> Result<(), String> {
     std::process::exit(status.code().unwrap_or(1));
 }
 
-/// Locate the audit engine: env override, the installed path, a dev checkout,
-/// then next to the bpm binary.
+/// BPM_AUDIT_PY, then the installed copy, then a dev checkout, then next to the binary.
 fn audit_script() -> Option<std::path::PathBuf> {
     if let Ok(p) = std::env::var("BPM_AUDIT_PY") {
         let pb = std::path::PathBuf::from(p);
@@ -749,13 +727,11 @@ fn cmd_upgrade(cfg: &Config) -> Result<(), String> {
     Ok(())
 }
 
-/// Best-effort pre-upgrade btrfs snapshot: on a live btrfs root with
-/// blueberry-snapshot installed, take a restore point (and refresh the GRUB
-/// snapshot menu) so a bad upgrade can be rolled back at boot. Never blocks the
-/// upgrade — if it fails or doesn't apply, we just proceed without a snapshot.
+/// On a btrfs root with blueberry-snapshot around, take a restore point (it also
+/// refreshes the GRUB snapshot menu). If it fails we upgrade anyway.
 fn pre_upgrade_snapshot(cfg: &Config) {
     if cfg.rooted() {
-        return; // installing into a staging root, not the running system
+        return; // staging root, not the running system
     }
     if !root_is_btrfs() || !Path::new("/usr/bin/blueberry-snapshot").exists() {
         return;
@@ -766,13 +742,12 @@ fn pre_upgrade_snapshot(cfg: &Config) {
         .status();
 }
 
-/// True if the live root ("/") is a btrfs mount (per /proc/self/mountinfo).
 fn root_is_btrfs() -> bool {
     let Ok(txt) = std::fs::read_to_string("/proc/self/mountinfo") else {
         return false;
     };
     for line in txt.lines() {
-        // "<...> <mountpoint@field5> <...> - <fstype> <source> <opts>"
+        // mountinfo: "<id> <parent> <dev> <root> <mountpoint> ... - <fstype> <src> <opts>"
         let mut halves = line.split(" - ");
         let (Some(pre), Some(post)) = (halves.next(), halves.next()) else {
             continue;
@@ -786,7 +761,6 @@ fn root_is_btrfs() -> bool {
     false
 }
 
-// ── query commands ───────────────────────────────────────────────────────────
 fn cmd_search(cfg: &Config, args: &[String]) -> Result<(), String> {
     if args.is_empty() {
         return Err("usage: bpm search <term>".into());
@@ -859,8 +833,6 @@ fn cmd_files(cfg: &Config, args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-/// Explain why a package is on the system: which installed packages require it,
-/// and whether the user asked for it explicitly.
 fn cmd_why(cfg: &Config, args: &[String]) -> Result<(), String> {
     let name = args.first().ok_or("usage: bpm why <name>")?;
     if !db::is_installed(cfg, name) {
@@ -873,8 +845,8 @@ fn cmd_why(cfg: &Config, args: &[String]) -> Result<(), String> {
             println!("{name} was explicitly installed; nothing else depends on it.");
         } else {
             println!(
-                "{name} is installed but nothing requires it and it isn't explicit — \
-                 an orphan (remove with 'bpm autoremove')."
+                "{name} is an orphan: nothing needs it and nobody asked for it \
+                 (bpm autoremove will clean it up)."
             );
         }
     } else {
@@ -890,8 +862,7 @@ fn cmd_why(cfg: &Config, args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-/// Print a package's dependency tree (installed deps from the DB, otherwise the
-/// repo index). Base-provided deps are tagged and not recursed into.
+/// Deps the base provides are tagged "(base)" and not expanded.
 fn cmd_depends(cfg: &Config, args: &[String]) -> Result<(), String> {
     let name = args.first().ok_or("usage: bpm depends <name>")?;
     if !db::is_installed(cfg, name) && index::lookup(cfg, name).is_none() {
@@ -904,8 +875,7 @@ fn cmd_depends(cfg: &Config, args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-/// Direct dependency names of `name`: from the installed DB when present, else
-/// from the repo index.
+/// From the db if it's installed, otherwise from the index.
 fn deps_of(cfg: &Config, name: &str) -> Vec<String> {
     if db::is_installed(cfg, name) {
         db::package_deps(cfg, name)

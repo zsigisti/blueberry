@@ -1,9 +1,6 @@
-//! The on-disk package cache (`<root>/var/lib/bpm/cache`). Downloaded `.bpm`
-//! artifacts are kept here after install so a package can be rolled back or
-//! downgraded to a previously-fetched version without the mirror still hosting
-//! it. Versions are read from each artifact's manifest (authoritative), not
-//! parsed out of the filename — package names contain dashes, so filename
-//! parsing is ambiguous.
+//! The download cache (var/lib/bpm/cache), which doubles as the rollback store.
+//! Versions come from each file's manifest, not its name: names have dashes in
+//! them, so "foo-bar-1.0-1.bpm" doesn't split reliably.
 
 use crate::config::Config;
 use crate::pkg;
@@ -11,7 +8,6 @@ use crate::vercmp;
 use std::cmp::Ordering;
 use std::path::PathBuf;
 
-/// One cached artifact: its version and path on disk.
 pub struct Cached {
     pub version: String,
     pub path: PathBuf,
@@ -21,8 +17,7 @@ fn is_pkg(fname: &str) -> bool {
     fname.ends_with(".bpm") || fname.ends_with(".pkg.tar.zst")
 }
 
-/// Every cached artifact, grouped by package name, each group sorted
-/// newest-version-first.
+/// Everything in the cache by package name, newest first.
 pub fn grouped(cfg: &Config) -> std::collections::BTreeMap<String, Vec<Cached>> {
     let mut map: std::collections::BTreeMap<String, Vec<Cached>> = std::collections::BTreeMap::new();
     if let Ok(rd) = std::fs::read_dir(&cfg.cache) {
@@ -46,7 +41,7 @@ pub fn grouped(cfg: &Config) -> std::collections::BTreeMap<String, Vec<Cached>> 
     map
 }
 
-/// Cached artifacts for one package, newest-version-first.
+/// One package's cached versions, newest first.
 pub fn versions(cfg: &Config, name: &str) -> Vec<Cached> {
     let mut out: Vec<Cached> = Vec::new();
     if let Ok(rd) = std::fs::read_dir(&cfg.cache) {
@@ -70,15 +65,13 @@ pub fn versions(cfg: &Config, name: &str) -> Vec<Cached> {
     out
 }
 
-/// The newest cached version strictly older than `current` (the rollback
-/// target), or None if the cache holds nothing older.
+/// Newest cached version strictly older than `current`.
 pub fn previous(cfg: &Config, name: &str, current: &str) -> Option<Cached> {
     versions(cfg, name)
         .into_iter()
         .find(|c| vercmp::vercmp(&c.version, current) == Ordering::Less)
 }
 
-/// The cached artifact for an exact version, if present.
 pub fn exact(cfg: &Config, name: &str, version: &str) -> Option<Cached> {
     versions(cfg, name)
         .into_iter()

@@ -1,22 +1,13 @@
 #!/bin/bash
-# mkdisk.sh — build a dd-able, UEFI-bootable Blueberry disk image.
+# usage: tools/image/mkdisk.sh <output.img> [rootfsdir] [size=2G]
 #
-# Produces a GPT raw image with:
-#   p1  ESP  (FAT32)  — GRUB (UEFI) + grub.cfg + vmlinuz + initramfs
-#   p2  data (ext4, label "blueberry-data") — persistent storage for you to use
-#
-# It boots the live CLI from the initramfs (RAM), identically to the ISO, but
-# from the machine's own disk — no install media needed. Deploy it by writing
-# the image to the target disk:
+# Raw GPT image that boots the same live CLI as the ISO, straight off a disk:
+#   p1  ESP, FAT32: GRUB + grub.cfg + vmlinuz + initramfs
+#   p2  ext4 "blueberry-data", yours to use
+# rootfsdir needs boot/vmlinuz and boot/initramfs.cpio.zst (make install).
+# No root or loop devices (sgdisk, mkfs -d, mtools, dd), so it runs in CI.
 #
 #   dd if=blueberry.img of=/dev/sdX bs=4M status=progress oflag=sync
-#
-# Built entirely without root/loop devices (sgdisk + mkfs -d + mtools + dd),
-# so it runs in any unprivileged environment / CI.
-#
-# Usage: tools/image/mkdisk.sh <output.img> [rootfsdir] [size]
-#   rootfsdir  dir holding boot/vmlinuz + boot/initramfs.cpio.zst (make install)
-#   size       total image size (default 2G)
 
 set -euo pipefail
 
@@ -39,12 +30,9 @@ INITRD="$ROOTFS/boot/initramfs.cpio.zst"
 [ -f "$VMLINUZ" ] || die "no kernel at $VMLINUZ (run 'make install')"
 [ -f "$INITRD"  ] || die "no initramfs at $INITRD (run 'make install')"
 
-# ── Secure Boot (opt-in) ──────────────────────────────────────────────────────
-# Set SECUREBOOT_KEYDIR to a key set from `blueberry-secureboot keygen`. When
-# present the boot chain is signed: GRUB is built to enforce GPG signatures on
-# what it loads, is itself sbsigned with the db key (firmware verifies it), and
-# the kernel + initramfs are GPG-signed (GRUB verifies them). Absent -> a normal
-# unsigned image (unchanged behaviour).
+# SECUREBOOT_KEYDIR (from `blueberry-secureboot keygen`) signs the whole chain:
+# GRUB gets sbsigned with db and enforces GPG sigs on the kernel + initramfs.
+# Unset = plain unsigned image.
 SB_KEYDIR=${SECUREBOOT_KEYDIR:-}
 SB=0
 if [ -n "$SB_KEYDIR" ]; then
@@ -56,20 +44,18 @@ fi
 
 SECTOR=512
 
-# ── 1. Empty GPT image ────────────────────────────────────────────────────────
 log "Creating ${SIZE} image: $OUT"
 qemu-img create -q -f raw "$OUT" "$SIZE"
 sgdisk --zap-all "$OUT" >/dev/null
-# p1: 256 MiB ESP (EF00). p2: rest, Linux fs (8300), labelled blueberry-data.
 sgdisk -n 1:1MiB:+256MiB -t 1:EF00 -c 1:EFI \
        -n 2:0:0          -t 2:8300 -c 2:blueberry-data \
        "$OUT" >/dev/null
 log "Partition table:"
 sgdisk -p "$OUT" | sed 's/^/    /'
 
-# sgdisk -i prints e.g. "First sector: 2048 (at 1.0 MiB)" — the sector is $3.
+# sgdisk -i prints "First sector: 2048 (at 1.0 MiB)", we want $3
 part_start() { sgdisk -i "$1" "$OUT" | awk '/First sector/{print $3}'; }
-part_size()  { # sectors = last - first + 1
+part_size()  {
     local f l
     f=$(sgdisk -i "$1" "$OUT" | awk '/First sector/{print $3}')
     l=$(sgdisk -i "$1" "$OUT" | awk '/Last sector/{print $3}')
@@ -79,18 +65,15 @@ part_size()  { # sectors = last - first + 1
 ESP_START=$(part_start 1);  ESP_SECTORS=$(part_size 1)
 DAT_START=$(part_start 2);  DAT_SECTORS=$(part_size 2)
 
-# ── 2. Build the ESP (FAT32) with mtools — no mount needed ─────────────────────
 log "Building EFI system partition"
 ESP_IMG="$WORK/esp.img"
 truncate -s $(( ESP_SECTORS * SECTOR )) "$ESP_IMG"
 mkfs.fat -F32 -n EFI "$ESP_IMG" >/dev/null
 
-# GRUB EFI binary: a standalone image whose embedded config finds the ESP (the
-# partition that holds /vmlinuz) and boots the live CLI, on serial or monitor.
 cat > "$WORK/grub.cfg" <<'EOF'
 set timeout=3
 set timeout_style=countdown
-# UEFI image: keep the GOP framebuffer so the kernel's efifb drives the screen.
+# keep the GOP framebuffer for efifb
 set gfxpayload=keep
 search --no-floppy --file --set=root /vmlinuz
 menuentry "Blueberry Linux (live CLI)" {
@@ -103,18 +86,15 @@ menuentry "Blueberry Linux (live CLI, verbose)" {
 }
 EOF
 
-# --modules: grub-mkstandalone's memdisk image does NOT include filesystem
-# drivers by default, so the embedded grub.cfg can't read the real FAT ESP to
-# find /vmlinuz. Pull in GPT + FAT + search + the loaders explicitly.
+# mkstandalone leaves out filesystem drivers, so without these the embedded
+# grub.cfg can't even read the ESP it lives on
 GRUB_MODS="part_gpt fat search search_fs_file normal linux echo all_video gfxterm test configfile"
 GRUB_SBOPTS=""
 if [ "$SB" = 1 ]; then
-    # pgp verifier + an embedded trusted key => GRUB enforces check_signatures,
-    # refusing to load a kernel/initramfs whose detached .sig doesn't verify.
-    # --disable-shim-lock: without a Microsoft shim, GRUB's core shim_lock
-    # verifier would otherwise reject the `linux` handoff ("shim protocols not
-    # found") even under our own keys; this embeds the OBJ_TYPE_DISABLE_SHIM_LOCK
-    # marker so GRUB falls back to the pgp verifier (grub-core/kern/efi/sb.c).
+    # pgp + embedded key = GRUB refuses anything without a good .sig.
+    # --disable-shim-lock: we have no Microsoft shim, and GRUB's shim_lock
+    # verifier then rejects the linux handoff ("shim protocols not found")
+    # even with our own keys. See grub-core/kern/efi/sb.c.
     GRUB_MODS="$GRUB_MODS pgp"
     GRUB_SBOPTS="--pubkey=$SB_KEYDIR/grub-gpg.pub --disable-shim-lock"
 fi
@@ -127,13 +107,11 @@ if [ "$SB" = 1 ]; then
     log "Secure Boot: sbsign BOOTX64.EFI + kernel (db) + GPG-sign kernel/initramfs"
     sbsign --key "$SB_KEYDIR/db.key" --cert "$SB_KEYDIR/db.crt" \
         --output "$WORK/BOOTX64.EFI" "$WORK/BOOTX64.EFI"
-    # GRUB's EFI linux loader boots the kernel via firmware LoadImage, which
-    # verifies it against db — so the kernel PE (EFI stub) must be sbsigned too.
+    # GRUB hands the kernel to firmware LoadImage, which checks it against
+    # db, so the kernel needs an sbsign too, not just a GPG sig
     sbsign --key "$SB_KEYDIR/db.key" --cert "$SB_KEYDIR/db.crt" \
         --output "$WORK/vmlinuz.signed" "$VMLINUZ"
     KIMG="$WORK/vmlinuz.signed"
-    # GPG-sign what GRUB reads from the ESP (check_signatures) — the db-signed
-    # kernel and the initramfs — so GRUB also gates them via its pgp verifier.
     gpg --homedir "$SB_KEYDIR/gpg" --batch --yes --detach-sign -o "$WORK/vmlinuz.sig"   "$KIMG"
     gpg --homedir "$SB_KEYDIR/gpg" --batch --yes --detach-sign -o "$WORK/initramfs.sig" "$INITRD"
 fi
@@ -150,7 +128,6 @@ fi
 
 dd if="$ESP_IMG" of="$OUT" bs=$SECTOR seek="$ESP_START" conv=notrunc status=none
 
-# ── 3. Build the data partition (ext4) — populated from a dir, no mount ────────
 log "Building data partition (ext4, label blueberry-data)"
 DAT_IMG="$WORK/data.img"
 truncate -s $(( DAT_SECTORS * SECTOR )) "$DAT_IMG"

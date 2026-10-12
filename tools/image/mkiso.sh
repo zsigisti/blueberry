@@ -1,15 +1,10 @@
 #!/bin/sh
-# mkiso.sh — create a hybrid BIOS+UEFI bootable ISO of the Blueberry live CLI.
+# usage: tools/image/mkiso.sh <rootfsdir> [output.iso]
 #
-# The ISO boots the kernel + initramfs straight into the live CLI shell — no
-# disk, no squashfs, no package manager. It is identical to what `make run`
-# boots, just on real media (CD/USB) for bare metal.
-#
-# Usage: tools/image/mkiso.sh <rootfsdir> [output.iso]
-#   <rootfsdir> must contain boot/vmlinuz and boot/initramfs.cpio.zst
-#               (populated by `make install`)
-#
-# Requires: grub-mkrescue (grub2), xorriso, and mtools (for the UEFI image).
+# Hybrid BIOS+UEFI ISO of the live CLI (same thing `make run` boots), plus
+# the install payload under /blueberry. <rootfsdir> needs boot/vmlinuz and
+# boot/initramfs.cpio.zst from `make install`.
+# Needs grub-mkrescue, xorriso and mtools.
 
 set -e
 
@@ -26,7 +21,6 @@ command -v grub-mkrescue >/dev/null || die "grub-mkrescue not found (install gru
 command -v xorriso       >/dev/null || die "xorriso not found"
 command -v mformat       >/dev/null || die "mtools not found (needed for the UEFI image)"
 
-# ── Locate boot assets ────────────────────────────────────────────────────────
 VMLINUZ="$ROOTFS/boot/vmlinuz"
 INITRD="$ROOTFS/boot/initramfs.cpio.zst"
 [ -f "$VMLINUZ" ] || VMLINUZ=$(find "$ROOTFS/boot" -name 'vmlinuz*' | head -1)
@@ -34,32 +28,28 @@ INITRD="$ROOTFS/boot/initramfs.cpio.zst"
 [ -f "$VMLINUZ" ] || die "no kernel found in $ROOTFS/boot (run 'make install')"
 [ -f "$INITRD"  ] || die "no initramfs found in $ROOTFS/boot (run 'make install')"
 
-# ── Stage the ISO tree ────────────────────────────────────────────────────────
 ISO_ROOT="$BUILD_TMP/iso"
 mkdir -p "$ISO_ROOT/boot/grub"
 cp "$VMLINUZ" "$ISO_ROOT/boot/vmlinuz"
 cp "$INITRD"  "$ISO_ROOT/boot/initramfs.cpio.zst"
 
-# ── Installer payload ─────────────────────────────────────────────────────────
-# Ship the full rootfs + boot assets + a GRUB EFI under /blueberry so the
-# bundled `blueberry-install` can install Blueberry to a local disk offline.
+# rootfs + kernel + a GRUB EFI under /blueberry, so blueberry-install works offline
 if command -v zstd >/dev/null; then
     PAYLOAD="$ISO_ROOT/blueberry"
     mkdir -p "$PAYLOAD"
     log "Building installer payload (rootfs.tar.zst)"
-    # Force root:root ownership. The build runs rootless (uid 1000), so the
-    # staged rootfs is owned by the build user; without this the archive records
-    # uid 1000 and the installer restores it verbatim, leaving every setuid
-    # binary (mount, su, sudo, passwd, ping) setuid-to-1000 instead of root —
-    # which breaks tmp.mount/dev-mqueue at boot and silently breaks su/sudo.
+    # --owner=0 matters: we build as uid 1000, and without it the installer
+    # restores that uid verbatim. Every setuid binary (mount, su, sudo, passwd,
+    # ping) then ends up setuid-to-1000, tmp.mount fails at boot and sudo
+    # quietly stops working.
     tar -C "$ROOTFS" \
         --owner=0 --group=0 --numeric-owner \
         --exclude='./boot/vmlinuz' --exclude='./boot/initramfs.cpio.zst' \
         -cf - . | zstd -q -19 > "$PAYLOAD/rootfs.tar.zst"
     cp "$VMLINUZ" "$PAYLOAD/vmlinuz"
     cp "$INITRD"  "$PAYLOAD/initramfs.cpio.zst"
-    # Prebuilt GRUB EFI: finds the installed ESP (the one holding /vmlinuz) and
-    # runs the /grub/grub.cfg that blueberry-install writes (with root=UUID).
+    # finds the ESP with /vmlinuz on it and chains to the grub.cfg the
+    # installer writes there
     if command -v grub-mkstandalone >/dev/null; then
         cat > "$BUILD_TMP/inst-grub.cfg" <<'GEOF'
 search --no-floppy --file --set=root /vmlinuz
@@ -71,34 +61,29 @@ GEOF
             "boot/grub/grub.cfg=$BUILD_TMP/inst-grub.cfg" 2>/dev/null
         log "installer payload ready ($(du -sh "$PAYLOAD" | cut -f1))"
     else
-        log "WARNING: grub-mkstandalone missing — installer payload has no bootloader"
+        log "WARNING: grub-mkstandalone missing, installer payload has no bootloader"
     fi
 else
-    log "WARNING: zstd missing — ISO will not include the installer payload"
+    log "WARNING: zstd missing, ISO will not include the installer payload"
 fi
 
-# console=tty0 → physical monitor (VGA text); console=ttyS0 → serial / IPMI.
-# ttyS0 is listed last so the interactive shell lands on the serial console
-# (which is what QEMU -nographic and most headless servers use).
+# ttyS0 goes last so it's the main console - QEMU -nographic and headless
+# boxes live on serial. tty0 still gets a shell too.
 cat > "$ISO_ROOT/boot/grub/grub.cfg" <<'EOF'
 set default=0
 set timeout=5
-# countdown (not the interactive menu) so a headless/serial console auto-boots
-# instead of stalling forever waiting for a keypress.
+# countdown, so a headless box doesn't sit at the menu forever
 set timeout_style=countdown
 
-# Display payload depends on firmware:
-#   UEFI -> keep the GOP framebuffer so the kernel's efifb can drive the screen
-#           (modern laptops/desktops have no legacy VGA text console).
-#   BIOS -> text mode for vgacon.
+# UEFI: keep the GOP framebuffer (new machines have no VGA text mode at all).
+# BIOS: plain text for vgacon.
 if [ "$grub_platform" = "efi" ]; then
     set gfxpayload=keep
 else
     set gfxpayload=text
 fi
 
-# (No `serial` setup here — it errors on machines without a COM port. The kernel
-# still gets console=ttyS0 for real serial/IPMI consoles after GRUB hands off.)
+# no `serial` command here, it errors on machines without a COM port
 
 menuentry "Blueberry Linux (live CLI)" {
     linux /boot/vmlinuz console=tty0 console=ttyS0,115200 bonding.max_bonds=0 dummy.numdummies=0
@@ -111,10 +96,8 @@ menuentry "Blueberry Linux (live CLI, verbose)" {
 }
 EOF
 
-# ── Build the hybrid ISO ──────────────────────────────────────────────────────
-# grub-mkrescue emits a GRUB image that boots on both legacy BIOS (El Torito +
-# embedded MBR) and UEFI (an embedded EFI System Partition), so the one ISO
-# works on essentially any x86_64 machine and as a `dd`-able USB stick.
+# grub-mkrescue does El Torito + MBR + an embedded ESP, so one ISO covers BIOS,
+# UEFI and dd-to-USB
 log "Building hybrid BIOS+UEFI ISO: $OUTPUT"
 grub-mkrescue --output "$OUTPUT" "$ISO_ROOT" \
     -- -volid BLUEBERRY >/dev/null 2>&1 \

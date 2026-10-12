@@ -1,20 +1,12 @@
-//! bbconsole — the Blueberry management console daemon (base layer).
+//! bbconsole: the Blueberry web console daemon.
 //!
-//! A small, privileged HTTP API + static-file server for a first-party web UI to
-//! manage a Blueberry box. This is the FOUNDATION, deliberately scoped: it wraps
-//! tools that already exist (systemctl, bpm, /proc) behind a versioned, audited,
-//! authenticated API, and serves a single-page frontend. The far vision —
-//! containers, logs, updates with btrfs snapshot/rollback, storage, network —
-//! extends the /api/v1 surface without reworking this core.
+//! Small privileged HTTPS API + static file server for the web UI. Wraps the
+//! tools the box already has (systemctl, bpm, /proc) behind /api/v1.
 //!
-//! Security posture (see doc/WEBUI.md):
-//!   * binds 0.0.0.0:9090 by default and terminates its OWN TLS (self-signed,
-//!     generated on first start) — it is meant to be reached directly over the
-//!     LAN. Set BBCONSOLE_BIND=127.0.0.1:9090 to keep it host-local behind a
-//!     reverse proxy instead.
-//!   * PAM (or token) → session auth; every API call is re-checked.
-//!   * write actions are few, argument-validated, and appended to an audit log.
-//!   * pure-std HTTP, hard request-size limits, one request per connection.
+//! Listens on 0.0.0.0:9090 with its own self-signed TLS by default, since it's
+//! meant to be hit straight over the LAN. BBCONSOLE_BIND=127.0.0.1:9090 if you'd
+//! rather hide it behind a reverse proxy. Login is PAM (or the bootstrap token),
+//! writes are argument-checked and go to the audit log. See doc/WEBUI.md.
 
 mod api;
 mod auth;
@@ -23,6 +15,7 @@ mod installer;
 
 use auth::{Sessions, Throttle};
 use http::{Request, Response};
+use rustls::{ServerConfig, ServerConnection, StreamOwned};
 use serde_json::json;
 use std::io::{BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -32,14 +25,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-/// Per-socket I/O timeout — bounds the TLS handshake, the request read, and the
-/// response write, so a slow/idle client can't pin a worker thread (slow-loris).
+// covers handshake, read and write, so a slow-loris can't pin a thread forever
 const IO_TIMEOUT: Duration = Duration::from_secs(20);
-/// Max concurrent connections; excess are dropped so a flood can't spawn
-/// unbounded threads. Generous for a single-admin console.
+// one thread per connection, so cap them. plenty for one admin
 const MAX_CONNS: usize = 128;
-
-use rustls::{ServerConfig, ServerConnection, StreamOwned};
 
 struct Config {
     bind: String,
@@ -53,13 +42,12 @@ struct Config {
 
 impl Config {
     fn load() -> Config {
-        // Env overrides keep the base layer configurable without a parser.
         Config {
             bind: env("BBCONSOLE_BIND", "0.0.0.0:9090"),
             web_root: PathBuf::from(env("BBCONSOLE_WEB", "/usr/share/blueberry-console/web")),
             token_path: PathBuf::from(env("BBCONSOLE_TOKEN", "/etc/blueberry/console/token")),
             audit_path: PathBuf::from(env("BBCONSOLE_AUDIT", "/var/log/blueberry-console/audit.log")),
-            // Only root + members of this group may log in via PAM.
+            // root + members of this group may log in
             admin_group: env("BBCONSOLE_ADMIN_GROUP", "wheel"),
             cert_path: PathBuf::from(env("BBCONSOLE_CERT", "/etc/blueberry/console/cert.pem")),
             key_path: PathBuf::from(env("BBCONSOLE_KEY", "/etc/blueberry/console/key.pem")),
@@ -81,7 +69,6 @@ struct State {
 }
 
 fn main() {
-    // Install the ring crypto provider once for the whole process.
     let _ = rustls::crypto::ring::default_provider().install_default();
 
     let cfg = Config::load();
@@ -104,15 +91,13 @@ fn main() {
 
     for conn in listener.incoming() {
         let Ok(stream) = conn else { continue };
-        // Shed load past the cap so a connection flood can't exhaust threads/RAM.
         if state.inflight.load(Ordering::Relaxed) >= MAX_CONNS {
-            drop(stream); // RST/close; the client can retry
+            drop(stream); // client can retry
             continue;
         }
         state.inflight.fetch_add(1, Ordering::Relaxed);
         let st = Arc::clone(&state);
-        // Thread per connection: simple and isolated. The counter is released
-        // when the handler returns (even on panic) via the guard below.
+        // the guard gives the slot back even if the handler panics
         std::thread::spawn(move || {
             struct Guard<'a>(&'a AtomicUsize);
             impl Drop for Guard<'_> {
@@ -124,8 +109,8 @@ fn main() {
     }
 }
 
-/// Generate a self-signed cert+key (via openssl) if none exists, so HTTPS works
-/// out of the box. Drop in a real cert at the same paths to replace it.
+/// Make a self-signed cert with openssl on first start. Drop a real one at the
+/// same paths to replace it.
 fn ensure_cert(cert: &Path, key: &Path) {
     if cert.exists() && key.exists() {
         return;
@@ -136,9 +121,8 @@ fn ensure_cert(cert: &Path, key: &Path) {
     let host = std::fs::read_to_string("/proc/sys/kernel/hostname")
         .map(|s| s.trim().to_string())
         .unwrap_or_else(|_| "blueberry".into());
-    // Build a SAN list that matches how the box is actually reached: localhost,
-    // the hostname, and every global IP the machine holds — so browsing by IP
-    // doesn't hit a name-mismatch on top of the self-signed warning.
+    // put every IP in the SAN too, so browsing by IP doesn't add a name
+    // mismatch on top of the self-signed warning
     let san = build_san(&host);
     let ok = Command::new("openssl")
         .args([
@@ -162,8 +146,7 @@ fn ensure_cert(cert: &Path, key: &Path) {
     }
 }
 
-/// Assemble an openssl subjectAltName value: localhost + 127.0.0.1 + the
-/// hostname + every global IPv4/IPv6 address on the box (via `ip -o addr`).
+/// subjectAltName: localhost, the hostname, loopback and every global address.
 fn build_san(host: &str) -> String {
     let mut dns = vec!["localhost".to_string()];
     if !host.is_empty() && host != "localhost" {
@@ -172,7 +155,7 @@ fn build_san(host: &str) -> String {
     let mut ips = vec!["127.0.0.1".to_string(), "::1".to_string()];
     if let Ok(out) = Command::new("ip").args(["-o", "addr", "show", "scope", "global"]).output() {
         for line in String::from_utf8_lossy(&out.stdout).lines() {
-            // "N: iface    inet 192.168.0.5/24 ..."  → take the addr before '/'
+            // "2: eth0    inet 192.168.0.5/24 ..."
             let mut it = line.split_whitespace();
             while let Some(tok) = it.next() {
                 if tok == "inet" || tok == "inet6" {
@@ -204,11 +187,9 @@ fn load_tls(cert: &Path, key: &Path) -> Option<Arc<ServerConfig>> {
 
 fn handle(st: Arc<State>, tcp: TcpStream) {
     let peer = tcp.peer_addr().map(|a| a.ip().to_string()).unwrap_or_default();
-    // Bound every blocking I/O op (handshake, request read, response write) so a
-    // slow or idle client releases the thread instead of pinning it forever.
     let _ = tcp.set_read_timeout(Some(IO_TIMEOUT));
     let _ = tcp.set_write_timeout(Some(IO_TIMEOUT));
-    // Wrap the connection in TLS; a client speaking plain HTTP just fails here.
+    // plain HTTP clients just fail the handshake
     let Ok(conn) = ServerConnection::new(Arc::clone(&st.tls)) else { return };
     let stream = StreamOwned::new(conn, tcp);
     serve(&st, stream, &peer);
@@ -222,13 +203,13 @@ fn serve<S: Read + Write>(st: &State, stream: S, peer: &str) {
     resp.write(&mut inner);
 }
 
-/// Resolve the caller's session. Two accepted credentials, in priority order:
-///   1. `Authorization: Bearer <session>` — the primary path. Explicit, never
-///      sent ambiently, so a cert-error browser can't drop it and CSRF can't
-///      forge it. Returns `via_header = true`.
-///   2. `bbc_session` cookie — convenience for same-site navigation. Ambient, so
-///      state-changing requests using it must also present a matching CSRF token.
-/// Returns the live session plus whether it came from the Bearer header.
+/// Find the caller's session. The bool is true when it came from the Bearer
+/// header.
+///
+/// Bearer is the main path: browsers never send it on their own, so CSRF can't
+/// forge it and a cert-warning browser can't drop it (they do drop Secure
+/// cookies). The `bbc_session` cookie is accepted too, but since it rides along
+/// ambiently, writes made with it need the CSRF token as well.
 fn authenticate(st: &State, req: &Request) -> Option<(auth::Session, bool)> {
     if let Some(h) = req.header("authorization") {
         if let Some(tok) = h.strip_prefix("Bearer ").or_else(|| h.strip_prefix("bearer ")) {
@@ -250,7 +231,7 @@ fn audit(st: &State, ip: &str, line: &str) {
     if let Some(dir) = st.cfg.audit_path.parent() {
         let _ = std::fs::create_dir_all(dir);
     }
-    // 0600 on creation — the log holds source IPs and usernames.
+    // 0600: it has IPs and usernames in it
     if let Ok(mut f) = std::fs::OpenOptions::new()
         .create(true).append(true).mode(0o600).open(&st.cfg.audit_path)
     {
@@ -259,7 +240,7 @@ fn audit(st: &State, ip: &str, line: &str) {
 }
 
 fn now() -> String {
-    // Seconds since epoch — enough for an audit timeline without a time crate.
+    // epoch seconds, good enough without pulling in a time crate
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs().to_string())
@@ -269,16 +250,14 @@ fn now() -> String {
 fn route(st: &State, req: &Request, peer: &str) -> Response {
     let path = req.path.as_str();
 
-    // ── auth endpoints ────────────────────────────────────────────────────────
     if path == "/api/v1/login" && req.method == "POST" {
-        // Brute-force throttle: too many failures from this IP → back off.
         if !st.throttle.allowed(peer) {
             audit(st, peer, "login THROTTLED");
             return Response::error(429, "too many attempts, try again later");
         }
         let body = req.json().unwrap_or(json!({}));
         let field = |k: &str| body.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
-        // PAM (username+password) is the primary path; token is the fallback.
+        // username means PAM, otherwise try the bootstrap token
         let issued = if !field("username").is_empty() {
             st.sessions.login_pam(&field("username"), &field("password"), &st.cfg.admin_group)
         } else {
@@ -288,9 +267,8 @@ fn route(st: &State, req: &Request, peer: &str) -> Response {
             Some(iss) => {
                 st.throttle.clear(peer);
                 audit(st, peer, &format!("login ok user={}", iss.user));
-                // Body carries the bearer token + CSRF token (primary path). The
-                // cookie is a same-site convenience mirror; writes made via the
-                // cookie must echo the CSRF token.
+                // the client uses the bearer token from the body; the cookie
+                // is just a same-site mirror (and needs CSRF for writes)
                 return Response::json(200, json!({
                     "ok": true, "user": iss.user,
                     "session": iss.session, "csrf": iss.csrf, "expires_in": 3600,
@@ -317,13 +295,13 @@ fn route(st: &State, req: &Request, peer: &str) -> Response {
             .with_header("Set-Cookie", "bbc_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0");
     }
 
-    // ── API (all require a live session) ──────────────────────────────────────
+    // everything under /api/v1/ needs a live session
     if let Some(rest) = path.strip_prefix("/api/v1/") {
         let Some((sess, via_header)) = authenticate(st, req) else {
             return Response::error(401, "unauthenticated");
         };
-        // CSRF: a cookie-authed unsafe method must echo the session's CSRF token.
-        // Bearer-authed requests are exempt (the header can't be sent ambiently).
+        // cookie-authed writes must echo the CSRF token. bearer can't be sent
+        // ambiently, so it's exempt
         if !via_header && req.method != "GET" && req.method != "HEAD" {
             let ok = req.header("x-bbc-csrf").map(|h| auth::ct_eq(h, &sess.csrf)).unwrap_or(false);
             if !ok {
@@ -334,7 +312,6 @@ fn route(st: &State, req: &Request, peer: &str) -> Response {
         return api_route(st, req, rest, peer, &sess);
     }
 
-    // ── static frontend ───────────────────────────────────────────────────────
     if req.method == "GET" {
         return serve_static(&st.cfg.web_root, path);
     }
@@ -343,8 +320,8 @@ fn route(st: &State, req: &Request, peer: &str) -> Response {
 
 fn api_route(st: &State, req: &Request, rest: &str, peer: &str, sess: &auth::Session) -> Response {
     match (req.method.as_str(), rest) {
-        // Identity/session probe — the client uses this to confirm its token is
-        // live and to (re)learn its CSRF token after a reload.
+        // the client checks its token with this and re-learns the CSRF token
+        // after a reload
         ("GET", "whoami") => Response::json(200, json!({
             "user": sess.user, "csrf": sess.csrf, "sessions": st.sessions.active(),
         })),
@@ -356,7 +333,7 @@ fn api_route(st: &State, req: &Request, rest: &str, peer: &str, sess: &auth::Ses
         ("GET", "network") => Response::json(200, api::network()),
         ("GET", "zfs") => Response::json(200, api::zfs()),
 
-        // ZFS write actions: /api/v1/zfs/{scrub,snapshot}?pool|dataset=<n>&name=<snap>
+        // zfs/{scrub,snapshot}?pool|dataset=<n>&name=<snap>
         ("POST", r) if r.starts_with("zfs/") => {
             let action = &r["zfs/".len()..];
             let target = query_param(&req.query, "pool")
@@ -372,9 +349,8 @@ fn api_route(st: &State, req: &Request, rest: &str, peer: &str, sess: &auth::Ses
 
         ("GET", "btrfs") => Response::json(200, api::btrfs()),
 
-        // Btrfs write actions:
-        //   /api/v1/btrfs/{scrub,snapshot,subvol-create}?mount=<mp>&name=<n>
-        //   /api/v1/btrfs/{subvol-delete,rollback}?mount=<mp>&path=<subvol>
+        // btrfs/{scrub,snapshot,subvol-create}?mount=<mp>&name=<n>
+        // btrfs/{subvol-delete,rollback}?mount=<mp>&path=<subvol>
         ("POST", r) if r.starts_with("btrfs/") => {
             let action = &r["btrfs/".len()..];
             let mount = query_param(&req.query, "mount").unwrap_or_default();
@@ -387,7 +363,6 @@ fn api_route(st: &State, req: &Request, rest: &str, peer: &str, sess: &auth::Ses
             }
         }
 
-        // Updates: list upgradable packages, and apply (optional pre-upgrade snapshot).
         ("GET", "updates") => Response::json(200, api::updates()),
         ("POST", "updates/apply") => {
             let snap = query_param(&req.query, "snapshot").as_deref() == Some("1");
@@ -398,7 +373,7 @@ fn api_route(st: &State, req: &Request, rest: &str, peer: &str, sess: &auth::Ses
             }
         }
 
-        // Web installer (live environment only — erases a disk).
+        // installer: live media only, this one wipes a disk
         ("GET", "installer") => Response::json(200, installer::info()),
         ("GET", "installer/status") => Response::json(200, st.install.lock().unwrap().snapshot()),
         ("POST", "installer/start") => {
@@ -416,7 +391,7 @@ fn api_route(st: &State, req: &Request, rest: &str, peer: &str, sess: &auth::Ses
             }
         }
 
-        // Journald logs: ?lines=<1..500>&priority=<0..7>&unit=<name>
+        // logs?lines=<1..500>&priority=<0..7>&unit=<name>
         ("GET", "logs") => {
             let lines = query_param(&req.query, "lines").and_then(|s| s.parse().ok()).unwrap_or(150);
             let priority = query_param(&req.query, "priority").and_then(|s| s.parse().ok());
@@ -425,7 +400,7 @@ fn api_route(st: &State, req: &Request, rest: &str, peer: &str, sess: &auth::Ses
             Response::json(200, api::logs(lines, priority, unit_ref))
         }
 
-        // Write action: /api/v1/services/<action>?unit=<name>
+        // services/<action>?unit=<name>
         ("POST", r) if r.starts_with("services/") => {
             let action = &r["services/".len()..];
             let unit = query_param(&req.query, "unit").unwrap_or_default();
@@ -436,7 +411,6 @@ fn api_route(st: &State, req: &Request, rest: &str, peer: &str, sess: &auth::Ses
             }
         }
 
-        // Containers (podman): list + tail logs + a few audited write actions.
         ("GET", "containers") => Response::json(200, api::containers()),
         ("GET", "containers/logs") => {
             let name = query_param(&req.query, "name").unwrap_or_default();
@@ -446,7 +420,7 @@ fn api_route(st: &State, req: &Request, rest: &str, peer: &str, sess: &auth::Ses
                 Err(e) => Response::error(400, &e),
             }
         }
-        // /api/v1/containers/{start,stop,restart,remove}?name=<container>
+        // containers/{start,stop,restart,remove}?name=<container>
         ("POST", r) if r.starts_with("containers/") => {
             let action = &r["containers/".len()..];
             let name = query_param(&req.query, "name").unwrap_or_default();
@@ -461,8 +435,8 @@ fn api_route(st: &State, req: &Request, rest: &str, peer: &str, sess: &auth::Ses
     }
 }
 
-/// A syntactically valid systemd unit name (no leading '-', restricted charset)
-/// — used to sanitise the `logs?unit=` filter before it reaches journalctl.
+/// Filter for `logs?unit=` before it goes to journalctl. No leading '-', or it
+/// turns into an option.
 fn valid_unit(u: &str) -> bool {
     !u.is_empty()
         && !u.starts_with('-')
@@ -482,7 +456,7 @@ fn query_param(query: &str, key: &str) -> Option<String> {
 
 fn serve_static(root: &Path, path: &str) -> Response {
     let rel = if path == "/" { "index.html" } else { path.trim_start_matches('/') };
-    // Path-traversal guard: no "..", no absolute escapes.
+    // no "..", no empty components (so no "//etc/passwd" either)
     if rel.split('/').any(|c| c == ".." || c.is_empty()) {
         return Response::error(400, "bad path");
     }
@@ -490,7 +464,7 @@ fn serve_static(root: &Path, path: &str) -> Response {
     match std::fs::read(&full) {
         Ok(bytes) => Response::bytes(200, content_type(rel), bytes),
         Err(_) => {
-            // SPA fallback: unknown non-asset paths return the shell.
+            // unknown path: hand back the app shell
             match std::fs::read(root.join("index.html")) {
                 Ok(b) => Response::bytes(200, "text/html; charset=utf-8", b),
                 Err(_) => Response::error(404, "not found"),

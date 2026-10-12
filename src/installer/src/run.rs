@@ -1,18 +1,14 @@
-//! Small command-execution helpers. The installer shells out to the system disk
-//! tools (sgdisk, mkfs.*, grub-install, …); these wrap that plumbing.
+//! Thin wrappers for shelling out to sgdisk, mkfs.*, grub-install and friends.
 
 use std::process::{Command, Stdio};
 
-/// A convenience result type for the whole installer.
 pub type R<T> = Result<T, String>;
 
-/// Run a command, inheriting stdio (so the user sees progress). Returns the exit
-/// status as a plain bool (true = success).
+/// Run with inherited stdio; true on exit 0.
 pub fn run(argv: &[&str]) -> bool {
     status(argv).map(|c| c == 0).unwrap_or(false)
 }
 
-/// Run a command, returning Err with context on any non-zero exit.
 pub fn check(argv: &[&str]) -> R<()> {
     match status(argv) {
         Ok(0) => Ok(()),
@@ -21,7 +17,7 @@ pub fn check(argv: &[&str]) -> R<()> {
     }
 }
 
-/// Run a `/bin/sh -c` pipeline (for the few places a pipe is genuinely simplest).
+/// For the few spots where a pipe is just easier.
 pub fn sh(cmd: &str) -> bool {
     Command::new("/bin/sh")
         .args(["-c", cmd])
@@ -30,7 +26,6 @@ pub fn sh(cmd: &str) -> bool {
         .unwrap_or(false)
 }
 
-/// Run a pipeline, die-on-failure.
 pub fn sh_check(cmd: &str) -> R<()> {
     if sh(cmd) {
         Ok(())
@@ -39,7 +34,7 @@ pub fn sh_check(cmd: &str) -> R<()> {
     }
 }
 
-/// Capture a command's stdout, trimmed. Empty string on any error.
+/// Trimmed stdout, or "" if anything went wrong.
 pub fn out(argv: &[&str]) -> String {
     Command::new(argv[0])
         .args(&argv[1..])

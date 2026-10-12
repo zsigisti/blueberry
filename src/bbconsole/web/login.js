@@ -1,17 +1,12 @@
-// Pure-JS client for the Blueberry Console — no framework, no styling.
-//
-// Auth is a BEARER TOKEN held in sessionStorage and sent as
-// `Authorization: Bearer <token>` on every call. Unlike a Secure cookie, it is
-// never attached ambiently, so it survives browsers that drop Secure cookies on
-// a self-signed/untrusted cert — and it can't be forged by CSRF. Every failure
-// path prints the HTTP status, so "nothing happens" can't happen.
+// Bare-bones login/debug page for the console. Same Bearer-token auth as app.js.
+// Every failure prints the HTTP status, so "I clicked and nothing happened"
+// can't happen.
 
 const $ = (id) => document.getElementById(id);
 const KEY = "bbc_session";
 const tok = () => sessionStorage.getItem(KEY) || "";
 const setTok = (t) => { if (t) sessionStorage.setItem(KEY, t); else sessionStorage.removeItem(KEY); };
 
-// Authenticated fetch: attaches the bearer token, never sends cookies.
 async function api(path, opts = {}) {
   const headers = Object.assign({ "Authorization": "Bearer " + tok() }, opts.headers || {});
   return fetch("/api/v1/" + path, Object.assign({ credentials: "omit" }, opts, { headers }));
@@ -65,7 +60,7 @@ $("login-form").addEventListener("submit", async (e) => {
     showApp();
   } else {
     $("status").textContent =
-      "login failed — HTTP " + r.status + (data.error ? " (" + data.error + ")" : "");
+      "login failed: HTTP " + r.status + (data.error ? " (" + data.error + ")" : "");
   }
 });
 
@@ -75,7 +70,6 @@ $("logout").addEventListener("click", async () => {
   showLogin("signed out");
 });
 
-// On load: resume if we already hold a token, else show the login form.
 (async () => {
   if (!tok()) return showLogin();
   try {

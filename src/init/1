@@ -1,11 +1,10 @@
 #!/bin/sh
-# runit stage 1 — early system initialization
-# Runs once as PID 1 during boot. Must not exit unless something is very wrong.
+# runit stage 1: get the system up enough for stage 2.
+# Runs once as PID 1. If this exits, runit gives up.
 
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
 
-# Mount essential pseudo-filesystems
 mount -t proc  proc  /proc
 mount -t sysfs sysfs /sys
 mount -t devtmpfs devtmpfs /dev
@@ -13,40 +12,35 @@ mkdir -p /dev/pts /dev/shm
 mount -t devpts  devpts  /dev/pts  -o nosuid,noexec,gid=5,mode=620
 mount -t tmpfs   shm     /dev/shm  -o nosuid,nodev
 
-# Mount /run as tmpfs
 mount -t tmpfs tmpfs /run -o nosuid,nodev,mode=755
 mkdir -p /run/lock /run/runit
 
-# Seed RNG from saved state
+# stage 3 saved this on the way down
 if [ -f /var/lib/random-seed ]; then
     cat /var/lib/random-seed > /dev/urandom
     rm -f /var/lib/random-seed
 fi
 
-# Set hostname
 if [ -f /etc/hostname ]; then
     hostname -F /etc/hostname
 fi
 
-# Populate /dev from /sys (mdev as udev replacement)
+# mdev is our udev
 if command -v mdev >/dev/null 2>&1; then
     echo /sbin/mdev > /proc/sys/kernel/hotplug
     mdev -s
 fi
 
-# Set system clock from hardware clock
 hwclock -s 2>/dev/null || true
 
-# Check and mount root filesystem
 if [ -x /sbin/fsck ]; then
     fsck -A -T -a -t noopts=_netdev 2>/dev/null || true
 fi
 mount -o remount,rw /
 
-# Mount remaining filesystems from /etc/fstab (except network mounts)
+# everything in fstab except network mounts (no network yet)
 mount -a -t "nosysfs,nonfs,nonfs4,nosmbfs,nocifs" -O no_netdev 2>/dev/null || true
 
-# Load kernel modules listed in /etc/modules
 if [ -f /etc/modules ]; then
     while read -r module args; do
         case "$module" in ''|\#*) continue ;; esac
@@ -54,7 +48,6 @@ if [ -f /etc/modules ]; then
     done < /etc/modules
 fi
 
-# Apply sysctl settings
 if [ -f /etc/sysctl.conf ]; then
     sysctl -p /etc/sysctl.conf >/dev/null 2>&1 || true
 fi

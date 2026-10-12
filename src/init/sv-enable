@@ -1,10 +1,7 @@
 #!/bin/sh
-# sv-enable <service>... — enable runit service(s).
-#
-# Services ship their definition in /etc/sv/<name>/ (packages install it there
-# but leave it disabled). Enabling symlinks it into /etc/sv/enabled (persists
-# across boots; stage 2 wires those into /var/service) and into /var/service
-# directly so runsvdir starts it now — no reboot needed.
+# sv-enable <service>...
+# Packages drop services into /etc/sv/<name> disabled. This links them into
+# /etc/sv/enabled (survives reboot) and /var/service (starts it right now).
 set -eu
 
 [ $# -ge 1 ] || { echo "usage: sv-enable <service>..." >&2; exit 1; }

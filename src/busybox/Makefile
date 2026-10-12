@@ -1,14 +1,9 @@
-# src/busybox/Makefile — build busybox linked against the host glibc
-#
-# Inputs:
-#   BUSYBOX_SRC  path to extracted busybox source
-#   CC           host C compiler (glibc)
-#   STAGEDIR     install root (the OS rootfs being assembled)
-#   ARCH
+# busybox, dynamic against the host glibc. Called from the top GNUmakefile
+# with BUSYBOX_SRC, CC, STAGEDIR and ARCH set.
 
 THISDIR      := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
-# config.full is a complete, validated .config generated from busybox 1.36.1
-# defconfig + our settings.  No kconfig tools required in CI.
+# config.full is a complete .config (1.36.1 defconfig + our changes), so no
+# kconfig run is needed.
 BB_CONFIG    := $(THISDIR)/config.full
 
 CC ?= gcc

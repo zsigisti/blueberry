@@ -1,13 +1,14 @@
-//! API handlers. Read-only endpoints shell out to the tools that already exist
-//! on a Blueberry box (systemctl, bpm) or read /proc directly. Write actions are
-//! deliberately few and audited (see main.rs). Everything is namespaced under
-//! /api/v1 so the far-vision surface can grow without breaking clients.
+//! API handlers. Reads shell out to systemctl/bpm/etc or read /proc. Writes are
+//! few, and main.rs audits them before calling in here.
+//!
+//! Anything user-supplied goes in as its own argv element, never through a
+//! shell, and names can't start with '-' so they can't turn into options.
 
 use serde_json::{json, Value};
 use std::fs;
 use std::process::Command;
 
-/// GET /api/v1/system — host identity + live load/memory. No external tools.
+/// GET system
 pub fn system() -> Value {
     let hostname = fs::read_to_string("/proc/sys/kernel/hostname")
         .unwrap_or_default()
@@ -29,7 +30,7 @@ pub fn system() -> Value {
         .filter_map(|s| s.parse().ok())
         .collect();
 
-    // Memory + swap from /proc/meminfo (kB).
+    // meminfo is in kB
     let (mut mem_total, mut mem_avail, mut swap_total, mut swap_free) = (0u64, 0u64, 0u64, 0u64);
     if let Ok(mi) = fs::read_to_string("/proc/meminfo") {
         for l in mi.lines() {
@@ -44,7 +45,6 @@ pub fn system() -> Value {
         }
     }
 
-    // os-release PRETTY_NAME for branding.
     let mut pretty = String::new();
     if let Ok(osr) = fs::read_to_string("/etc/os-release") {
         for l in osr.lines() {
@@ -54,7 +54,6 @@ pub fn system() -> Value {
         }
     }
 
-    // CPU model + core count from /proc/cpuinfo.
     let (mut cpu_model, mut cores) = (String::new(), 0u32);
     if let Ok(ci) = fs::read_to_string("/proc/cpuinfo") {
         for l in ci.lines() {
@@ -67,7 +66,7 @@ pub fn system() -> Value {
             }
         }
     }
-    // Running processes = numeric entries in /proc.
+    // every numeric dir in /proc is a process
     let processes = fs::read_dir("/proc")
         .map(|rd| {
             rd.filter_map(Result::ok)
@@ -93,7 +92,7 @@ pub fn system() -> Value {
     })
 }
 
-/// Aggregate + per-core (idle, total) jiffy counters from /proc/stat.
+/// (idle, total) jiffies from /proc/stat: the whole box, then each core.
 fn cpu_times() -> ((u64, u64), Vec<(u64, u64)>) {
     let stat = fs::read_to_string("/proc/stat").unwrap_or_default();
     let (mut agg, mut cores) = ((0u64, 0u64), Vec::new());
@@ -118,7 +117,7 @@ fn cpu_times() -> ((u64, u64), Vec<(u64, u64)>) {
     (agg, cores)
 }
 
-/// Busy percentage between two /proc/stat samples, rounded to 0.1.
+/// Busy % between two samples, to one decimal.
 fn cpu_pct(a: (u64, u64), b: (u64, u64)) -> f64 {
     let didle = b.0.saturating_sub(a.0) as f64;
     let dtotal = b.1.saturating_sub(a.1) as f64;
@@ -129,9 +128,8 @@ fn cpu_pct(a: (u64, u64), b: (u64, u64)) -> f64 {
     }
 }
 
-/// GET /api/v1/metrics — a fresh live sample: overall + per-core CPU%, memory,
-/// swap, load. Samples /proc/stat twice ~120ms apart so the UI can show live
-/// utilisation without the client tracking deltas.
+/// GET metrics. Samples /proc/stat twice, 120ms apart, so the client doesn't
+/// have to keep track of deltas itself.
 pub fn metrics() -> Value {
     let s1 = cpu_times();
     std::thread::sleep(std::time::Duration::from_millis(120));
@@ -168,7 +166,7 @@ pub fn metrics() -> Value {
     })
 }
 
-/// GET /api/v1/logs — recent journald entries as JSON (bounded, read-only).
+/// GET logs
 pub fn logs(lines: u32, priority: Option<u8>, unit: Option<&str>) -> Value {
     let mut args: Vec<String> =
         vec!["-o".into(), "json".into(), "--no-pager".into(), "-n".into(), lines.clamp(1, 500).to_string()];
@@ -188,7 +186,7 @@ pub fn logs(lines: u32, priority: Option<u8>, unit: Option<&str>) -> Value {
             let Ok(v) = serde_json::from_str::<Value>(line) else { continue };
             let get = |k: &str| v.get(k).and_then(|x| x.as_str()).unwrap_or("").to_string();
             let ts = get("__REALTIME_TIMESTAMP").parse::<u64>().map(|us| us / 1_000_000).unwrap_or(0);
-            // MESSAGE is usually a string, occasionally a byte array (binary log).
+            // MESSAGE is a byte array instead of a string when it isn't valid UTF-8
             let msg = match v.get("MESSAGE") {
                 Some(Value::String(s)) => s.clone(),
                 Some(Value::Array(a)) => a.iter().filter_map(|b| b.as_u64()).map(|b| b as u8 as char).collect(),
@@ -209,7 +207,7 @@ pub fn logs(lines: u32, priority: Option<u8>, unit: Option<&str>) -> Value {
     json!({ "entries": entries })
 }
 
-/// GET /api/v1/storage — mounted filesystems (df) + block devices (lsblk if present).
+/// GET storage: df, plus lsblk if it's there.
 pub fn storage() -> Value {
     let mut filesystems = Vec::new();
     if let Ok(o) = Command::new("df").args(["-Pk"]).output() {
@@ -227,7 +225,6 @@ pub fn storage() -> Value {
             }
         }
     }
-    // Block devices — best effort (util-linux lsblk); omitted if unavailable.
     let mut devices = Vec::new();
     if let Ok(o) = Command::new("lsblk").args(["-J", "-b", "-o", "NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE"]).output() {
         if let Ok(v) = serde_json::from_slice::<Value>(&o.stdout) {
@@ -239,12 +236,12 @@ pub fn storage() -> Value {
     json!({ "filesystems": filesystems, "devices": devices })
 }
 
-/// GET /api/v1/network — interfaces (link state, MAC, addresses) + default gateway.
+/// GET network
 pub fn network() -> Value {
     use std::collections::BTreeMap;
     let mut ifaces: BTreeMap<String, Value> = BTreeMap::new();
 
-    // Addresses (`ip -o addr`): "3: eth0    inet 192.168.0.5/24 ..."
+    // "3: eth0    inet 192.168.0.5/24 ..."
     if let Ok(o) = Command::new("ip").args(["-o", "addr", "show"]).output() {
         for line in String::from_utf8_lossy(&o.stdout).lines() {
             let toks: Vec<&str> = line.split_whitespace().collect();
@@ -261,7 +258,7 @@ pub fn network() -> Value {
             }
         }
     }
-    // Link state + MAC (`ip -o link`).
+    // link state + MAC
     if let Ok(o) = Command::new("ip").args(["-o", "link", "show"]).output() {
         for line in String::from_utf8_lossy(&o.stdout).lines() {
             let toks: Vec<&str> = line.split_whitespace().collect();
@@ -284,7 +281,6 @@ pub fn network() -> Value {
             }
         }
     }
-    // Default gateway.
     let mut gateway = String::new();
     if let Ok(o) = Command::new("ip").args(["route", "show", "default"]).output() {
         let s = String::from_utf8_lossy(&o.stdout);
@@ -299,7 +295,7 @@ pub fn network() -> Value {
     json!({ "interfaces": ifaces.into_values().collect::<Vec<_>>(), "gateway": gateway })
 }
 
-/// GET /api/v1/services — systemd services and their state.
+/// GET services
 pub fn services() -> Value {
     let out = Command::new("systemctl")
         .args(["list-units", "--type=service", "--all", "--no-legend", "--plain", "--no-pager"])
@@ -319,15 +315,13 @@ pub fn services() -> Value {
     json!({ "services": list })
 }
 
-/// POST /api/v1/services/{start,stop,restart} — a WRITE action (audited by caller).
+/// POST services/{start,stop,restart}
 pub fn service_action(action: &str, unit: &str) -> Result<Value, String> {
     if !matches!(action, "start" | "stop" | "restart") {
         return Err("unsupported action".into());
     }
-    // Only operate on plausible unit names, never arbitrary args. A leading '-'
-    // would let the name be parsed as a systemctl *option* (argument injection:
-    // e.g. `--version` reports success), so reject it, and pass `--` so the shell
-    // of systemctl treats the name as strictly positional regardless.
+    // a leading '-' would make the "unit" a systemctl option (`--version`
+    // happily reports success). reject it, and pass `--` anyway
     if unit.is_empty()
         || unit.starts_with('-')
         || !unit.bytes().all(|b| b.is_ascii_alphanumeric() || b"-_.@".contains(&b))
@@ -342,7 +336,7 @@ pub fn service_action(action: &str, unit: &str) -> Result<Value, String> {
     }
 }
 
-/// GET /api/v1/packages — installed packages via bpm (empty if bpm absent).
+/// GET packages. Empty if bpm isn't there.
 pub fn packages() -> Value {
     let out = Command::new("bpm").arg("list").output();
     let mut list = Vec::new();
@@ -357,9 +351,7 @@ pub fn packages() -> Value {
     json!({ "packages": list, "manager": "bpm" })
 }
 
-/// A syntactically valid ZFS pool/dataset name (optionally with an `@snapshot`).
-/// No leading '-' (so it can't be read as a zpool/zfs option) and no shell
-/// metacharacters. Names are always passed as argv elements, never a shell string.
+/// ZFS pool/dataset name, optionally with `@snapshot`.
 pub fn valid_zfs_name(s: &str) -> bool {
     !s.is_empty()
         && s.len() <= 256
@@ -367,15 +359,14 @@ pub fn valid_zfs_name(s: &str) -> bool {
         && s.bytes().all(|b| b.is_ascii_alphanumeric() || b"_-.:/@".contains(&b))
 }
 
-/// GET /api/v1/zfs — pools, datasets, snapshots. Returns { available:false } when
-/// the ZFS userland isn't installed, so the frontend degrades gracefully.
+/// GET zfs. `available: false` when there's no zpool binary.
 pub fn zfs() -> Value {
     let po = match Command::new("zpool")
         .args(["list", "-Hp", "-o", "name,size,alloc,free,health,capacity,fragmentation"])
         .output()
     {
         Ok(o) => o,
-        Err(_) => return json!({ "available": false }), // zpool binary absent
+        Err(_) => return json!({ "available": false }),
     };
     let mut pools = Vec::new();
     for line in String::from_utf8_lossy(&po.stdout).lines() {
@@ -424,7 +415,7 @@ pub fn zfs() -> Value {
         }
     }
     let mut resp = json!({ "available": true, "pools": pools, "datasets": datasets, "snapshots": snapshots });
-    // zpool present but e.g. the kernel module isn't loaded → surface the reason.
+    // zpool is there but failed (module not loaded, usually), so say why
     if pools.is_empty() && !po.status.success() {
         let note = String::from_utf8_lossy(&po.stderr).trim().to_string();
         if !note.is_empty() {
@@ -434,8 +425,7 @@ pub fn zfs() -> Value {
     resp
 }
 
-/// POST /api/v1/zfs/{scrub,snapshot} — the few *safe* ZFS write actions. Destroy
-/// and pool creation are deliberately omitted from the base layer.
+/// POST zfs/{scrub,snapshot}. No destroy or pool creation on purpose.
 pub fn zfs_action(action: &str, target: &str, snap: Option<&str>) -> Result<Value, String> {
     if !valid_zfs_name(target) {
         return Err("invalid pool/dataset name".into());
@@ -458,14 +448,12 @@ pub fn zfs_action(action: &str, target: &str, snap: Option<&str>) -> Result<Valu
     }
 }
 
-// ── Btrfs ────────────────────────────────────────────────────────────────────
-
-/// /proc/mounts escapes space/tab/newline/backslash as octal; undo the common ones.
+/// /proc/mounts writes space, tab, newline and backslash as octal escapes.
 fn unescape_mount(s: &str) -> String {
     s.replace("\\040", " ").replace("\\011", "\t").replace("\\012", "\n").replace("\\134", "\\")
 }
 
-/// Distinct btrfs mountpoints from /proc/mounts, as (mountpoint, source device).
+/// (mountpoint, device) for each btrfs mount.
 fn btrfs_mounts() -> Vec<(String, String)> {
     let mut v: Vec<(String, String)> = Vec::new();
     if let Ok(m) = fs::read_to_string("/proc/mounts") {
@@ -482,13 +470,11 @@ fn btrfs_mounts() -> Vec<(String, String)> {
     v
 }
 
-/// The trailing `path <p>` field of a `btrfs subvolume list` line.
 fn subvol_path(line: &str) -> Option<String> {
     line.rsplit_once(" path ").map(|(_, p)| p.trim().to_string())
 }
 
-/// GET /api/v1/btrfs — btrfs filesystems (byte usage), their subvolumes and
-/// snapshots. { available:false } when btrfs-progs isn't installed.
+/// GET btrfs. `available: false` without btrfs-progs.
 pub fn btrfs() -> Value {
     if Command::new("btrfs").arg("--version").output().is_err() {
         return json!({ "available": false });
@@ -530,7 +516,7 @@ pub fn btrfs() -> Value {
     json!({ "available": true, "filesystems": filesystems })
 }
 
-/// A safe snapshot basename: non-empty, no leading '-', no path separators.
+/// A plain basename: no '/', no leading '-'.
 pub fn valid_snap_name(s: &str) -> bool {
     !s.is_empty()
         && s.len() <= 128
@@ -538,8 +524,7 @@ pub fn valid_snap_name(s: &str) -> bool {
         && s.bytes().all(|b| b.is_ascii_alphanumeric() || b"_-.".contains(&b))
 }
 
-/// A relative subvolume path (under a mount): non-empty, no leading '-', no
-/// `.`/`..`/empty components, restricted charset.
+/// Relative subvolume path. No `.`, `..` or empty components.
 fn valid_subvol_rel(p: &str) -> bool {
     !p.is_empty()
         && !p.starts_with('-')
@@ -549,7 +534,7 @@ fn valid_subvol_rel(p: &str) -> bool {
         })
 }
 
-/// Subvolume paths currently present under a btrfs mount (for whitelist checks).
+/// Subvolumes that really exist under a mount. Delete/rollback must name one.
 fn btrfs_subvols(mount: &str) -> Vec<String> {
     let mut v = Vec::new();
     if let Ok(o) = Command::new("btrfs").args(["subvolume", "list", mount]).output() {
@@ -566,10 +551,9 @@ fn now_secs() -> u64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
 
-/// Roll back to a snapshot: clone it into a writable subvolume and make that the
-/// filesystem's *default* subvolume. Takes effect on the next boot (and requires
-/// the root to be mounted by default subvolume, not a pinned `subvol=`). We never
-/// touch the live subvolume, so a running system stays intact until it reboots.
+/// Clone the snapshot into a writable subvolume and make that the default.
+/// Kicks in on next boot, and only if root is mounted by default subvolume
+/// rather than a pinned `subvol=`. The live subvolume is never touched.
 fn btrfs_rollback(mount: &str, snap_path: &str) -> Result<Value, String> {
     let dir = format!("{mount}/.snapshots");
     let _ = std::fs::create_dir_all(&dir);
@@ -591,9 +575,8 @@ fn btrfs_rollback(mount: &str, snap_path: &str) -> Result<Value, String> {
     Ok(json!({ "ok": true, "rollback_subvol": rw, "default_id": id, "reboot_required": true }))
 }
 
-/// POST /api/v1/btrfs/{scrub,snapshot,subvol-create,subvol-delete,rollback}.
-/// `mount` must be a *current* btrfs mountpoint (whitelisted from /proc/mounts).
-/// Delete/rollback targets must be real subvolumes of that mount (whitelisted).
+/// POST btrfs/{scrub,snapshot,subvol-create,subvol-delete,rollback}. `mount`
+/// has to be a btrfs mount that exists right now.
 pub fn btrfs_action(action: &str, mount: &str, name: Option<&str>, path: Option<&str>) -> Result<Value, String> {
     if !btrfs_mounts().iter().any(|(m, _)| m == mount) {
         return Err("not a btrfs mountpoint".into());
@@ -630,8 +613,7 @@ pub fn btrfs_action(action: &str, mount: &str, name: Option<&str>, path: Option<
             if !valid_subvol_rel(p) || !btrfs_subvols(mount).iter().any(|s| s == p) {
                 return Err("unknown subvolume".into());
             }
-            // btrfs itself refuses to delete a mounted subvolume, so the live
-            // root/home can't be removed out from under us.
+            // btrfs won't delete a mounted subvolume, so / and /home are safe
             run(&["subvolume", "delete", &format!("{mount}/{p}")])
         }
         "rollback" => {
@@ -645,15 +627,11 @@ pub fn btrfs_action(action: &str, mount: &str, name: Option<&str>, path: Option<
     }
 }
 
-// ── Updates (bpm + optional btrfs pre-upgrade snapshot) ──────────────────────
-
-/// Is the root filesystem btrfs? (offer a pre-upgrade snapshot if so).
 fn root_is_btrfs() -> bool {
     btrfs_mounts().iter().any(|(mp, _)| mp == "/")
 }
 
-/// GET /api/v1/updates — upgradable packages (via `bpm outdated`) + whether the
-/// root is btrfs (so the UI can offer a pre-upgrade snapshot).
+/// GET updates. `btrfs_root` tells the UI it can offer a snapshot first.
 pub fn updates() -> Value {
     let mut list = Vec::new();
     if let Ok(o) = Command::new("bpm").arg("outdated").output() {
@@ -668,9 +646,8 @@ pub fn updates() -> Value {
     json!({ "updates": list, "count": count, "btrfs_root": root_is_btrfs() })
 }
 
-/// POST /api/v1/updates/apply?snapshot=1 — take a read-only btrfs snapshot of the
-/// root first (if root is btrfs and requested), then `bpm upgrade`. Synchronous;
-/// returns bpm's combined output. The snapshot is the rollback point.
+/// POST updates/apply?snapshot=1. Takes a read-only snapshot of / first if
+/// asked (and if / is btrfs), then runs `bpm upgrade` and waits for it.
 pub fn updates_apply(snapshot: bool) -> Result<Value, String> {
     let mut snap = Value::Null;
     if snapshot && root_is_btrfs() {
@@ -687,11 +664,7 @@ pub fn updates_apply(snapshot: bool) -> Result<Value, String> {
     Ok(json!({ "ok": up.status.success(), "snapshot": snap, "output": out.trim() }))
 }
 
-// ── Containers (podman) ──────────────────────────────────────────────────────
-
-/// A valid podman container/image name or id: non-empty, no leading '-' (so it
-/// can't be read as a podman option), restricted charset. Always passed as an
-/// argv element after `--`, never interpolated into a shell string.
+/// Container name or id. Also passed after `--`.
 pub fn valid_container_name(s: &str) -> bool {
     !s.is_empty()
         && s.len() <= 128
@@ -699,7 +672,7 @@ pub fn valid_container_name(s: &str) -> bool {
         && s.bytes().all(|b| b.is_ascii_alphanumeric() || b"_.-/:@".contains(&b))
 }
 
-/// Join a podman JSON `Names` array (or fall back to a string field) to a label.
+/// `Names` joined with commas, or `fallback` if there's no Names array.
 fn podman_names(v: &Value, fallback: &str) -> String {
     v.get("Names")
         .and_then(|n| n.as_array())
@@ -712,9 +685,7 @@ fn short_id(v: &Value) -> String {
     v.get("Id").and_then(|x| x.as_str()).unwrap_or("").chars().take(12).collect()
 }
 
-/// GET /api/v1/containers — podman containers (running + stopped) and images.
-/// Returns { available:false } when podman isn't installed, so the frontend
-/// degrades gracefully (same contract as zfs/btrfs).
+/// GET containers. `available: false` without podman, like zfs/btrfs.
 pub fn containers() -> Value {
     if Command::new("podman").arg("--version").output().is_err() {
         return json!({ "available": false });
@@ -738,10 +709,8 @@ pub fn containers() -> Value {
     if let Ok(o) = Command::new("podman").args(["images", "--format", "json"]).output() {
         if let Ok(Value::Array(arr)) = serde_json::from_slice::<Value>(&o.stdout) {
             for im in arr {
-                // podman emits ONE object per repo tag, each already carrying the
-                // full `Names` list — so a multi-tagged image (e.g. tagged in two
-                // repos) would otherwise appear as several identical rows. Dedupe
-                // by image Id; the first occurrence already lists every name.
+                // podman prints one object per tag, each with the full Names
+                // list, so an image tagged twice shows up twice. first one wins
                 let id = im.get("Id").and_then(|v| v.as_str()).unwrap_or("").to_string();
                 if !id.is_empty() && !seen.insert(id) {
                     continue;
@@ -757,7 +726,7 @@ pub fn containers() -> Value {
     json!({ "available": true, "containers": containers, "images": images })
 }
 
-/// GET /api/v1/containers/logs?name=<c>&lines=<n> — tail a container's logs.
+/// GET containers/logs?name=<c>&lines=<n>
 pub fn container_logs(name: &str, lines: u32) -> Result<Value, String> {
     if !valid_container_name(name) {
         return Err("invalid container name".into());
@@ -771,9 +740,9 @@ pub fn container_logs(name: &str, lines: u32) -> Result<Value, String> {
     Ok(json!({ "name": name, "output": text.trim_end() }))
 }
 
-/// POST /api/v1/containers/{start,stop,restart,remove} — the few audited write
-/// actions. `remove` maps to `podman rm` WITHOUT -f, so podman refuses a running
-/// container (stop it first) — there is no accidental kill from the console.
+/// POST containers/{start,stop,restart,remove}. `remove` is `podman rm`
+/// without -f, so a running container has to be stopped first. No accidental
+/// kills from a stray click.
 pub fn container_action(action: &str, name: &str) -> Result<Value, String> {
     if !valid_container_name(name) {
         return Err("invalid container name".into());

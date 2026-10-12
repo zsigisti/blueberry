@@ -1,11 +1,10 @@
 #!/bin/sh
-# network — bring up networking on the installed system (runit-supervised).
-# DHCP by default, or static from /etc/network.conf. Runs in the foreground so
-# runsv supervises it (udhcpc keeps renewing; static config holds the process).
+# Networking for the runit install: DHCP, or static via /etc/network.conf.
+# Stays in the foreground for runsv either way.
 exec 2>&1
 [ -r /etc/network.conf ] && . /etc/network.conf
 
-# Pick the interface: configured, else the first non-lo ethernet device.
+# configured interface, else the first ethernet one
 iface="$INTERFACE"
 if [ -z "$iface" ]; then
     for p in /sys/class/net/*; do
@@ -28,7 +27,7 @@ case "${METHOD:-dhcp}" in
             : > /etc/resolv.conf
             for s in $DNS; do printf 'nameserver %s\n' "$s" >> /etc/resolv.conf; done
         fi
-        # Static config is one-shot; hold the supervised process open.
+        # nothing left to do, but runsv wants something to watch
         exec tail -f /dev/null
         ;;
     *)

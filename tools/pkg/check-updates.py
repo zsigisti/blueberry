@@ -1,34 +1,29 @@
 #!/usr/bin/env python3
-"""check-updates.py — report which packages/ recipes are behind upstream.
+"""check-updates.py - which recipes are behind upstream.
 
-"Rolling" only means something if someone notices when upstream moves. This
-scans every packages/<name>/bpm.toml, works out the latest upstream version, and
-flags the ones that are behind — so version bumps are driven by a report instead
-of by memory.
+"Rolling" means nothing if nobody notices upstream moving, so this walks
+packages/*/bpm.toml, finds the latest upstream version and flags what's behind.
 
-Upstream is auto-detected from the recipe's first `[[source]]` URL:
-  * github.com/OWNER/REPO      -> GitHub tags API
-  * gitlab.com/OWNER/REPO      -> GitLab tags API
-  * ftp.gnu.org/gnu/PROJECT    -> GNU ftp listing
-  * downloads.sourceforge.net  -> SourceForge best_release.json
-  * anything else ending in    -> the tarball's own directory, read as a
-    NAME-VERSION.tar*             release index (most tarball projects ship one)
-A recipe can override or add detection with an `[upstream]` table:
-  [upstream]
-  github = "owner/repo"           # or  gitlab = "owner/repo"
-  sourceforge = "project"         # or  pypi = "distribution"
-  url    = "https://x/releases"   # fetch this page and…
-  regex  = "v([0-9.]+)\\.tar"      # …take the highest capture group
-  url + name = "foo"              # …or read it as a NAME-VERSION.tar* index
-  track  = "3.4"                  # only track this series (LTS pins)
-  skip   = true                   # don't track (with an optional reason= )
+Upstream is guessed from the first [[source]] URL:
+  github.com/OWNER/REPO      -> GitHub tags API
+  gitlab.com/OWNER/REPO      -> GitLab tags API
+  .../gnu/PROJECT/           -> GNU ftp listing
+  downloads.sourceforge.net  -> SourceForge best_release.json
+  .../NAME-VERSION.tar*      -> that directory, read as a release index
+or set explicitly with an [upstream] table:
+  github = "owner/repo"           # or gitlab = "owner/repo"
+  sourceforge = "project"         # or pypi = "distribution"
+  url    = "https://x/releases"   # fetch this page and
+  regex  = "v([0-9.]+)\\.tar"      # take the highest capture
+  url + name = "foo"              # or read it as a NAME-VERSION.tar* index
+  track  = "3.4"                  # stick to one series (LTS pins)
+  skip   = true                   # don't track (optional reason = "...")
 
-Auth: set GITHUB_TOKEN (CI provides one) to lift the GitHub rate limit.
+Set GITHUB_TOKEN (CI has one) or GitHub rate-limits you quickly.
 
-Usage:
-  tools/pkg/check-updates.py [--json] [--only NAME]... [--fail-outdated]
-                             [--jobs N]
-Exit: 0 normally; non-zero only with --fail-outdated when something is behind.
+  tools/pkg/check-updates.py [--json] [--only NAME]... [--fail-outdated] [--jobs N]
+
+Exit is 0 unless --fail-outdated and something is behind.
 """
 import argparse
 import concurrent.futures
@@ -48,11 +43,9 @@ UA = {"User-Agent": "blueberry-check-updates"}
 TIMEOUT = 20
 
 
-# ── version comparison (numeric-aware, "is a newer than b") ──────────────────
 PRERELEASE_RE = re.compile(r"(rc|alpha|beta|pre|dev|snapshot|nightly|test)", re.I)
-# Tags that name a platform, not a release. smartmontools carries
-# X86_64_LINUX_OK next to RELEASE_7_5; read as a version that is "86.64",
-# which outranks every real tag forever.
+# tags naming a platform, not a release. smartmontools has X86_64_LINUX_OK next
+# to RELEASE_7_5, and "86.64" would outrank every real tag forever.
 PLATFORM_RE = re.compile(
     r"(x86|i[36]86|amd64|arm64|aarch64|powerpc|sparc|s390|"
     r"win32|win64|windows|mingw|cygwin|darwin|macos|freebsd|solaris)", re.I)
@@ -63,19 +56,19 @@ def _parts(v):
 
 
 def newer(a, b):
+    """is a newer than b"""
     pa, pb = _parts(a), _parts(b)
     for x, y in zip(pa, pb):
         if type(x) is type(y):
             if x != y:
                 return x > y
-        else:  # a number outranks a letter run (1.0.1 > 1.0rc1)
+        else:  # number beats letters (1.0.1 > 1.0rc1)
             return isinstance(x, int)
     if len(pa) == len(pb):
         return False
-    # One ran out first. Its extra part decides: a pre-release word demotes the
-    # longer string (1.0 > 1.0rc1), anything else extends it — an extra number
-    # (1.2.3 > 1.2) or a patch letter, which is how tmux/ncurses ship fixes
-    # (3.7b > 3.7).
+    # one ran out first, so the longer one's next part decides: a pre-release
+    # word demotes it (1.0 > 1.0rc1), anything else makes it newer, be it an
+    # extra number (1.2.3 > 1.2) or a patch letter like tmux's 3.7b > 3.7
     a_shorter = len(pa) < len(pb)
     extra = (pb if a_shorter else pa)[min(len(pa), len(pb))]
     demoted = isinstance(extra, str) and PRERELEASE_RE.fullmatch(extra)
@@ -83,36 +76,31 @@ def newer(a, b):
 
 
 def _clean(tag):
-    """Strip the decoration real repos put around a version.
-
-    Tags in the wild are a version wearing a costume: `openssl-3.4.6`,
-    `llvmorg-22.1.8`, `R_2_8_2`, `libnl3_11_0`, `RELEASE_7_4`, `NSS_3_108_RTM`,
-    `go1.26.5`, `r58`. Undressing them here is what keeps a package tracked
-    instead of silently reported as "no usable tags".
-    """
+    # dig the version out of whatever repos tag with: openssl-3.4.6,
+    # llvmorg-22.1.8, R_2_8_2, libnl3_11_0, NSS_3_108_RTM, go1.26.5, r58.
+    # anything this misses shows up as "no usable tags" and stops being tracked.
     t = tag.strip().rsplit("/", 1)[-1]      # refs/tags/v1.2, debian/1.2
-    while t and t[0].isalpha():             # project/`v`/`release` prefix, and
-        stripped = re.sub(r"^[A-Za-z]+[-_.]?", "", t)   # json-c-0.19 needs two
+    while t and t[0].isalpha():             # name / v / release prefixes;
+        stripped = re.sub(r"^[A-Za-z]+[-_.]?", "", t)   # json-c-0.19 takes two rounds
         if stripped == t:
             break
         t = stripped
-    # A short digit run then a hyphen can be the tail of the *name* rather than
-    # the version (pcre2-10.47 -> 10.47) — but only when what follows is a
-    # dotted version on its own. flex tags flex-2-5-10 and logrotate tags
-    # r3-9-1, where that same leading digit is the major version.
+    # a short digit run + hyphen can be the end of the *name* (pcre2-10.47),
+    # but only if a plain dotted version follows. flex-2-5-10 and logrotate's
+    # r3-9-1 lead with the major version instead.
     head, sep, rest = t.partition("-")
     if sep and head.isdigit() and len(head) <= 2 and "." in rest and "-" not in rest:
         t = rest
-    t = re.sub(r"(?<=\d)-(?=\d)", ".", t)   # 2-5-10 -> 2.5.10, 20240808-3.1 -> …
+    t = re.sub(r"(?<=\d)-(?=\d)", ".", t)   # 2-5-10 -> 2.5.10, 20240808-3.1 -> 20240808.3.1
     if "." not in t and "_" in t:
-        # 3_11_0 -> 3.11.0, and NSS_3_108_RTM -> 3.108: one trailing word is
-        # release decoration, more than one means the tag was never a version
-        # (86_64_LINUX_OK), so leave it unparseable rather than invent 86.64.
+        # 3_11_0 -> 3.11.0, NSS_3_108_RTM -> 3.108. one trailing word is
+        # decoration; more than one (86_64_LINUX_OK) means it was never a
+        # version, so leave it unparseable instead of inventing 86.64
         segs = t.split("_")
         if segs and not segs[-1].isdigit():
             segs.pop()
         t = ".".join(segs) if all(s.isdigit() for s in segs) else t
-    # drop trailing decoration that carries no number (2.8.3.RTM -> 2.8.3)
+    # trailing junk with no digits in it (2.8.3.RTM -> 2.8.3)
     parts = t.split(".")
     while len(parts) > 1 and not any(c.isdigit() for c in parts[-1]):
         parts.pop()
@@ -128,43 +116,40 @@ def _first_int(v):
 
 
 def _in_track(v, track):
-    """Is v inside the pinned release series? `3.4` covers 3.4 and 3.4.x, not 3.40."""
+    # "3.4" covers 3.4 and 3.4.x, not 3.40
     return v == track or v.startswith(track + ".")
 
 
 def _pick_latest(cands, cur, track=None):
-    """Highest release-looking tag that is shape-compatible with the current
-    version. The shape check rejects the junk real repos carry — date tags
-    (20060301), commit serials — that would otherwise dwarf a real version.
-    `track` pins the search to one release series, for packages we deliberately
-    hold on an LTS branch (openssl 3.4, postgresql 17, …)."""
+    # highest release-looking tag shaped like the current version. the shape
+    # checks throw out date tags (20060301) and commit serials that would
+    # otherwise beat any real version. track pins an LTS series (openssl 3.4...)
     cur_has_dot = "." in cur
     cur_first = _first_int(cur)
     best = None
     for raw in cands:
         if PLATFORM_RE.search(raw) or PRERELEASE_RE.search(raw):
-            continue  # judged on the raw tag: cleaning hides the give-away word
+            continue  # check the raw tag, cleaning strips the giveaway word
         c = _clean(raw)
         if not VER_RE.match(c):
             continue
         if track and not _in_track(c, track):
             continue
         if cur_has_dot and "." not in c:
-            continue  # a dotted project won't suddenly ship a bare-integer version
+            continue  # dotted projects don't suddenly ship bare integers
         cf = _first_int(c)
         if cur_first and cf and cf > cur_first * 50 + 1000:
-            continue  # leading component dwarfs current's — a date/serial, not a bump
+            continue  # way bigger leading number: a date/serial, not a bump
         if best is None or newer(c, best):
             best = c
     return best
 
 
-# ── network helpers ──────────────────────────────────────────────────────────
 def _get(url, headers=None):
     hdr = {**UA, **(headers or {})}
     tok = os.environ.get("GITHUB_TOKEN")
     if tok and "api.github.com" in url and "Authorization" not in hdr:
-        hdr["Authorization"] = f"Bearer {tok}"   # so [upstream] url= can use the API too
+        hdr["Authorization"] = f"Bearer {tok}"   # [upstream] url= can hit the API too
     req = urllib.request.Request(url, headers=hdr)
     with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
         return r.read().decode("utf-8", "replace")
@@ -174,7 +159,8 @@ def _get_json(url, headers=None):
     return json.loads(_get(url, headers))
 
 
-# ── providers: return the latest upstream version string, or raise ───────────
+# providers: return the latest version string (or None), raise on network trouble
+
 def latest_github(owner_repo, cur, track=None):
     hdr = {"Accept": "application/vnd.github+json"}
     tok = os.environ.get("GITHUB_TOKEN")
@@ -199,34 +185,28 @@ def latest_gnu(project, cur, track=None):
 def latest_regex(url_regex_join, cur, track=None):
     url, regex, join = url_regex_join
     html = _get(url)
-    # Several groups = a version the page splits differently than the recipe
-    # writes it: cacert-2026-05-14.pem -> 20260514 (join ""), and sqlite's
-    # 3530400 -> 3.53.4 (join "."). Put it back together the recipe's way.
+    # several groups = the page splits the version differently from the recipe:
+    # cacert-2026-05-14.pem -> 20260514 (join ""), sqlite 3530400 -> 3.53.4 (join ".")
     cands = [join.join(m) if isinstance(m, tuple) else m for m in re.findall(regex, html)]
     return _pick_latest(cands, cur, track)
 
 
 def _listing_versions(html, name):
-    """Every NAME-<version>.tar* / NAME-<version>.zip in a directory index.
-
-    The trailing `[-_.]` guard keeps a sibling project out of the result:
-    libcap's index also lists libcap-ng-0.8.5.tar.gz, and without it that
-    parses as libcap 0.8.5 — a downgrade reported as an update.
-    """
+    # NAME-<ver>.tar*/.zip in a directory index. the [-_] right after the name
+    # matters: libcap's index also has libcap-ng-0.8.5.tar.gz, which would
+    # otherwise read as libcap 0.8.5
     pat = rf"{re.escape(name)}[-_]v?(\d[\d.]*\d|\d)\.(?:tar|tgz|zip)"
-    return [m for m in re.findall(pat, html)]
+    return re.findall(pat, html)
 
 
 def latest_listing(dir_name, cur, track=None):
-    """Most tarball projects publish into a directory index — use it as the
-    release list. This is the fallback that keeps the long tail of hand-rolled
-    download pages (kernel.org, netfilter, savannah, gnupg, …) tracked."""
+    # catches the long tail of plain download dirs (kernel.org, savannah, gnupg...)
     url, name = dir_name
     return _pick_latest(_listing_versions(_get(url), name), cur, track)
 
 
 def latest_sourceforge(project, cur, track=None):
-    """SourceForge's file browser is JS-driven; best_release.json is not."""
+    # the file browser is all JS, best_release.json isn't
     d = _get_json(f"https://sourceforge.net/projects/{project}/best_release.json")
     fn = (d.get("release") or {}).get("filename", "")
     cands = re.findall(r"(\d[\d.]*\d)", os.path.basename(fn))
@@ -239,26 +219,19 @@ def latest_pypi(project, cur, track=None):
     return _pick_latest(releases.keys() or [d["info"]["version"]], cur, track)
 
 
-# ── detect the provider for one recipe ───────────────────────────────────────
 def detect(pkg):
     up = pkg.get("upstream") or {}
     if up.get("skip"):
         return ("skip", up.get("reason", "marked skip"))
-    if up.get("github"):
-        return ("github", up["github"])
-    if up.get("gitlab"):
-        return ("gitlab", up["gitlab"])
-    if up.get("sourceforge"):
-        return ("sourceforge", up["sourceforge"])
-    if up.get("pypi"):
-        return ("pypi", up["pypi"])
+    for key in ("github", "gitlab", "sourceforge", "pypi"):
+        if up.get(key):
+            return (key, up[key])
     if up.get("url") and up.get("regex"):
         return ("regex", (up["url"], up["regex"], up.get("join", "")))
     if up.get("url") and up.get("name"):
         return ("listing", (up["url"], up["name"]))
 
-    srcs = pkg.get("source", []) or pkg.get("sources", [])
-    for s in srcs:
+    for s in pkg.get("source", []) or pkg.get("sources", []):
         raw = s.get("url", "")
         url = raw.split("::", 1)[1] if "::" in raw else raw
         m = re.search(r"github\.com/([^/]+/[^/]+?)(?:\.git)?/", url)
@@ -267,16 +240,14 @@ def detect(pkg):
         m = re.search(r"gitlab\.com/([^/]+/[^/]+?)/-/", url)
         if m:
             return ("gitlab", m.group(1))
-        # GNU projects are mirrored widely (ftp.gnu.org, ftpmirror.gnu.org,
-        # mirrors.kernel.org/gnu, …) — key off the /gnu/PROJECT/ path, not the host.
+        # GNU lives on lots of mirrors, so match the /gnu/PROJECT/ path, not the host
         m = re.search(r"/gnu/([^/]+)/[^/]*\.tar", url)
         if m:
             return ("gnu", m.group(1))
-        # sourceforge mirrors: downloads.sf.net/PROJECT/… or …/project/PROJECT/…
+        # downloads.sf.net/PROJECT/... or .../project/PROJECT/...
         m = re.search(r"(?:downloads?|dl)\.sourceforge\.net/(?:project/)?([^/]+)/", url)
         if m:
             return ("sourceforge", m.group(1))
-        # Fallback: the tarball's own directory is usually a release index.
         dir_name = _listing_target(url)
         if dir_name:
             return ("listing", dir_name)
@@ -284,7 +255,7 @@ def detect(pkg):
 
 
 def _listing_target(url):
-    """(directory-url, project-name) for a `…/NAME-VERSION.tar.*` source URL."""
+    # (dir url, project name) for .../NAME-VERSION.tar.*
     base = url.rsplit("/", 1)
     if len(base) != 2:
         return None
@@ -292,20 +263,23 @@ def _listing_target(url):
     return (base[0] + "/", m.group(1)) if m else None
 
 
+PROVIDERS = {
+    "github": latest_github,
+    "gitlab": latest_gitlab,
+    "gnu": latest_gnu,
+    "regex": latest_regex,
+    "listing": latest_listing,
+    "sourceforge": latest_sourceforge,
+    "pypi": latest_pypi,
+}
+
+
 def latest_for(method, arg, cur, track=None):
-    return {
-        "github": latest_github,
-        "gitlab": latest_gitlab,
-        "gnu": latest_gnu,
-        "regex": latest_regex,
-        "listing": latest_listing,
-        "sourceforge": latest_sourceforge,
-        "pypi": latest_pypi,
-    }[method](arg, cur, track)
+    return PROVIDERS[method](arg, cur, track)
 
 
 def check_one(name, cur, method, arg, track):
-    """One recipe -> its report row. Network-bound; safe to run in a thread."""
+    # runs in a worker thread
     try:
         latest = latest_for(method, arg, cur, track)
     except (urllib.error.URLError, urllib.error.HTTPError, KeyError,
@@ -316,6 +290,9 @@ def check_one(name, cur, method, arg, track):
     if newer(latest, cur):
         return (name, cur, latest, "OUTDATED", method)
     return (name, cur, latest, "current", method)
+
+
+MARKS = {"OUTDATED": "!!", "current": "ok", "unknown": "??", "error": "..", "skip": "--"}
 
 
 def main():
@@ -343,8 +320,7 @@ def main():
         else:
             queries.append((name, cur, method, arg, (data.get("upstream") or {}).get("track")))
 
-    # ~220 recipes against ~90 different hosts, each with a 20s timeout: serial
-    # this is a quarter-hour, which is too slow to stay in CI.
+    # ~220 recipes, ~90 hosts, 20s timeouts: serially that's a quarter hour
     if queries:
         with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
             rows += list(pool.map(lambda q: check_one(*q), queries))
@@ -358,17 +334,16 @@ def main():
     else:
         w = max((len(r[0]) for r in rows), default=4)
         for name, cur, latest, status, note in rows:
-            mark = {"OUTDATED": "!!", "current": "ok", "unknown": "??", "error": "..", "skip": "--"}.get(status, "  ")
+            mark = MARKS.get(status, "  ")
             print(f"{mark} {name:<{w}}  {cur:<14} -> {latest:<14} {status:<9} {note}")
 
-    outdated = [r for r in rows if r[3] == "OUTDATED"]
     counts = {}
     for r in rows:
         counts[r[3]] = counts.get(r[3], 0) + 1
     summary = ", ".join(f"{k}: {v}" for k, v in sorted(counts.items()))
-    print(f"\ncheck-updates: {len(rows)} recipes — {summary}", file=sys.stderr)
+    print(f"\ncheck-updates: {len(rows)} recipes - {summary}", file=sys.stderr)
 
-    if args.fail_outdated and outdated:
+    if args.fail_outdated and any(r[3] == "OUTDATED" for r in rows):
         sys.exit(1)
 
 

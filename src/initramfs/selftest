@@ -1,9 +1,6 @@
 #!/bin/sh
-# /etc/selftest — in-guest smoke test for the Blueberry live CLI.
-#
-# Invoked by /init when the kernel is booted with `bbtest` on its cmdline.
-# Prints a PASS/FAIL line per check and a final BLUEBERRY_TEST=PASS|FAIL
-# marker that `make test` greps for from the serial log.
+# Live CLI smoke test, run by /init on `bbtest`. The last line,
+# BLUEBERRY_TEST=PASS|FAIL, is what `make test` greps the serial log for.
 
 PASS=0
 FAIL=0
@@ -11,7 +8,7 @@ FAIL=0
 ok()   { PASS=$((PASS + 1)); printf 'PASS: %s\n' "$1"; }
 bad()  { FAIL=$((FAIL + 1)); printf 'FAIL: %s\n' "$1"; }
 
-# check <name> <cmd...> — pass if the command exits 0
+# check <name> <cmd...>: passes if cmd exits 0
 check() {
     name="$1"; shift
     if out=$("$@" 2>&1); then
@@ -22,7 +19,7 @@ check() {
     fi
 }
 
-# grep_check <name> <pattern> <cmd...> — pass if output matches the pattern
+# grep_check <name> <pattern> <cmd...>: passes if the output matches
 grep_check() {
     name="$1"; pat="$2"; shift 2
     if "$@" 2>&1 | grep -q "$pat"; then
@@ -34,30 +31,24 @@ grep_check() {
 
 printf '\n=== Blueberry CLI self-test ===\n\n'
 
-# Core shell + coreutils applets
 check      "busybox present"     test -x /bin/busybox
 check      "sh works"            sh -c 'exit 0'
 grep_check "echo"        hello   echo hello
 grep_check "ls /bin"     busybox ls /bin
 grep_check "uname -s"    Linux   uname -s
 
-# Pseudo-filesystems mounted by /init
 check      "/proc mounted"       test -f /proc/cpuinfo
 check      "/sys mounted"        test -d /sys/class
 check      "/dev populated"      test -c /dev/null
 grep_check "mount table"  proc   mount
 
-# Process + system introspection
 grep_check "ps lists init"  init  ps
 check      "uptime readable"      cat /proc/uptime
 check      "writable /tmp"        sh -c 'echo hi > /tmp/.t && rm -f /tmp/.t'
 
-# Hostname was applied by /init
 grep_check "hostname"  blueberry  hostname
 
-# Networking: /init brings up lo + DHCP on every Ethernet NIC. Wait up to ~8s
-# for a non-loopback interface to obtain an IPv4 address (QEMU user-net runs a
-# DHCP server handing out 10.0.2.15).
+# give DHCP ~8s (QEMU user-net hands out 10.0.2.15)
 net_ok=""
 i=0
 while [ $i -lt 16 ]; do
@@ -77,17 +68,15 @@ else
     bad "DHCP lease (no IPv4 on any NIC after 8s)"
 fi
 
-# Phantom interfaces: the built-in bonding/dummy drivers each auto-create a
-# device unless suppressed on the kernel cmdline (bonding.max_bonds=0
-# dummy.numdummies=0). Assert they are absent so only real NICs appear.
+# built-in bonding/dummy drivers make bond0/dummy0 unless the cmdline has
+# bonding.max_bonds=0 dummy.numdummies=0. make sure that stuck
 if [ ! -e /sys/class/net/bond0 ] && [ ! -e /sys/class/net/dummy0 ]; then
     ok "no phantom bond0/dummy0 interfaces"
 else
     bad "phantom interface present: $(ls /sys/class/net | tr '\n' ' ')"
 fi
 
-# SSH: Dropbear should be listening on TCP 22. Port 22 = 0x0016, LISTEN = 0A
-# in /proc/net/tcp{,6}. Wait a moment for the daemon (and its host-key gen).
+# no netstat needed: port 22 is :0016 and LISTEN is 0A in /proc/net/tcp*
 ssh_ok=""
 i=0
 while [ $i -lt 10 ]; do
@@ -103,25 +92,22 @@ else
     bad "dropbear SSH not listening on :22"
 fi
 
-# Time sync: ntpd should have been started by /init. We can't depend on real
-# NTP reachability in CI, so just assert the daemon is running.
+# can't count on reaching a real NTP server from CI, so just check it's running
 if ps 2>/dev/null | grep -v grep | grep -q '[n]tpd'; then
     ok "ntpd running"
 else
     bad "ntpd not running"
 fi
 
-# Standalone shell: an applet with NO /bin symlink must still run by bare name.
-# `seq` is deliberately not symlinked in the initramfs, so this only passes
-# when CONFIG_FEATURE_SH_STANDALONE=y is built into busybox.
+# seq has no /bin symlink on purpose: this only passes with
+# CONFIG_FEATURE_SH_STANDALONE=y in busybox
 if [ ! -e /bin/seq ] && [ "$(seq 3 | tr -d '\n')" = "123" ]; then
     ok "standalone shell (unlinked applet runs by name)"
 else
     bad "standalone shell (unlinked applet runs by name)"
 fi
 
-# bpm: build a tiny .pkg.tar.zst in-guest (needs the shipped zstd), install it
-# to a staging root, verify the payload + db, then remove it.
+# build a tiny package right here, install it into a scratch root, remove it
 bp=/tmp/bpwork
 rm -rf "$bp"; mkdir -p "$bp/stage/usr/bin" "$bp/root"
 printf '#!/bin/sh\necho ok\n' > "$bp/stage/usr/bin/bpmcheck"

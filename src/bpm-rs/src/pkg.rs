@@ -1,8 +1,6 @@
-//! Streaming install of a `.pkg.tar.zst`, plus post-install scriptlets and
-//! ldconfig. The archive is decompressed and untarred in fixed-size chunks
-//! straight to disk via `tar` + `zstd`, so even a multi-hundred-MB package
-//! (gcc) installs in a tiny, bounded working set — the OOM the C bpm hit is
-//! impossible here by construction.
+//! Installing a package file, scriptlets, ldconfig and friends.
+//! Everything streams zstd -> tar -> disk in small chunks, so gcc installs in a
+//! few MB of RAM. The C bpm buffered whole archives and OOMed on exactly that.
 
 use crate::config::Config;
 use crate::{db, index};
@@ -13,7 +11,6 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::process::Command;
 
-/// Free bytes on the filesystem holding `path` (None if statvfs fails).
 fn avail_bytes(path: &Path) -> Option<u64> {
     use std::ffi::CString;
     use std::os::unix::ffi::OsStrExt;
@@ -39,7 +36,6 @@ fn strip_dot(rel: &str) -> &str {
     rel.strip_prefix("./").unwrap_or(rel)
 }
 
-/// If a value opens a TOML multi-line string, return its delimiter (`'''`/`"""`).
 fn triple_delim(v: &str) -> Option<&'static str> {
     if v.starts_with("'''") {
         Some("'''")
@@ -50,11 +46,9 @@ fn triple_delim(v: &str) -> Option<&'static str> {
     }
 }
 
-/// Translate a native `.BPM` TOML manifest into the internal (.PKGINFO, .INSTALL)
-/// pair the rest of the installer already understands, so the streaming install
-/// path is identical for both `.pkg.tar.zst` and `.bpm`. Parses only the small,
-/// fixed subset `bpmbuild` emits (scalars, string arrays, a [scripts] table) —
-/// no general TOML library is pulled in.
+/// Turn a .BPM TOML manifest into (.PKGINFO text, .INSTALL script) so the rest
+/// of the installer doesn't care which format it got. Only handles what bpmbuild
+/// actually writes (scalars, string arrays, [scripts]); not worth a toml crate.
 fn bpm_manifest_to_pkginfo(toml: &str) -> (String, Option<String>) {
     let unquote = |v: &str| -> String {
         let v = v.trim();
@@ -69,7 +63,7 @@ fn bpm_manifest_to_pkginfo(toml: &str) -> (String, Option<String>) {
         let inner = v.strip_prefix('[').and_then(|s| s.strip_suffix(']')).unwrap_or("");
         inner
             .split(',')
-            .map(|x| unquote(x))
+            .map(&unquote)
             .filter(|x| !x.is_empty())
             .collect()
     };
@@ -77,11 +71,9 @@ fn bpm_manifest_to_pkginfo(toml: &str) -> (String, Option<String>) {
     let mut pkginfo = String::new();
     let mut scripts: Vec<(String, String)> = Vec::new();
     let mut in_scripts = false;
-    // `version` and `release` are separate manifest keys but a single identity
-    // to everything else: the repo index publishes "ver-rel", so the installed
-    // db must record "ver-rel" too. Recording a bare "ver" makes every upgrade
-    // compare 2.10.0 against 2.10.0-2 and re-offer itself forever. Collected
-    // here and emitted as one pkgver after the loop (key order is not fixed).
+    // the index says "ver-rel", so the db has to say "ver-rel" too. record a
+    // bare "ver" and upgrade compares 2.10.0 to 2.10.0-2 and re-offers the same
+    // package forever. key order isn't fixed, so glue them after the loop.
     let mut ver: Option<String> = None;
     let mut rel: Option<String> = None;
 
@@ -102,12 +94,10 @@ fn bpm_manifest_to_pkginfo(toml: &str) -> (String, Option<String>) {
             None => continue,
         };
         if in_scripts {
-            // Install scripts are emitted as TOML multi-line strings ('''…''' or
-            // """…"""). Gather the body until the closing delimiter; a single-line
-            // value (legacy `key = "cmd"`) still works via unquote.
+            // scripts come as multi-line strings ('''...''' or """...""").
+            // old single-line `key = "cmd"` ones still go through unquote
             let val = if let Some(delim) = triple_delim(v) {
                 let mut body = String::new();
-                // Leading newline right after the opening delim is not content.
                 let first = &v[3..];
                 let mut closed = false;
                 if let Some(end) = first.find(delim) {
@@ -125,7 +115,7 @@ fn bpm_manifest_to_pkginfo(toml: &str) -> (String, Option<String>) {
                         body.push('\n');
                     }
                 }
-                // A leading blank line (the newline after ''') carries no meaning.
+                // the newline right after the opening ''' isn't part of the script
                 body.strip_prefix('\n').unwrap_or(&body).to_string()
             } else {
                 unquote(v)
@@ -152,7 +142,7 @@ fn bpm_manifest_to_pkginfo(toml: &str) -> (String, Option<String>) {
             }
             "backup" => {
                 for b in array_items(v) {
-                    // paths are relative (no leading /), matching the `files` list
+                    // relative, like the files list
                     pkginfo.push_str(&format!("backup = {}\n", b.trim_start_matches('/')));
                 }
             }
@@ -160,7 +150,6 @@ fn bpm_manifest_to_pkginfo(toml: &str) -> (String, Option<String>) {
         }
     }
 
-    // Same "ver-rel" spelling the repo index and the image-build db seeder use.
     if let Some(v) = ver {
         match rel.as_deref().filter(|r| !r.is_empty()) {
             Some(r) => pkginfo.push_str(&format!("pkgver = {v}-{r}\n")),
@@ -168,8 +157,7 @@ fn bpm_manifest_to_pkginfo(toml: &str) -> (String, Option<String>) {
         }
     }
 
-    // Synthesise an .INSTALL-style script: each [scripts] entry becomes a shell
-    // function the existing run_hook() sources and calls (post_install, …).
+    // each [scripts] entry becomes a shell function, same shape as .INSTALL
     let install = if scripts.is_empty() {
         None
     } else {
@@ -182,9 +170,8 @@ fn bpm_manifest_to_pkginfo(toml: &str) -> (String, Option<String>) {
     (pkginfo, install)
 }
 
-/// Run a `/bin/sh -c` command inside the install root. Chroots into `dest` when
-/// rooted (BPM_ROOT) so scriptlets/ldconfig act on the target, not the host.
-/// Best-effort: a missing sh or failed chroot just yields a non-zero status.
+/// sh -c inside the install root. With BPM_ROOT set we chroot first, so
+/// scriptlets and ldconfig hit the target and not the host. Best effort.
 fn run_root_sh(cfg: &Config, cmd: &str) {
     let mut c = Command::new("/bin/sh");
     c.arg("-c").arg(cmd);
@@ -202,8 +189,6 @@ fn run_root_sh(cfg: &Config, cmd: &str) {
     let _ = c.status();
 }
 
-/// Refresh /etc/ld.so.cache so freshly-installed libraries are found. Call once
-/// per transaction. Quiet and best-effort.
 pub fn run_ldconfig(cfg: &Config) {
     run_root_sh(
         cfg,
@@ -211,18 +196,13 @@ pub fn run_ldconfig(cfg: &Config) {
     );
 }
 
-/// Post-transaction refresh: rebuild the dynamic-linker cache and the man-page
-/// index together. Every install/remove/upgrade/rollback ends with this, so the
-/// two always run as a pair. Call once per transaction; best-effort.
+/// ldconfig + man index. Once at the end of every transaction.
 pub fn refresh(cfg: &Config) {
     run_ldconfig(cfg);
     run_makewhatis(cfg);
 }
 
-/// Rebuild the man-page index so `man <pkg>`/apropos/whatis find pages from
-/// just-installed (or just-removed) packages. Uses mandoc's makewhatis when
-/// present (the base ships mandoc), falling back to man-db's mandb. Call once
-/// per transaction; quiet and best-effort.
+/// mandoc's makewhatis (what the base ships), or man-db's mandb if that's what's there.
 pub fn run_makewhatis(cfg: &Config) {
     run_root_sh(
         cfg,
@@ -231,9 +211,8 @@ pub fn run_makewhatis(cfg: &Config) {
     );
 }
 
-/// Read (pkgname, pkgver) from a local `.bpm`/`.pkg.tar.zst` without extracting
-/// it — used to identify cached artifacts for rollback/downgrade/clean. Reads
-/// only the manifest member, then stops.
+/// (pkgname, pkgver) of a package file, reading just the manifest. The cache
+/// code uses this since filenames can't be trusted to split name from version.
 pub fn read_meta(path: &Path) -> io::Result<(String, String)> {
     let file = fs::File::open(path)?;
     let decoder = zstd::stream::read::Decoder::new(io::BufReader::new(file))?;
@@ -269,9 +248,8 @@ struct Outcome {
     script: Option<String>,
 }
 
-/// Install one local .pkg.tar.zst. Streams to disk, records the DB entry, runs
-/// the post-install/upgrade scriptlet. Does NOT run ldconfig (the caller does,
-/// once per transaction).
+/// Install one package file. Doesn't run ldconfig, the caller does that once
+/// per transaction via refresh().
 pub fn install_file(cfg: &Config, path: &Path, force: bool) -> io::Result<String> {
     fs::create_dir_all(&cfg.dest)?;
 
@@ -288,7 +266,7 @@ pub fn install_file(cfg: &Config, path: &Path, force: bool) -> io::Result<String
     let mut old_version: Option<String> = None;
     let mut settled = false;
     let mut owners: HashMap<String, String> = HashMap::new();
-    // Config files the package declares user-editable, and the hashes we install.
+    // config files (backup =) and the hashes of what we ship for them
     let mut backup_set: std::collections::HashSet<String> = std::collections::HashSet::new();
     let mut new_backup: Vec<(String, String)> = Vec::new();
 
@@ -306,9 +284,6 @@ pub fn install_file(cfg: &Config, path: &Path, force: bool) -> io::Result<String
             if (rel == ".PKGINFO" || rel == ".BPM") && info.is_none() {
                 let mut raw = String::new();
                 e.read_to_string(&mut raw)?;
-                // A native .bpm carries TOML; translate it into the .PKGINFO
-                // shape (and pull out its install scriptlet). A legacy
-                // .pkg.tar.zst .PKGINFO is used as-is.
                 let s = if rel == ".BPM" {
                     let (pkginfo, bpm_script) = bpm_manifest_to_pkginfo(&raw);
                     if script.is_none() {
@@ -321,8 +296,7 @@ pub fn install_file(cfg: &Config, path: &Path, force: bool) -> io::Result<String
                 let pkgname = index::pkginfo_field(&s, "pkgname");
                 version = index::pkginfo_field(&s, "pkgver");
 
-                // Disk-space precheck (installed `size` vs free space) before we
-                // write anything — fails cleanly instead of half-extracting.
+                // bail before writing anything rather than half-extracting
                 if !force {
                     if let Some(need) = index::pkginfo_field(&s, "size")
                         .and_then(|v| v.parse::<u64>().ok())
@@ -330,7 +304,7 @@ pub fn install_file(cfg: &Config, path: &Path, force: bool) -> io::Result<String
                         if let Some(free) = avail_bytes(&cfg.dest) {
                             if free < need {
                                 return Err(err(&format!(
-                                    "not enough space for {} — need {} MiB, {} MiB free (use -f to override)",
+                                    "not enough space for {}: need {} MiB, only {} MiB free (-f to try anyway)",
                                     pkgname.as_deref().unwrap_or("?"),
                                     need / 1048576,
                                     free / 1048576
@@ -340,9 +314,8 @@ pub fn install_file(cfg: &Config, path: &Path, force: bool) -> io::Result<String
                     }
                 }
 
-                // Build the file-ownership map for conflict detection (other
-                // packages' files; this package's own are excluded so a reinstall
-                // doesn't conflict with itself).
+                // who owns what, minus our own files so a reinstall doesn't
+                // conflict with itself
                 if let Some(ref n) = pkgname {
                     owners = db::file_owners(cfg, n);
                 }
@@ -360,12 +333,11 @@ pub fn install_file(cfg: &Config, path: &Path, force: bool) -> io::Result<String
             continue;
         }
 
-        // File-conflict: another installed package already owns this path.
         if !force {
             let key = rel.trim_end_matches('/');
             if let Some(other) = owners.get(key) {
                 return Err(err(&format!(
-                    "{}: file conflict — /{} is owned by {} (use -f to override)",
+                    "{}: file conflict, /{} already belongs to {} (-f to overwrite it)",
                     name.as_deref().unwrap_or("?"),
                     key,
                     other
@@ -373,8 +345,8 @@ pub fn install_file(cfg: &Config, path: &Path, force: bool) -> io::Result<String
             }
         }
 
-        // First real payload member: settle any previously installed version so
-        // an upgrade doesn't strand orphaned files.
+        // first real file: clear out the old version now, so files it had and
+        // we don't aren't left lying around
         if !settled {
             settled = true;
             if let Some(ref n) = name {
@@ -382,9 +354,9 @@ pub fn install_file(cfg: &Config, path: &Path, force: bool) -> io::Result<String
                 if let Some(old) = db::installed_version(cfg, n) {
                     println!(":: reinstall/upgrade {n} {old} -> {ver}");
                     upgrade = true;
-                    // pre_upgrade runs while the old version's files are still on
-                    // disk — this is what lets the linux package stash the
-                    // running /boot/vmlinuz as a fallback before it's replaced.
+                    // pre_upgrade has to run while the old files are still there.
+                    // the linux package uses it to stash the running vmlinuz as a
+                    // fallback before we overwrite it
                     run_hook(cfg, n, script.as_deref(), "pre_upgrade", ver, &old);
                     old_version = Some(old);
                     db::remove_files(cfg, n);
@@ -421,10 +393,9 @@ pub fn install_file(cfg: &Config, path: &Path, force: bool) -> io::Result<String
             if let Some(parent) = full.parent() {
                 fs::create_dir_all(parent)?;
             }
-            // Write to a temp sibling, then atomically rename over the target.
-            // This is what lets bpm replace an in-use file — including its own
-            // running /usr/bin/bpm — without ETXTBSY, and never leaves a
-            // half-written file if interrupted.
+            // write next to it and rename over. that's how bpm can replace a
+            // running binary (itself included) without ETXTBSY, and a crash
+            // never leaves half a file behind
             let fname = full.file_name().and_then(|f| f.to_str()).unwrap_or("f");
             let tmp = full.with_file_name(format!(".{fname}.bpm-new"));
             {
@@ -434,7 +405,7 @@ pub fn install_file(cfg: &Config, path: &Path, force: bool) -> io::Result<String
             }
             fs::set_permissions(&tmp, fs::Permissions::from_mode(mode))?;
             if backup_set.contains(&rel) {
-                // Config file — the pacman/dpkg model: don't clobber user edits.
+                // config file, pacman/dpkg style: never clobber user edits
                 let newhash = index::sha256_file(&tmp).unwrap_or_default();
                 let on_disk = full.exists();
                 let disk_hash = if on_disk { index::sha256_file(&full).ok() } else { None };
@@ -443,16 +414,16 @@ pub fn install_file(cfg: &Config, path: &Path, force: bool) -> io::Result<String
                     _ => None,
                 };
                 if !on_disk || disk_hash.as_deref() == Some(newhash.as_str()) {
-                    // fresh install, or already identical to the new version
+                    // fresh install, or already the same as the new one
                     fs::rename(&tmp, &full)?;
                 } else if old_pkg.is_some() && disk_hash == old_pkg {
-                    // user hasn't touched it (on-disk == old packaged) → update
+                    // untouched since the last install, safe to update
                     fs::rename(&tmp, &full)?;
                 } else {
-                    // user edited it and the package's version differs → keep theirs
+                    // user edited it and ours changed too: keep theirs
                     let nf = full.with_file_name(format!("{fname}.bpmnew"));
                     fs::rename(&tmp, &nf)?;
-                    println!(":: config /{rel} preserved — new version saved as /{rel}.bpmnew");
+                    println!(":: kept your /{rel}, new version is in /{rel}.bpmnew");
                 }
                 new_backup.push((rel.clone(), newhash));
             } else {
@@ -467,8 +438,7 @@ pub fn install_file(cfg: &Config, path: &Path, force: bool) -> io::Result<String
     let version = version.unwrap_or_default();
 
     db::record(cfg, &name, &info, &files)?;
-    // Remember the packaged hash of each config file so the next upgrade can tell
-    // a user edit from a package change.
+    // next upgrade compares against these to spot user edits
     let _ = db::write_backup(cfg, &name, &new_backup);
 
     run_scriptlet(
@@ -482,18 +452,15 @@ pub fn install_file(cfg: &Config, path: &Path, force: bool) -> io::Result<String
         },
     );
 
-    // Systemd service enablement: a package that wants a unit running ships an
-    // empty marker `usr/lib/bpm/enable/<unit>`. bpm enables those units the
-    // systemd-native way — writing the [Install] wants/requires symlinks under
-    // the install root (so they take effect on next boot even in a chroot/image)
-    // and, when installing into the live root, reloading + starting them now.
+    // a package that wants a service on ships an empty usr/lib/bpm/enable/<unit>.
+    // we write the [Install] symlinks ourselves so it works in a chroot/image too,
+    // and start it right away if this is the live system
     enable_services(cfg, &files);
 
     println!(":: installed {name} {version}");
     Ok(name)
 }
 
-/// Offline-enable every unit a package marked under usr/lib/bpm/enable/.
 fn enable_services(cfg: &Config, files: &[String]) {
     if std::env::var_os("BPM_NO_SCRIPTLETS").is_some() {
         return;
@@ -512,7 +479,6 @@ fn enable_services(cfg: &Config, files: &[String]) {
     for unit in &units {
         offline_enable(cfg, unit);
     }
-    // Live root + systemctl available → apply immediately.
     if cfg.root == "/" && which("systemctl") {
         let _ = Command::new("systemctl").arg("daemon-reload").status();
         for unit in &units {
@@ -528,9 +494,8 @@ fn enable_services(cfg: &Config, files: &[String]) {
     }
 }
 
-/// Create the systemd [Install] symlinks for `unit` under the install root,
-/// reading WantedBy=/RequiredBy= from the unit's own [Install] section — exactly
-/// what `systemctl enable` writes, but offline (no running manager required).
+/// What `systemctl enable` would do, minus needing systemd running: read
+/// WantedBy=/RequiredBy= and drop the symlinks.
 fn offline_enable(cfg: &Config, unit: &str) {
     let unit_file = cfg
         .dest
@@ -579,7 +544,6 @@ fn offline_enable(cfg: &Config, unit: &str) {
     }
 }
 
-/// True if `bin` is found on PATH.
 fn which(bin: &str) -> bool {
     std::env::var_os("PATH")
         .map(|p| {
@@ -588,7 +552,6 @@ fn which(bin: &str) -> bool {
         .unwrap_or(false)
 }
 
-/// Free bytes on the filesystem holding the install root (None if unknown).
 pub fn free_space(cfg: &Config) -> Option<u64> {
     avail_bytes(&cfg.dest)
 }
@@ -609,9 +572,7 @@ fn run_scriptlet(cfg: &Config, o: &Outcome) {
     );
 }
 
-/// Run one .INSTALL hook function (pre/post_install/upgrade). No-op when the
-/// package has no scriptlet, the function isn't defined, or BPM_NO_SCRIPTLETS
-/// is set. The script is sourced in the (possibly chrooted) target root.
+/// Source the scriptlet in the target root and call `hook` if it defines it.
 fn run_hook(
     cfg: &Config,
     name: &str,
@@ -647,10 +608,9 @@ fn err(msg: &str) -> io::Error {
 mod tests {
     use super::*;
 
-    // A multi-line install script must survive the .BPM manifest round-trip
-    // byte-for-byte: it runs as root on the installing machine, and the BUR
-    // publish validator compares it against the reviewed recipe. Regression for
-    // the old single-line parser that truncated everything after the first line.
+    // scripts have to survive the manifest round trip byte for byte: they run
+    // as root, and the BUR publish check diffs them against the reviewed recipe.
+    // the old parser quietly dropped everything after line one
     #[test]
     fn multiline_scriptlet_round_trips() {
         let manifest = "\
@@ -671,7 +631,6 @@ echo three
         let (pkginfo, script) = bpm_manifest_to_pkginfo(manifest);
         assert!(pkginfo.contains("pkgver = 1.0-2"), "pkgver: {pkginfo}");
         let s = script.expect("scriptlet present");
-        // The synthesised function body is the exact script, all three lines.
         assert!(s.contains("echo one"), "missing line 1: {s}");
         assert!(s.contains("echo \"two\" a\\b"), "quotes/backslash mangled: {s}");
         assert!(s.contains("echo three"), "missing line 3: {s}");

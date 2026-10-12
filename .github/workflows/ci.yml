@@ -1,14 +1,8 @@
 name: ci
 
-# Lightweight gate that runs on stock GitHub runners. It deliberately does NOT
-# build the world — that needs an Arch build container and produces multi-GB
-# ISOs, which happens on the project's own build box (see doc/CI.md). What runs
-# here is everything that can be checked WITHOUT a full image build:
-#   * the recipe dependency graph is closed          (check-closure)
-#   * bpm compiles, and its unit + lifecycle tests pass
-#   * the .bpm builder round-trips and its --check catches tampering
-# check-base (base-image DT_NEEDED closure) needs a built rootfs, so it stays on
-# the build box, not here.
+# The cheap checks that fit on a stock runner: recipe closure, bpm tests,
+# bpmbuild round-trip + tamper check. Building the world (and check-base,
+# which needs a rootfs) happens on the build box - see doc/CI.md.
 
 on:
   push:
@@ -78,8 +72,8 @@ jobs:
       - name: End-to-end lifecycle suite
         run: sh tools/test/bpm-integration.sh
 
-  # Advisory only: reports which recipes are behind upstream. Never blocks a
-  # merge (upstream releases are not our regressions), but keeps "rolling" honest.
+  # advisory: which recipes are behind upstream. an upstream release isn't
+  # our regression, so this never blocks
   freshness:
     name: package freshness (advisory)
     runs-on: ubuntu-latest
@@ -91,9 +85,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 tools/pkg/check-updates.py
 
-  # Advisory only: reports known CVEs affecting the versions the distro ships
-  # (queries NVD + OSV, so it can be slow/flaky and must never block a merge).
-  # Set the NVD_API_KEY repo secret to lift NVD's anonymous rate limit.
+  # advisory: known CVEs in what we ship. NVD + OSV are slow and flaky, so it
+  # never blocks. NVD_API_KEY secret lifts the anonymous rate limit
   audit:
     name: CVE audit (advisory)
     runs-on: ubuntu-latest

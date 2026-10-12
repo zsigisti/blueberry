@@ -1,33 +1,25 @@
 #!/bin/sh
-# repo-publish.sh — safely publish .bpm packages to the Blueberry mirror.
+# Push .bpm packages to the mirror. Use this, not scp by hand - it's the only
+# way the guardrails actually run:
+#   1. scp the files to the origin repo dir
+#   2. re-index on the server with /root/bpmrepo.sh (refuses if the package
+#      count drops, keeps a timestamped backup, swaps index + sig together)
+#   3. read the index back through Cloudflare and complain if it looks wrong
+# ISOs don't go here (GitHub release), and mkrepo.sh is retired - don't.
 #
-# This is the ONE command to push packages live. It wraps the whole flow so the
-# guardrails can't be skipped:
-#   1. scp the given .bpm files to the origin repo dir
-#   2. re-index REMOTELY with the hardened /root/bpmrepo.sh (count-floor refusal,
-#      timestamped backup, atomic paired index+sig swap)  [[repo-deploy-procedure]]
-#   3. validate over Cloudflare: the served index parses and has >= the local
-#      package count, else shout.
+# usage:
+#   tools/release/repo-publish.sh path/to/*.bpm
+#   tools/release/repo-publish.sh --reindex       # no upload, just re-index
 #
-# It never uploads ISOs (those go on the GitHub release) and never runs the
-# retired mkrepo.sh.
-#
-# Usage:
-#   tools/release/repo-publish.sh path/to/*.bpm            # push these packages
-#   tools/release/repo-publish.sh --reindex                # just re-index (no upload)
-#
-# Env:
-#   REPO_HOST   default root@192.168.0.79
-#   REPO_DIR    default /srv/blueberry-repo
-#   MIRROR      default https://repo.blueberrylinux.org
-#   SSH_PASS    if set, drives an SSH_ASKPASS wrapper (no sshpass on the dev host)
+# env: REPO_HOST (root@192.168.0.79), REPO_DIR (/srv/blueberry-repo),
+#      MIRROR (https://repo.blueberrylinux.org), SSH_PASS (for SSH_ASKPASS;
+#      the dev host has no sshpass)
 set -eu
 
 REPO_HOST=${REPO_HOST:-root@192.168.0.79}
 REPO_DIR=${REPO_DIR:-/srv/blueberry-repo}
 MIRROR=${MIRROR:-https://repo.blueberrylinux.org}
 
-# ── ssh/scp helpers (SSH_ASKPASS, since the dev host has no sshpass/sudo) ──────
 ASKPASS=""
 if [ -n "${SSH_PASS:-}" ]; then
     ASKPASS=$(mktemp)
@@ -67,10 +59,10 @@ echo "==> re-indexing remotely (hardened /root/bpmrepo.sh)"
 _ssh "$REPO_HOST" "sh /root/bpmrepo.sh $REPO_DIR"
 
 echo "==> validating over Cloudflare ($MIRROR)"
-# Count package lines only (exclude the |serial| rollback-guard line).
+# don't count the |serial| rollback-guard line
 served=$(curl -fsSL -H 'Cache-Control: no-cache' "$MIRROR/bpm.index" | grep -vc '^|serial|' || echo 0)
 echo "    served index: $served packages"
-[ "$served" -gt 0 ] || { echo "repo-publish: served index is EMPTY — check the mirror!" >&2; exit 1; }
+[ "$served" -gt 0 ] || { echo "repo-publish: served index is EMPTY, check the mirror!" >&2; exit 1; }
 if [ "$reindex_only" -eq 0 ]; then
     for f in "$@"; do
         name=$(basename "$f"); name=${name%%-[0-9]*}

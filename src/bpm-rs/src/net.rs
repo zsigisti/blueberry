@@ -1,6 +1,5 @@
-//! HTTP(S) downloads. TLS is rustls (via ureq); the public repo cert validates
-//! against the bundled Mozilla roots, the same trust set as the system
-//! ca-certificates bundle. Streams the body to a file — never into RAM.
+//! Downloads. ureq + rustls with the bundled Mozilla roots (same set as
+//! ca-certificates). Bodies go straight to disk, never into RAM.
 
 use std::fs::{File, OpenOptions};
 use std::io::{self, IsTerminal, Read, Write};
@@ -10,13 +9,11 @@ use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
-/// Shared, thread-safe download progress across parallel fetches. Workers report
-/// bytes as they stream; a monitor thread renders one aggregate line (pacman
-/// style: packages done/total, MiB done/total, percent, and speed).
+/// One pacman-style progress line shared by all the parallel downloads.
 pub struct Progress {
     total_pkgs: usize,
     done_pkgs: AtomicUsize,
-    total_bytes: AtomicU64, // sum of Content-Lengths as each download starts
+    total_bytes: AtomicU64, // grows as each download reports its Content-Length
     done_bytes: AtomicU64,
     start: Instant,
     stop: AtomicBool,
@@ -56,8 +53,7 @@ impl Progress {
         )
     }
 
-    /// Run in its own thread: repaint the aggregate line until `stop()`, then
-    /// clear it (the caller prints the final summary).
+    /// Repaints until stop(), then clears the line. Run it on its own thread.
     pub fn run(&self) {
         let tty = std::io::stderr().is_terminal();
         while !self.stop.load(Ordering::Relaxed) {
@@ -74,24 +70,19 @@ impl Progress {
     }
 }
 
-
-/// Shared agent with an IPv4-first resolver. Many setups (notably QEMU SLIRP)
-/// hand out a site-local IPv6 with no route to the internet; a dual-stack repo
-/// then resolves to an unreachable AAAA and downloads hang/fail. Trying IPv4
-/// first makes bpm work regardless of a broken/half-configured IPv6 stack.
+/// IPv4 goes first. QEMU SLIRP (and plenty of real networks) hand out an IPv6
+/// address with no route anywhere, and then every download hangs on the AAAA.
 fn agent() -> &'static ureq::Agent {
     static AGENT: OnceLock<ureq::Agent> = OnceLock::new();
     AGENT.get_or_init(|| {
         ureq::builder()
-            // Connect timeout fails fast on an unreachable mirror; the read
-            // timeout is per-read (resets while bytes flow), so a large package
-            // (gcc is ~84 MB) downloads for as long as it keeps making progress.
-            // A single overall timeout would kill big downloads on slow links.
+            // no overall timeout on purpose: it would kill gcc (~84 MB) on a
+            // slow link. the read timeout resets whenever bytes arrive
             .timeout_connect(Duration::from_secs(20))
             .timeout_read(Duration::from_secs(120))
             .resolver(|netloc: &str| -> io::Result<Vec<SocketAddr>> {
                 let mut addrs: Vec<SocketAddr> = netloc.to_socket_addrs()?.collect();
-                addrs.sort_by_key(SocketAddr::is_ipv6); // IPv4 (false) before IPv6
+                addrs.sort_by_key(SocketAddr::is_ipv6); // false sorts first, so v4 wins
                 Ok(addrs)
             })
             .build()
@@ -99,13 +90,12 @@ fn agent() -> &'static ureq::Agent {
 }
 
 fn other(e: impl std::fmt::Display) -> io::Error {
-    io::Error::new(io::ErrorKind::Other, e.to_string())
+    io::Error::other(e.to_string())
 }
 
-/// GET `url` into `dest`. Downloads to `<dest>.part` and renames on success, so
-/// `dest` only ever exists complete. If a `.part` from an interrupted run is
-/// present, resume it with a Range request (the server may ignore it, in which
-/// case we restart). Returns Ok on success.
+/// GET `url` into `dest` via `<dest>.part`, so `dest` is only ever complete.
+/// A leftover .part gets resumed with a Range request; if the server ignores
+/// that we just start over.
 pub fn get(url: &str, dest: &Path, prog: Option<&Progress>) -> io::Result<()> {
     let part = PathBuf::from(format!("{}.part", dest.display()));
     let have = std::fs::metadata(&part).map(|m| m.len()).unwrap_or(0);
@@ -116,14 +106,12 @@ pub fn get(url: &str, dest: &Path, prog: Option<&Progress>) -> io::Result<()> {
             .set("Range", &format!("bytes={have}-"))
             .call()
             .map_err(other)?;
-        let resumed = r.status() == 206; // 206 = partial; 200 = full, restart
+        let resumed = r.status() == 206; // 200 means it sent the whole thing
         (r, resumed)
     } else {
         (agent().get(url).call().map_err(other)?, false)
     };
 
-    // Register this download's size (Content-Length + any already-resumed bytes)
-    // so the aggregate percentage/total is accurate.
     if let Some(p) = prog {
         let clen = resp
             .header("Content-Length")
@@ -142,7 +130,7 @@ pub fn get(url: &str, dest: &Path, prog: Option<&Progress>) -> io::Result<()> {
     } else {
         File::create(&part)?
     };
-    // Stream in chunks, reporting bytes to the progress meter (io::copy hides them).
+    // not io::copy, the progress bar wants to see the bytes
     let mut buf = vec![0u8; 65536];
     loop {
         let n = reader.read(&mut buf)?;

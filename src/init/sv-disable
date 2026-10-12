@@ -1,9 +1,7 @@
 #!/bin/sh
-# sv-disable <service>... — stop and disable runit service(s).
-#
-# Brings the service down, then removes its /var/service (runsvdir stops
-# supervising) and /etc/sv/enabled symlinks (won't come back on reboot). The
-# definition in /etc/sv/<name> is left in place so it can be re-enabled.
+# sv-disable <service>...
+# Stops the service and unlinks it from /var/service and /etc/sv/enabled.
+# /etc/sv/<name> stays, so sv-enable brings it back.
 set -eu
 
 [ $# -ge 1 ] || { echo "usage: sv-disable <service>..." >&2; exit 1; }

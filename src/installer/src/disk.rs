@@ -4,7 +4,6 @@ use crate::run::{check, out, run, sh, R};
 use std::fs;
 use std::path::Path;
 
-/// A candidate install target.
 pub struct Disk {
     pub name: String,   // e.g. "vda", "nvme0n1"
     pub dev: String,    // e.g. "/dev/vda"
@@ -13,7 +12,7 @@ pub struct Disk {
 }
 
 impl Disk {
-    /// Partition node: nvme0n1 -> nvme0n1p<idx>, vda -> vda<idx>.
+    /// nvme0n1 -> nvme0n1p<idx>, vda -> vda<idx>
     pub fn part(&self, idx: u32) -> String {
         let last = self.name.chars().last().unwrap_or(' ');
         if last.is_ascii_digit() {
@@ -28,7 +27,6 @@ impl Disk {
     }
 }
 
-/// Scan /sys/block for real, installable disks (sd*, nvme*, vd*, mmcblk*).
 pub fn list() -> Vec<Disk> {
     let mut v = Vec::new();
     let Ok(rd) = fs::read_dir("/sys/block") else {
@@ -61,8 +59,8 @@ pub fn list() -> Vec<Disk> {
     v
 }
 
-/// GPT layout for BIOS (i386-pc): a 1 MiB BIOS-boot partition (ef02, where GRUB
-/// embeds core.img) + the root partition. Returns the root partition node.
+/// GPT: 1 MiB BIOS-boot (ef02, GRUB stuffs core.img in there) + root.
+/// Returns the root partition.
 pub fn partition_bios(disk: &Disk) -> R<String> {
     check(&["sgdisk", "--zap-all", &disk.dev])?;
     check(&[
@@ -75,8 +73,7 @@ pub fn partition_bios(disk: &Disk) -> R<String> {
     Ok(disk.part(2))
 }
 
-/// GPT layout for UEFI: a 512 MiB FAT32 ESP (ef00) + the root partition.
-/// Returns (esp_node, root_node).
+/// GPT: 512 MiB ESP (ef00) + root. Returns (esp, root).
 pub fn partition_uefi(disk: &Disk) -> R<(String, String)> {
     check(&["sgdisk", "--zap-all", &disk.dev])?;
     check(&[
@@ -89,13 +86,12 @@ pub fn partition_uefi(disk: &Disk) -> R<(String, String)> {
     Ok((disk.part(1), disk.part(2)))
 }
 
-/// Make the freshly-created partition nodes appear (works with udev or busybox).
+/// Get the new partition nodes to show up, with udev or busybox mdev.
 fn settle(disk: &Disk) {
     let _ = sh(&format!(
         "partprobe {0} 2>/dev/null; udevadm settle 2>/dev/null; mdev -s 2>/dev/null; sync",
         disk.dev
     ));
-    // give the kernel a moment to publish the nodes
     for _ in 0..20 {
         if Path::new(&disk.part(2)).exists() {
             break;
@@ -109,7 +105,7 @@ pub fn mkfs_ext4(dev: &str, label: &str) -> R<()> {
 }
 
 pub fn mkfs_xfs(dev: &str, label: &str) -> R<()> {
-    // XFS labels are limited to 12 characters (mkfs.xfs rejects longer ones).
+    // mkfs.xfs refuses labels over 12 chars
     let l: String = label.chars().take(12).collect();
     check(&["mkfs.xfs", "-f", "-L", &l, dev])
 }
@@ -118,39 +114,33 @@ pub fn mkfs_btrfs(dev: &str, label: &str) -> R<()> {
     check(&["mkfs.btrfs", "-f", "-L", label, dev])
 }
 
-/// Create the standard snapshot-friendly btrfs layout: `@` (mounted /) and
-/// `@home` (mounted /home). We do NOT change the default subvolume — the boot
-/// chain pins `subvol=@` explicitly (grub loads `/@/boot/...` and the kernel
-/// gets `rootflags=subvol=@`), which is the layout Ubuntu/Debian use and which
-/// boots reliably (GRUB reads the top-level subvolume, so the `/@` path resolves
-/// regardless of any default-subvolume). `dev` is the freshly-mkfs'd device;
-/// `tmp` is a scratch mountpoint, unmounted again before returning.
+/// Ubuntu-style @ / @home / @snapshots. We don't change the default subvolume:
+/// the boot chain pins subvol=@ itself (grub loads /@/boot/..., kernel gets
+/// rootflags=subvol=@), and GRUB reads the top level, so /@ resolves no matter
+/// what the default is. `tmp` is a scratch mountpoint, unmounted again after.
 pub fn btrfs_subvol_layout(dev: &str, tmp: &str) -> R<()> {
     std::fs::create_dir_all(tmp).ok();
     check(&["mount", dev, tmp])?;
     let res = (|| -> R<()> {
         check(&["btrfs", "subvolume", "create", &format!("{tmp}/@")])?;
         check(&["btrfs", "subvolume", "create", &format!("{tmp}/@home")])?;
-        // @snapshots holds pre-upgrade snapshots (mounted at /.snapshots); keeping
-        // it a sibling of @ means a root rollback doesn't touch it.
+        // sibling of @ (not inside it) so rolling back root leaves the snapshots alone
         check(&["btrfs", "subvolume", "create", &format!("{tmp}/@snapshots")])
     })();
     let _ = run(&["umount", tmp]);
     res
 }
 
-/// Put an LVM volume group on `pv_dev` (a raw partition or a LUKS mapper) with
-/// a single root logical volume spanning it. Returns the LV device path.
+/// One VG on `pv_dev` (raw partition or LUKS mapper), one LV filling it.
 pub fn lvm_setup(pv_dev: &str, vg: &str, lv: &str) -> R<String> {
     check(&["pvcreate", "-ff", "-y", pv_dev])?;
     check(&["vgcreate", "-y", vg, pv_dev])?;
     check(&["lvcreate", "-y", "-l", "100%FREE", "-n", lv, vg])?;
-    // vgcreate/lvcreate activate by default, but be explicit so the node exists.
+    // should already be active, but make sure the node is there
     let _ = run(&["vgchange", "-ay", vg]);
     Ok(format!("/dev/{vg}/{lv}"))
 }
 
-/// Format the root device with the chosen filesystem.
 pub fn mkfs_root(dev: &str, label: &str, fs: crate::engine::Filesystem) -> R<()> {
     use crate::engine::Filesystem::*;
     match fs {
@@ -164,9 +154,8 @@ pub fn mkfs_fat(dev: &str, label: &str) -> R<()> {
     check(&["mkfs.fat", "-F32", "-n", label, dev])
 }
 
-/// Read a device's filesystem UUID via blkid. Handles BOTH util-linux blkid
-/// (-s/-o supported) and busybox blkid (ignores those flags and prints
-/// `/dev/x: UUID="…"` lines for every device) — always validate the result.
+/// Filesystem UUID via blkid. Busybox blkid ignores -s/-o and dumps
+/// `/dev/x: UUID="..."` for every device, so never trust the output blindly.
 pub fn uuid(dev: &str) -> String {
     let looks_like_uuid =
         |s: &str| !s.is_empty() && s.len() >= 8 && s.chars().all(|c| c.is_ascii_hexdigit() || c == '-');
@@ -174,7 +163,7 @@ pub fn uuid(dev: &str) -> String {
     if looks_like_uuid(u.trim()) {
         return u.trim().to_string();
     }
-    // busybox path: find OUR device's line and pull UUID="…" out of it.
+    // busybox: find our own device's line and dig the UUID out
     let all = out(&["blkid"]);
     for line in all.lines().chain(out(&["blkid", dev]).lines()) {
         if !line.starts_with(&format!("{dev}:")) {
@@ -193,7 +182,7 @@ pub fn uuid(dev: &str) -> String {
     String::new()
 }
 
-/// Best-effort: bring up interfaces + DHCP so `bpm` can reach the repo.
+/// Best effort: links up + DHCP so bpm can reach the repo.
 pub fn ensure_network() {
     if run(&["sh", "-c", "ip route 2>/dev/null | grep -q default"]) {
         return;

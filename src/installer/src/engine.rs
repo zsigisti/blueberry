@@ -1,6 +1,5 @@
-//! The install engine — every step of laying Blueberry on a disk, independent
-//! of the front-end (TUI, CLI or unattended env). Front-ends build a `Config`,
-//! then call `run(cfg, payload, emit)`; `emit` receives progress events.
+//! The actual install. Front-ends fill in a `Config` and call `run_install`,
+//! which reports progress through `emit`.
 
 use crate::boot::{self, Firmware};
 use crate::disk;
@@ -10,18 +9,15 @@ use std::path::Path;
 
 pub const MNT: &str = "/mnt/blueberry";
 
-/// What we found on the boot medium. Blueberry is server-only: the medium
-/// carries a single `rootfs.tar.zst` base and nothing else to choose.
+/// The boot medium's payload dir. It's just one rootfs.tar.zst, nothing to pick.
 pub struct Payload {
     pub dir: String,
-    /// Human name for the UI (NAME= in payload.conf).
-    pub name: String,
+    pub name: String, // NAME= from payload.conf
 }
 
 impl Payload {
-    /// Discover the payload, waiting for slow media: USB sticks take a few
-    /// seconds to enumerate on real hardware, and bbtui starts immediately —
-    /// retry (with a device rescan) for up to ~40s before giving up.
+    /// USB sticks take a few seconds to enumerate on real hardware and bbtui
+    /// starts right away, so keep rescanning for ~40s before giving up.
     pub fn discover_wait() -> Option<Payload> {
         for i in 0..20 {
             if let Some(p) = Self::discover() {
@@ -49,8 +45,7 @@ impl Payload {
     }
 }
 
-/// Curated console keymaps: (console/loadkeys name, xkb layout, label).
-/// Applied live with loadkeys and persisted to vconsole.conf + kxkbrc.
+/// (loadkeys name, xkb layout, label)
 pub const KEYMAPS: &[(&str, &str, &str)] = &[
     ("us", "us", "English (US)"),
     ("hu", "hu", "Hungarian"),
@@ -64,8 +59,7 @@ pub const KEYMAPS: &[(&str, &str, &str)] = &[
     ("ro", "ro", "Romanian"),
 ];
 
-/// Root filesystem choice. The kernel builds in ext4/xfs/btrfs; the installer
-/// environment carries mkfs.ext4/mkfs.xfs/mkfs.btrfs.
+/// All three are built into the kernel and have mkfs in the live env.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Filesystem {
     Ext4,
@@ -74,7 +68,6 @@ pub enum Filesystem {
 }
 
 impl Filesystem {
-    /// fstab / mkfs type string.
     pub fn as_str(self) -> &'static str {
         match self {
             Filesystem::Ext4 => "ext4",
@@ -83,7 +76,7 @@ impl Filesystem {
         }
     }
     pub const ALL: [Filesystem; 3] = [Filesystem::Ext4, Filesystem::Xfs, Filesystem::Btrfs];
-    /// Parse from a cmdline/env token; unknown falls back to ext4.
+    /// Anything unknown means ext4.
     pub fn parse(s: &str) -> Filesystem {
         match s.trim().to_lowercase().as_str() {
             "xfs" => Filesystem::Xfs,
@@ -93,8 +86,7 @@ impl Filesystem {
     }
 }
 
-/// The installed system's network stack. Blueberry ships systemd-networkd
-/// (+resolved) enabled in the base image; it is the only supported stack.
+/// Only networkd for now (it comes enabled in the base image).
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum NetStack {
     Networkd,
@@ -102,33 +94,29 @@ pub enum NetStack {
 
 impl NetStack {
     pub const ALL: [NetStack; 1] = [NetStack::Networkd];
-    /// Short human label for menus/summaries.
     pub fn label(self) -> &'static str {
         "systemd-networkd (wired)"
     }
-    /// Parse a cmdline/env token. Only systemd-networkd is supported.
     pub fn parse(_s: &str) -> NetStack {
         NetStack::Networkd
     }
 }
 
-/// Everything the engine needs to know; front-ends fill this in.
 pub struct Config {
     pub disk_dev: String, // /dev/vda
     pub firmware: Firmware,
-    pub fs: Filesystem, // root filesystem type
-    pub net: NetStack,  // installed-system network stack (systemd-networkd)
-    pub keymap: String, // console keymap name from KEYMAPS
+    pub fs: Filesystem,
+    pub net: NetStack,
+    pub keymap: String, // loadkeys name from KEYMAPS
     pub hostname: String,
     pub root_pw: String,
     pub user: Option<(String, String)>, // (name, password)
     pub swap_gib: u32,
     pub luks_pw: Option<String>,
-    pub lvm: bool, // put root on an LVM logical volume (LVM-on-LUKS when both set)
+    pub lvm: bool, // LVM-on-LUKS when both are set
     pub extra_pkgs: String,
 }
 
-/// Progress events for the front-end.
 pub enum Ev {
     Step(String),
     Log(String),
@@ -143,7 +131,7 @@ fn logln(emit: Emit, s: &str) {
     emit(Ev::Log(s.to_string()));
 }
 
-/// How many Step() events run() emits — lets the UI draw a progress gauge.
+/// How many Step events run_install will send, for the progress bar.
 pub fn total_steps(cfg: &Config) -> u32 {
     let mut n = 9; // partition, format, mount, extract, kernel, grub, config, users, finish
     if cfg.luks_pw.is_some() {
@@ -158,14 +146,12 @@ pub fn total_steps(cfg: &Config) -> u32 {
     n
 }
 
-/// The whole install. Any Err aborts (front-end reports it).
 pub fn run_install(cfg: &Config, payload: &Payload, emit: Emit) -> R<()> {
     let d = disk::list()
         .into_iter()
         .find(|d| d.dev == cfg.disk_dev)
         .ok_or(format!("{} is not an available disk", cfg.disk_dev))?;
 
-    // ── Partition ────────────────────────────────────────────────────────────
     step(emit, &format!("Partitioning {} (GPT, {})", d.dev, fw_name(cfg.firmware)));
     let (esp, root_part) = match cfg.firmware {
         Firmware::Uefi => {
@@ -175,7 +161,6 @@ pub fn run_install(cfg: &Config, payload: &Payload, emit: Emit) -> R<()> {
         Firmware::Bios => (None, disk::partition_bios(&d)?),
     };
 
-    // ── LUKS (optional) ─────────────────────────────────────────────────────
     let mut rootfs_dev = root_part.clone();
     let mut crypt_uuid = None;
     if let Some(pw) = &cfg.luks_pw {
@@ -184,20 +169,17 @@ pub fn run_install(cfg: &Config, payload: &Payload, emit: Emit) -> R<()> {
         crypt_uuid = Some(disk::uuid(&root_part));
     }
 
-    // ── LVM (optional) — PV on the raw/crypt device, one root LV ─────────────
     if cfg.lvm {
         step(emit, "Setting up LVM (VG blueberry, LV root)");
         rootfs_dev = disk::lvm_setup(&rootfs_dev, "blueberry", "root")?;
     }
 
-    // ── Format + mount ──────────────────────────────────────────────────────
     step(emit, &format!("Formatting filesystems (root: {})", cfg.fs.as_str()));
     if let Some(e) = &esp {
         disk::mkfs_fat(e, "EFI")?;
     }
     disk::mkfs_root(&rootfs_dev, "blueberry-root", cfg.fs)?;
 
-    // btrfs gets a snapshot-friendly @ (root) + @home layout; boot pins subvol=@.
     let btrfs = matches!(cfg.fs, Filesystem::Btrfs);
     if btrfs {
         step(emit, "Creating btrfs subvolumes (@, @home)");
@@ -218,14 +200,12 @@ pub fn run_install(cfg: &Config, payload: &Payload, emit: Emit) -> R<()> {
         check(&["mount", e, &format!("{MNT}/boot/efi")])?;
     }
 
-    // ── Root filesystem ─────────────────────────────────────────────────────
     step(emit, "Extracting root filesystem (this takes a few minutes)");
     crate::run::sh_check(&format!(
         "zstd -dcq {}/rootfs.tar.zst | tar -x -C {MNT}",
         payload.dir
     ))?;
 
-    // ── Kernel + bootloader ─────────────────────────────────────────────────
     step(emit, "Installing kernel + initramfs");
     boot::install_kernel(MNT, &payload.dir)?;
 
@@ -248,7 +228,6 @@ pub fn run_install(cfg: &Config, payload: &Payload, emit: Emit) -> R<()> {
     }
     boot::write_grub_cfg(MNT, &uuid, &root_spec, &cryptarg, btrfs)?;
 
-    // ── System configuration ────────────────────────────────────────────────
     step(emit, "Writing system configuration");
     if let Some(cu) = &crypt_uuid {
         let _ = fs::write(
@@ -262,21 +241,18 @@ pub fn run_install(cfg: &Config, payload: &Payload, emit: Emit) -> R<()> {
     let host = if cfg.hostname.trim().is_empty() { "blueberry" } else { cfg.hostname.trim() };
     let _ = fs::write(format!("{MNT}/etc/hostname"), format!("{host}\n"));
 
-    // The base image already ships systemd-networkd (+resolved) enabled — the
-    // only supported stack — so there is nothing to switch.
+    // networkd is already enabled in the base image, nothing to do
     logln(emit, &format!("network: {}", cfg.net.label()));
 
-    // Keymap: console (systemd-vconsole-setup) + Wayland/X11 (KWin/SDDM read
-    // the XDG-wide kxkbrc). loadkeys+keymaps ship in the kbd package.
     if !cfg.keymap.is_empty() && cfg.keymap != "us" {
         let xkb = KEYMAPS
             .iter()
             .find(|(c, _, _)| *c == cfg.keymap)
             .map(|(_, x, _)| *x)
             .unwrap_or(cfg.keymap.as_str());
-        // Belt and suspenders — every consumer reads a different file:
+        // every consumer reads its own file, so write all of them:
         //   vconsole.conf KEYMAP=     console (systemd-vconsole-setup)
-        //   vconsole.conf XKBLAYOUT=  systemd-localed → KWin Wayland
+        //   vconsole.conf XKBLAYOUT=  systemd-localed -> KWin Wayland
         //   xorg.conf.d/00-keyboard   Xwayland / X11 apps (localed format)
         //   /etc/xdg/kxkbrc           Plasma kded keyboard module + SDDM greeter
         let _ = fs::write(
@@ -297,7 +273,7 @@ pub fn run_install(cfg: &Config, payload: &Payload, emit: Emit) -> R<()> {
         );
     }
 
-    // A fresh machine-id (and no interactive firstboot) for the installed system.
+    // fresh machine-id, and no interactive firstboot
     if fs::metadata(format!("{MNT}/etc/machine-id")).map(|m| m.len()).unwrap_or(0) == 0 {
         let id = out(&["sh", "-c", "head -c16 /dev/urandom | od -An -tx1 | tr -d ' \\n'"]);
         let _ = fs::write(format!("{MNT}/etc/machine-id"), format!("{id}\n"));
@@ -306,8 +282,8 @@ pub fn run_install(cfg: &Config, payload: &Payload, emit: Emit) -> R<()> {
         "ln -sf /dev/null {MNT}/etc/systemd/system/systemd-firstboot.service"
     ));
 
-    // Payload tarballs are packed unprivileged, so setuid bits never survive —
-    // restore them on the binaries that need them (sudo/polkit/mount…).
+    // the payload tarball is packed unprivileged, so setuid bits don't survive
+    // it. put them back on the binaries that need them.
     for b in [
         "usr/bin/sudo", "usr/bin/pkexec", "usr/bin/su", "usr/bin/mount",
         "usr/bin/umount", "usr/bin/passwd", "usr/bin/chsh", "usr/bin/chfn",
@@ -321,7 +297,6 @@ pub fn run_install(cfg: &Config, payload: &Payload, emit: Emit) -> R<()> {
         }
     }
 
-    // ── Users ────────────────────────────────────────────────────────────────
     step(emit, "Setting passwords + users");
     boot::set_password(MNT, "root", &cfg.root_pw)?;
     if let Some((name, pw)) = &cfg.user {
@@ -330,20 +305,18 @@ pub fn run_install(cfg: &Config, payload: &Payload, emit: Emit) -> R<()> {
             if !pw.is_empty() {
                 boot::set_password(MNT, name.trim(), pw)?;
             }
-            // Desktop niceties: admin (wheel/sudo) + device access groups.
+            // wheel for sudo, the rest for device access
             for g in ["wheel", "video", "audio", "render", "input"] {
                 add_to_group(MNT, g, name.trim());
             }
         }
     }
 
-    // ── Swap ─────────────────────────────────────────────────────────────────
     if cfg.swap_gib > 0 {
         step(emit, &format!("Creating {} GiB swapfile", cfg.swap_gib));
         make_swap(cfg.swap_gib, emit);
     }
 
-    // ── Extra packages ───────────────────────────────────────────────────────
     let extra = cfg.extra_pkgs.trim();
     if !extra.is_empty() {
         step(emit, &format!("Installing extra packages: {extra}"));
@@ -355,14 +328,13 @@ pub fn run_install(cfg: &Config, payload: &Payload, emit: Emit) -> R<()> {
         }
     }
 
-    // ── Finish ───────────────────────────────────────────────────────────────
     step(emit, "Unmounting");
     let _ = sh(&format!("swapoff {MNT}/swapfile 2>/dev/null"));
     if esp.is_some() {
         run(&["umount", &format!("{MNT}/boot/efi")]);
     }
     if btrfs {
-        run(&["umount", &format!("{MNT}/home")]); // nested @home mount first
+        run(&["umount", &format!("{MNT}/home")]); // nested mount goes first
     }
     run(&["umount", MNT]);
     if crypt_uuid.is_some() {
@@ -414,8 +386,7 @@ fn make_swap(gib: u32, emit: Emit) {
     }
 }
 
-/// Append `user` to `group`'s member list in the target's /etc/group (no-op if
-/// the group doesn't exist or the user is already in it).
+/// No-op if the group doesn't exist or the user is already in it.
 fn add_to_group(mnt: &str, group: &str, user: &str) {
     let path = format!("{mnt}/etc/group");
     let Ok(content) = fs::read_to_string(&path) else { return };
@@ -436,8 +407,8 @@ fn add_to_group(mnt: &str, group: &str, user: &str) {
     let _ = fs::write(&path, out_s);
 }
 
-/// Locate the payload dir: initramfs-shipped, mounted live medium, or probing
-/// block devices for a filesystem holding /blueberry/rootfs.tar.zst.
+/// Known paths first, then mount every block device we can find and look for
+/// /blueberry/rootfs.tar.zst on it.
 fn find_payload_dir() -> Option<String> {
     for p in ["/blueberry", "/run/live/medium/blueberry", "/live/medium/blueberry"] {
         if Path::new(&format!("{p}/rootfs.tar.zst")).exists() {

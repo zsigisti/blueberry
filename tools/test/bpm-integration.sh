@@ -1,15 +1,11 @@
 #!/bin/sh
-# bpm-integration.sh — end-to-end lifecycle test for bpm against real .bpm files.
+# bpm-integration.sh - install -> upgrade -> rollback -> downgrade -> remove,
+# plus backup= config handling, against real .bpm files in a throwaway BPM_ROOT.
+# Fixtures are built with bpmbuild from local sources, so no network and no
+# signing key. The repo/signature path gets exercised by the live mirror.
 #
-# Exercises install → upgrade → rollback → downgrade → remove plus config-file
-# (backup) preservation, in a throwaway BPM_ROOT. Hermetic: it builds its own
-# fixture packages with bpmbuild (local sources, no network) and asserts on the
-# real on-disk state bpm leaves behind. No repo/signature is involved, so this
-# needs no network and no signing key — the repo-resolution path is covered
-# separately by the signed live mirror.
-#
-# Requires: a built bpm (src/bpm-rs/target/release/bpm or on PATH), bpmbuild,
-# python3, zstd, tar, fakeroot. Exit 0 = all passed.
+# needs a built bpm (src/bpm-rs/target/release/bpm, or BPM_BIN), python3,
+# zstd, tar, fakeroot
 set -eu
 
 TOP=$(cd "$(dirname "$0")/../.." && pwd)
@@ -35,7 +31,7 @@ check(){ if eval "$2"; then ok "$1"; else bad "$1 [$2]"; fi; }
 run() { BPM_ROOT="$ROOT" "$BPM" "$@"; }
 dbver() { cat "$ROOT/var/lib/bpm/db/$1/desc" 2>/dev/null | sed -n 's/^pkgver = //p'; }
 
-# ── build a fixture package: build_fixture <name> <ver> <bin-content> <conf-content>
+# build_fixture <name> <ver> <bin-content> <conf-content>
 build_fixture() {
     n="$1"; v="$2"; binc="$3"; confc="$4"
     d="$WORK/src-$n-$v"; mkdir -p "$d"
@@ -89,7 +85,7 @@ check "binary now v2"                  'grep -q "itest v2" "$ROOT/usr/bin/itest"
 check "no stale v1 content"            '! grep -q "itest v1" "$ROOT/usr/bin/itest"'
 
 echo "== config-file preservation (backup) =="
-# User edits the tracked config, then upgrades again to a build with new default.
+# user edits the config, then a build with a new default comes along
 printf 'setting=USER_EDIT\n' > "$ROOT/etc/itest.conf"
 V3=$(build_fixture itest 3.0 "itest v3" "setting=three")
 run install "$V3" >/dev/null 2>&1 || true
@@ -98,14 +94,14 @@ check "user config edit preserved"     'grep -q "USER_EDIT" "$ROOT/etc/itest.con
 check "new default saved as .bpmnew"   '[ -f "$ROOT/etc/itest.conf.bpmnew" ] && grep -q "setting=three" "$ROOT/etc/itest.conf.bpmnew"'
 
 echo "== rollback (cache) =="
-# rollback/downgrade read the cache; seed it with the fetched artifacts.
+# rollback/downgrade work from the cache, so put the builds there
 cp "$V1" "$V2" "$V3" "$CACHE/"
 run rollback itest >/dev/null 2>&1 || true
 check "rolled back 3.0 -> 2.0"         '[ "$(dbver itest)" = "2.0-1" ]'
 check "binary back to v2"              'grep -q "itest v2" "$ROOT/usr/bin/itest"'
 
 echo "== downgrade to exact version (cache) =="
-# version is the full ver-rel (cache::exact matches on version AND release).
+# needs the full ver-rel, the cache matches version and release
 run downgrade itest=1.0-1 >/dev/null 2>&1 || true
 check "downgraded to 1.0-1"            '[ "$(dbver itest)" = "1.0-1" ]'
 check "binary back to v1"              'grep -q "itest v1" "$ROOT/usr/bin/itest"'

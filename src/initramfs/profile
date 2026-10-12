@@ -1,4 +1,4 @@
-# /etc/profile — sourced by the live CLI login shell
+# /etc/profile for the live CLI
 
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export HOME=/root
@@ -8,8 +8,8 @@ export TERM="${TERM:-linux}"
 alias ll='ls -l'
 alias la='ls -la'
 
-# In the live CLI, PID 1 is a shell, not a real init, so the usual "signal init
-# to shut down" path does nothing. Force the direct reboot(2) syscall instead.
+# PID 1 is our /init script, not a real init. It does trap the signals, but -f
+# is the sure thing.
 alias poweroff='poweroff -f'
 alias reboot='reboot -f'
 alias halt='halt -f'

@@ -1,24 +1,20 @@
 #!/bin/sh
-# runit stage 3 — orderly shutdown
-# Called when runit receives TERM (halt), INT (reboot), or QUIT (poweroff).
+# runit stage 3: shut down. $1 says how (0 poweroff, 6 reboot, else halt).
 
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
 
-# Save RNG state for next boot
+# seed for the next boot's stage 1
 dd if=/dev/urandom of=/var/lib/random-seed bs=512 count=1 2>/dev/null || true
 
-# Send TERM to all processes, then KILL
 kill -TERM -1 2>/dev/null
 sleep 1
 kill -KILL -1 2>/dev/null
 
-# Sync and unmount filesystems
 sync
 umount -a -r 2>/dev/null || true
 sync
 
-# Determine shutdown type from runit's exit code
 case "$1" in
     0) halt -d -f -p ;;    # poweroff
     6) reboot -d -f ;;     # reboot

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Unit tests for auto-bump.py's recipe parsing — no network.
+"""auto-bump.py recipe parsing tests. No network.
 
-Run: python3 tools/test/test-auto-bump.py
+  python3 tools/test/test-auto-bump.py
 """
 import importlib.util
 import os
@@ -52,8 +52,8 @@ class TestRecipeSources(unittest.TestCase):
         self.assertEqual(len(shas), 1)
 
     def test_upstream_url_is_not_a_source(self):
-        """[upstream] url= says where to look for new versions; it is not a
-        source. Counting it made every tracked recipe refuse to bump."""
+        # [upstream] url= is where to look for versions, not a source. counting
+        # it made every tracked recipe refuse to bump
         urls, shas = ab.recipe_sources(tomllib.loads(WITH_UPSTREAM))
         self.assertEqual(urls, ["https://example.org/foo-1.0.tar.gz"])
         self.assertEqual(len(shas), 1)

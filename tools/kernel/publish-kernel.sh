@@ -1,12 +1,10 @@
 #!/bin/sh
-# publish-kernel.sh — package a freshly compiled kernel into the pinned binary
-# artifact and upload it to the repo server. Run this ONCE on a build box after
-# `make kernel-rebuild` (or `make kernel-publish`, which chains both) whenever the
-# kernel version or config is bumped. Normal builds then just fetch this artifact.
+# usage: publish-kernel.sh <bootdir> <stagedir> <linux_version> <localversion> <arch>
 #
-# Usage: publish-kernel.sh <bootdir> <stagedir> <linux_version> <localversion> <arch>
-# Env:   REPO_HOST (root@192.168.0.79)  REPO_DIR (/srv/blueberry-repo)
-#        ASKPASS (/tmp/askpass.sh — writes the repo password; see repo-deploy)
+# Packs a freshly compiled kernel into the artifact fetch-kernel.sh downloads,
+# and uploads it. `make kernel-publish` runs this after kernel-rebuild.
+# env: REPO_HOST (root@192.168.0.79), REPO_DIR (/srv/blueberry-repo),
+#      ASKPASS (/tmp/askpass.sh, prints the repo password - see repo-deploy)
 set -eu
 
 BOOTDIR=${1:?usage: publish-kernel.sh <bootdir> <stagedir> <ver> <localversion> <arch>}
@@ -18,10 +16,10 @@ REPO_HOST=${REPO_HOST:-root@192.168.0.79}
 REPO_DIR=${REPO_DIR:-/srv/blueberry-repo}
 ASKPASS=${ASKPASS:-/tmp/askpass.sh}
 
-[ -f "$BOOTDIR/vmlinuz" ] || { echo "ERROR: no $BOOTDIR/vmlinuz — run 'make kernel-rebuild' first" >&2; exit 1; }
+[ -f "$BOOTDIR/vmlinuz" ] || { echo "ERROR: no $BOOTDIR/vmlinuz, run 'make kernel-rebuild' first" >&2; exit 1; }
 MODROOT="$STAGEDIR/usr/lib/modules"
 REL=$(ls "$MODROOT" 2>/dev/null | head -1)
-[ -n "$REL" ] || { echo "ERROR: no modules under $MODROOT — run 'make kernel-rebuild' first" >&2; exit 1; }
+[ -n "$REL" ] || { echo "ERROR: no modules under $MODROOT, run 'make kernel-rebuild' first" >&2; exit 1; }
 
 ART="blueberry-kernel-${VER}${LOCALVER}-${ARCH}.tar.zst"
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT

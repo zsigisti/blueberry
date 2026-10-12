@@ -1,46 +1,28 @@
 #!/bin/bash
-# bundle-glibc.sh — stage the glibc runtime into a destination root so the image
-# can run dynamically-linked glibc binaries: the system's own (busybox / runit /
-# dropbear / systemd) AND external prebuilt software (the whole point of using
-# glibc instead of musl).
+# usage: bundle-glibc.sh <destroot> [binary ...]
+# Copies ld.so, everything the binaries link, a compat set for random prebuilt
+# software, and the NSS modules into <destroot>, then runs ldconfig on it.
 #
-# Usage: bundle-glibc.sh <destroot> [binary ...]
-#   Copies the ELF interpreter, the ldd deps of each <binary>, a compat set of
-#   common shared libs, and the dlopen-only NSS modules; then builds ld.so.cache.
-#
-# WHERE THE LIBS COME FROM (this is the whole point):
-#   Blueberry is built inside an Arch container, so every packaged binary is
-#   linked against the CONTAINER's glibc (currently 2.43). If we bundled the
-#   *build host's* glibc instead, a host with an older glibc than the container
-#   (e.g. Ubuntu 24.04 ships 2.39) would stage a too-old libc and the image
-#   would panic at boot ("libncursesw.so.6 requires glibc 2.42", …).
-#
-#   So the fix: prefer a STAGED SYSROOT — the assembled rootfs, which contains
-#   the container-built `glibc` package — over the host. Set GLIBC_SYSROOT to
-#   that rootfs (the top-level Makefiles pass GLIBC_SYSROOT=$(STAGEDIR)). Any
-#   soname found there wins; anything not staged (ABI-stable libgcc_s, libcrypt…)
-#   falls back to the host. With GLIBC_SYSROOT unset the old host-only behaviour
-#   is preserved, so building on an Arch host still works unchanged.
+# Where the libs come from matters. Our packages are linked against the build
+# container's glibc (2.43). Take libc from an older host instead (Ubuntu 24.04
+# has 2.39) and the image panics at boot with "requires glibc 2.42" errors.
+# So GLIBC_SYSROOT (the Makefiles pass the stage) wins for any soname it has,
+# and the host is only a fallback for the ABI-stable stuff like libgcc_s.
+# Unset GLIBC_SYSROOT = host only, which is fine on an Arch host.
 
 set -eu
 
 DEST=${1:?usage: $0 <destroot> [binary ...]}
 shift || true
 
-# The staged rootfs to source libraries from (container-built glibc lives here).
-# Unset → host-only (legacy behaviour). A trailing slash is harmless.
 SYSROOT=${GLIBC_SYSROOT:-}
-# Don't source from ourselves: if DEST == SYSROOT the finds still work (the libs
-# are already in place), but skip self-copies for clarity.
 
 LIBDIR="$DEST/usr/lib"
 mkdir -p "$DEST/lib64" "$LIBDIR" "$DEST/etc"
-# Merged-usr layout: /lib -> usr/lib. /lib64 stays a real dir for the linker.
+# merged-usr: /lib -> usr/lib, but /lib64 stays real for the linker
 [ -e "$DEST/lib" ] || ln -sf usr/lib "$DEST/lib"
 
-# find_lib SONAME → absolute path. Prefer the staged sysroot (container-built
-# glibc), fall back to the build host. This is what makes the build reproducible
-# regardless of the host distro's glibc version.
+# soname -> path, sysroot first, then the host
 find_lib() {
     local soname="$1" d
     if [ -n "$SYSROOT" ]; then
@@ -58,18 +40,16 @@ copy_lib() {
     [ -n "$src" ] && [ -e "$src" ] || return 0
     base=$(basename "$src")
     [ -e "$LIBDIR/$base" ] && return 0
-    # SYSROOT may equal DEST (glibc extracted straight into the target); never
-    # copy a file onto itself — cp errors and, under set -e, would abort.
+    # SYSROOT is often DEST itself, and cp onto itself errors (set -e = dead)
     [ "$src" -ef "$LIBDIR/$base" ] && return 0
     cp -Lf "$src" "$LIBDIR/$base"
 }
 
-copy_soname() {  # resolve a SONAME (staged-first) and stage it
+copy_soname() {
     copy_lib "$(find_lib "$1")"
 }
 
-# The ELF interpreter path is hard-coded into every dynamic binary
-# (/lib64/ld-linux-x86-64.so.2). Take it from the staged glibc if present.
+# every binary has /lib64/ld-linux-x86-64.so.2 baked in
 ld=""
 if [ -n "$SYSROOT" ]; then
     for c in "$SYSROOT/usr/lib/ld-linux-x86-64.so.2" "$SYSROOT/lib64/ld-linux-x86-64.so.2"; do
@@ -77,26 +57,23 @@ if [ -n "$SYSROOT" ]; then
     done
 fi
 [ -n "$ld" ] || ld="/lib64/ld-linux-x86-64.so.2"
-# Skip if the linker is already in place (SYSROOT == DEST): cp onto self errors.
 [ "$ld" -ef "$DEST/lib64/ld-linux-x86-64.so.2" ] || cp -Lf "$ld" "$DEST/lib64/ld-linux-x86-64.so.2"
 
-# 1. Transitive dependency SONAMEs of the binaries we ship, sourced staged-first.
-#    Use ldd for the (transitive) NEEDED list, but resolve each name ourselves so
-#    the staged glibc wins over whatever the host happens to have.
+# ldd for the list of names, but resolve them ourselves - ldd would answer
+# with the host's paths
 for bin in "$@"; do
     [ -e "$bin" ] || continue
     ldd "$bin" 2>/dev/null | awk '{print $1}' | while read -r soname; do
         case "$soname" in
-            /*|linux-vdso.so*|"") continue ;;   # skip abs paths (the ld) + vdso
+            /*|linux-vdso.so*|"") continue ;;   # the ld itself, vdso
             *.so*) copy_soname "$soname" ;;
         esac
     done
 done
 
-# 2. Compat set: common libs external glibc software expects, plus the
-#    runtime-dlopen'd NSS modules (which ldd never reports). Without nss_files /
-#    nss_dns, getpwnam() and DNS resolution silently fail. Staged-first, so the
-#    glibc-owned members here come from the container-built package.
+# Stuff prebuilt software expects, plus the NSS modules. Those are dlopen'd so
+# ldd never mentions them, and without nss_files/nss_dns getpwnam() and DNS
+# quietly fail.
 for soname in \
     libc.so.6 libm.so.6 libdl.so.2 librt.so.1 libpthread.so.0 \
     libresolv.so.2 libcrypt.so.2 libz.so.1 \
@@ -105,7 +82,6 @@ for soname in \
     copy_soname "$soname"
 done
 
-# 3. ld.so.cache so the interpreter finds everything in /usr/lib at runtime.
 ldconfig -r "$DEST" 2>/dev/null || true
 
 src="host"; [ -n "$SYSROOT" ] && src="sysroot:$SYSROOT (host fallback)"

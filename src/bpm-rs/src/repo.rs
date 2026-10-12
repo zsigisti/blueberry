@@ -1,16 +1,13 @@
-//! Package downloads: try each mirror in turn, verify the sha256, cache it.
+//! Fetching packages: try each mirror, check the sha256, keep it in the cache.
 
 use crate::config::Config;
 use crate::index::{self, Entry};
 use crate::net;
 use std::path::PathBuf;
 
-/// Download `entry`'s file from a mirror of its repo, verify the checksum, and
-/// return the cached path. Returns Err with a message on total failure.
 pub fn fetch(cfg: &Config, entry: &Entry, prog: Option<&net::Progress>) -> Result<PathBuf, String> {
     let out = cfg.cache.join(&entry.filename);
 
-    // Already cached and current?
     if out.is_file() && !entry.sha256.is_empty() {
         if let Ok(have) = index::sha256_file(&out) {
             if have == entry.sha256 {
@@ -49,8 +46,7 @@ pub fn fetch(cfg: &Config, entry: &Entry, prog: Option<&net::Progress>) -> Resul
         match index::sha256_file(&out) {
             Ok(have) if have == entry.sha256 => {}
             _ => {
-                // Drop the bad artifact (and any partial) so the next run
-                // re-downloads from scratch instead of resuming corruption.
+                // drop the .part too, or the next run resumes the garbage
                 let _ = std::fs::remove_file(&out);
                 let _ = std::fs::remove_file(format!("{}.part", out.display()));
                 return Err(format!("checksum mismatch for {}", entry.filename));

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Unit tests for check-updates.py's pure logic — no network.
+"""check-updates.py version/tag parsing and provider detection. No network.
 
-Everything here is version-string handling and recipe→provider detection, which
-is where the freshness report actually gets things wrong: a tag shape nobody
-anticipated silently becomes "no usable tags", and a package stops being
-tracked. Run: python3 tools/test/test-check-updates.py
+Most freshness bugs live here: some tag shape nobody expected turns into
+"no usable tags" and the package quietly stops being tracked.
+
+  python3 tools/test/test-check-updates.py
 """
 import importlib.util
 import os
@@ -186,8 +186,7 @@ class TestDetect(unittest.TestCase):
 
 class TestRegexProvider(unittest.TestCase):
     def test_multiple_groups_are_joined(self):
-        """A date version the recipe writes without separators (ca-certificates
-        ships 20260514) has to be reassembled from the page's 2026-05-14."""
+        # ca-certificates is 20260514 in the recipe, 2026-05-14 on the page
         html = 'cacert-2026-01-09.pem cacert-2026-05-14.pem'
         with unittest.mock.patch.object(cu, "_get", lambda *a, **k: html):
             self.assertEqual(
@@ -196,10 +195,8 @@ class TestRegexProvider(unittest.TestCase):
                 "20260514")
 
     def test_join_puts_the_separator_back(self):
-        """A page that prints the version differently than the recipe writes it
-        (2_4_1 vs 2.4.1) is reassembled with the recipe's separator. Zero
-        padding survives the join but is numerically equal (3.53.04 == 3.53.4),
-        which is what sqlite's 3530400 encoding needs."""
+        # page says 2_4_1, recipe says 2.4.1. zero padding survives the join
+        # but compares equal (3.53.04 == 3.53.4), which sqlite's 3530400 needs
         html = "foo_2_4_0.tar foo_2_4_1.tar"
         with unittest.mock.patch.object(cu, "_get", lambda *a, **k: html):
             self.assertEqual(

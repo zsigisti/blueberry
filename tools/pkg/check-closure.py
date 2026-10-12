@@ -1,26 +1,25 @@
 #!/usr/bin/env python3
-"""check-closure.py — assert the .bpm recipe tree is dependency-closed.
+"""check-closure.py - make sure every recipe dependency actually exists.
 
-Every `depends` (and optionally `makedepends`) listed in a packages/<name>/bpm.toml
-must resolve to either another recipe in packages/ or a host-provided name
-(etc/bpm/provided + the implicit glibc/gcc-libs). This catches the recurring
-"declares a dep that was never packaged" bug (exiv2, appstream, polkit-qt6,
-kirigami-addons, the applets…) at CI time instead of at runtime on the ISO.
+Each depends (and with --make, makedepends) in packages/*/bpm.toml has to be
+another recipe, something a recipe provides, or listed in etc/bpm/provided.
+Catches the "declared a dep nobody ever packaged" bug in CI instead of on the ISO.
 
-Usage:
-  tools/pkg/check-closure.py [--make]   # --make also checks makedepends
-Exit status: 0 if closed, 1 if any dependency is missing.
+  tools/pkg/check-closure.py [--make]
+
+Exits 1 if anything is missing.
 """
-import os, sys, glob, tomllib
+import glob
+import os
+import sys
+import tomllib
 
 TOP = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 PKGDIR = os.path.join(TOP, "packages")
 PROVIDED_FILE = os.path.join(TOP, "etc", "bpm", "provided")
 
-# Implicitly provided by the base image. glibc is now a real recipe
-# (packages/glibc, staged into the rootfs and bundled from there); it stays
-# listed so older `depends = ["glibc"]` atoms still resolve. gcc-libs
-# (libstdc++/libgcc_s) is still host/toolchain-provided via bundle-glibc.
+# glibc is a real recipe now, but older `depends = ["glibc"]` atoms still need
+# to resolve. gcc-libs (libstdc++/libgcc_s) still comes from the toolchain.
 IMPLICIT = {"glibc", "gcc-libs"}
 
 
@@ -34,21 +33,19 @@ def load_provided() -> set[str]:
     return provided
 
 
+def bare(atom):
+    # "foo>=1.2" -> "foo"
+    return atom.split(">")[0].split("=")[0].split("<")[0].strip()
+
+
 def load_recipes() -> dict[str, dict]:
     recipes = {}
     for toml in glob.glob(os.path.join(PKGDIR, "*", "bpm.toml")):
         with open(toml, "rb") as f:
-            data = tomllib.load(f)
-        pkg = data.get("package", {})
+            pkg = tomllib.load(f).get("package", {})
         name = pkg.get("name") or os.path.basename(os.path.dirname(toml))
-        recipes[name] = {
-            "depends": [d.split(">")[0].split("=")[0].split("<")[0].strip()
-                        for d in pkg.get("depends", [])],
-            "makedepends": [d.split(">")[0].split("=")[0].split("<")[0].strip()
-                            for d in pkg.get("makedepends", [])],
-            "provides": [d.split(">")[0].split("=")[0].split("<")[0].strip()
-                         for d in pkg.get("provides", [])],
-        }
+        recipes[name] = {k: [bare(d) for d in pkg.get(k, [])]
+                         for k in ("depends", "makedepends", "provides")}
     return recipes
 
 
@@ -56,8 +53,7 @@ def main() -> int:
     check_make = "--make" in sys.argv
     provided = load_provided()
     recipes = load_recipes()
-    # A dep may name something a recipe *provides* (cargo->rust, clang->llvm,
-    # libssl.so->openssl), not the package itself — count those as available.
+    # deps can name what a recipe provides (cargo -> rust, libssl.so -> openssl)
     recipe_provides = {p for r in recipes.values() for p in r["provides"]}
     available = set(recipes) | provided | recipe_provides
 
@@ -71,14 +67,14 @@ def main() -> int:
     print(f"recipes: {len(recipes)}   provided: {len(provided)}   "
           f"checking: depends{'+makedepends' if check_make else ''}")
     if not missing:
-        print("✓ closure is complete — every dependency has a recipe or is provided")
+        print("ok: closure is complete, every dependency has a recipe or is provided")
         return 0
 
-    print(f"\n✗ {len(missing)} unresolved dependencies "
-          f"(needed by {len({p for ps in missing.values() for p in ps})} packages):\n")
+    users_total = len({p for ps in missing.values() for p in ps})
+    print(f"\n{len(missing)} unresolved dependencies (needed by {users_total} packages):\n")
     for dep, users in sorted(missing.items(), key=lambda x: -len(x[1])):
-        shown = ", ".join(sorted(users)[:6]) + ("…" if len(users) > 6 else "")
-        print(f"  {len(users):3}  {dep:24}  ← {shown}")
+        shown = ", ".join(sorted(users)[:6]) + ("..." if len(users) > 6 else "")
+        print(f"  {len(users):3}  {dep:24}  <- {shown}")
     print("\nPackage each missing dependency (a recipe in packages/<name>/), or add "
           "it to etc/bpm/provided if the base image supplies it.")
     return 1

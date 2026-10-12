@@ -1,12 +1,10 @@
 #!/bin/sh
-# seed-installed-db.sh — register a from-source install in the bpm database so
-# `bpm list`/`bpm upgrade` track it. Used for binaries built straight into the
-# image (bpm itself) rather than extracted from a .bpm — those would otherwise be
-# untracked and bpm could never upgrade them. Writes the same .PKGINFO-shaped
-# db/<name>/{desc,files} a normal install records; version/release/summary are
-# read from the package's recipe so the seed always matches the published .bpm.
+# seed-installed-db.sh - register something built straight into the image (bpm
+# itself) in the bpm database, so `bpm list` / `bpm upgrade` know about it.
+# Writes the usual db/<name>/{desc,files}; version, release and summary come
+# from the recipe so it matches the published .bpm.
 #
-# Usage: seed-installed-db.sh <stagedir> <recipe.toml> <owned-path>...
+# usage: seed-installed-db.sh <stagedir> <recipe.toml> <owned-path>...
 set -eu
 STAGE=${1:?usage: seed-installed-db.sh <stagedir> <recipe.toml> <owned-path>...}
 REC=${2:?missing recipe.toml}

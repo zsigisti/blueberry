@@ -1,12 +1,6 @@
-# src/dropbear/Makefile — build Dropbear SSH (server + client) against glibc
-#
-# Inputs:
-#   DROPBEAR_SRC  path to extracted dropbear source
-#   CC            host C compiler (glibc)
-#   STAGEDIR      install root (the OS rootfs being assembled)
-#
-# Builds a single multi-call binary (dropbearmulti) — like busybox — and
-# installs it with applet symlinks: dropbear, dropbearkey, dbclient, scp.
+# Dropbear as one multi-call binary (dropbearmulti), busybox-style, with
+# symlinks for dropbear, dropbearkey, dbclient and scp.
+# Needs DROPBEAR_SRC, CC and STAGEDIR from the top GNUmakefile.
 
 CC ?= gcc
 PROGRAMS := dropbear dropbearkey dbclient scp

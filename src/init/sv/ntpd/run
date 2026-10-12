@@ -1,4 +1,3 @@
 #!/bin/sh
-# busybox ntpd time sync (disk-boot / runit path).
-# -n: stay in the foreground so runit can supervise it.
+# busybox ntpd, -n keeps it in the foreground for runsv
 exec ntpd -n -p 0.pool.ntp.org -p 1.pool.ntp.org -p 2.pool.ntp.org

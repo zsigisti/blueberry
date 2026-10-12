@@ -1,9 +1,8 @@
-// Blueberry Console — pure HTML/JS client. No CSS, no framework, no build step.
+// Blueberry Console web UI. Plain JS, no CSS, no framework, no build step.
 //
-// Auth is a bearer token in sessionStorage, sent as `Authorization: Bearer <t>`
-// on every call — it survives self-signed-cert browsers that drop Secure cookies
-// and is immune to CSRF. Panels are data-driven: add a { id, label, render } to
-// PANELS to grow the far vision.
+// The session token lives in sessionStorage and goes out as a Bearer header,
+// not a cookie: browsers on a self-signed cert like to drop Secure cookies, and
+// a header can't be forged cross-site. New panel = new entry in PANELS.
 
 const KEY = "bbc_session";
 const tok = () => sessionStorage.getItem(KEY) || "";
@@ -17,7 +16,6 @@ const api = async (path, opts = {}) => {
 };
 const getJSON = async (path) => (await api(path)).json();
 
-// Tiny DOM helper.
 const el = (tag, attrs = {}, ...kids) => {
   const n = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
@@ -26,15 +24,14 @@ const el = (tag, attrs = {}, ...kids) => {
   for (const k of kids) n.append(k);
   return n;
 };
-// A plain bordered table (border attribute = readable without any CSS).
+// border="1" so it's readable with zero CSS
 const table = (headers, rows) =>
   el("table", { border: "1", cellpadding: "5", cellspacing: "0" },
     el("thead", {}, el("tr", {}, ...headers.map((h) => el("th", { align: "left", text: h })))),
     el("tbody", {}, ...rows));
 
-let liveTimer = null; // overview's metrics poller; cleared on navigation/logout
+let liveTimer = null; // overview's metrics poll
 
-// ── formatting ────────────────────────────────────────────────────────────────
 const fmtUptime = (s) => {
   const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
   return [d && d + "d", h && h + "h", m + "m"].filter(Boolean).join(" ");
@@ -48,7 +45,6 @@ const fmtTime = (e) => (e ? new Date(e * 1000).toLocaleString() : "—");
 const PRIO = ["emerg", "alert", "crit", "err", "warning", "notice", "info", "debug"];
 const prioLabel = (p) => PRIO[p] || "info";
 
-// ── panels ──────────────────────────────────────────────────────────────────────
 const PANELS = [
   { id: "overview", label: "Overview", render: overview },
   { id: "services", label: "Services", render: services },
@@ -61,7 +57,7 @@ const PANELS = [
   { id: "containers", label: "Containers", render: containers },
 ];
 
-let installTimer = null; // installer status poller
+let installTimer = null;
 
 async function overview(view) {
   const s = await getJSON("system");
@@ -216,14 +212,12 @@ async function storage(view) {
       table(["Name", "Type", "Size", "FS", "Mount"], drows));
   }
 
-  // POST helper shared by the ZFS + Btrfs actions.
   const post = async (path, okMsg) => {
     const r = await api(path, { method: "POST" });
     if (r.ok) { render("storage"); }
     else { const e = await r.json().catch(() => ({})); alert((okMsg || "action") + " failed: " + (e.error || ("HTTP " + r.status))); }
   };
 
-  // ── ZFS ───────────────────────────────────────────────────────────────────
   const z = await getJSON("zfs");
   view.append(el("h2", { text: "ZFS" }));
   if (!z.available) {
@@ -263,7 +257,6 @@ async function storage(view) {
     }
   }
 
-  // ── Btrfs ──────────────────────────────────────────────────────────────────
   const bt = await getJSON("btrfs");
   view.append(el("h2", { text: "Btrfs" }));
   if (!bt.available) {
@@ -305,7 +298,7 @@ async function storage(view) {
             if (!confirm("Roll back to snapshot '" + p + "'?\n\nThis makes it the default subvolume and takes effect after a REBOOT. The running system is unchanged until you reboot.")) return;
             const r = await api("btrfs/rollback?mount=" + mq + "&path=" + encodeURIComponent(p), { method: "POST" });
             const d = await r.json().catch(() => ({}));
-            if (r.ok) alert("Rollback prepared — reboot to boot into '" + p + "'.");
+            if (r.ok) alert("Rollback ready. Reboot to boot into '" + p + "'.");
             else alert("rollback failed: " + (d.error || ("HTTP " + r.status)));
           });
           return el("tr", {}, el("td", { text: p }), el("td", {}, rb, document.createTextNode(" "), delBtn(p)));
@@ -347,7 +340,7 @@ async function updates(view) {
   });
   const controls = el("p", {});
   if (u.btrfs_root) controls.append(snapCb, document.createTextNode(" snapshot root before upgrading   "));
-  else controls.append(el("span", { text: "(root is not btrfs — no snapshot/rollback available)   " }));
+  else controls.append(el("span", { text: "(root isn't btrfs, so no snapshot/rollback)   " }));
   controls.append(btn);
   view.append(controls, out);
 }
@@ -358,10 +351,10 @@ async function installer(view) {
   if (!inf.available) {
     view.append(el("p", { text: inf.live
       ? "The installer program isn't present in this environment."
-      : "Only available when booted from the live installer medium — this system is already installed." }));
+      : "Only available when booted from the live installer. This system is already installed." }));
     return;
   }
-  view.append(el("p", { text: "⚠ This ERASES the selected disk and installs Blueberry onto it." }));
+  view.append(el("p", { text: "Heads up: this ERASES the selected disk and installs Blueberry onto it." }));
 
   const disk = el("select", {});
   inf.disks.forEach((d) => {
@@ -397,7 +390,7 @@ async function installer(view) {
       out.textContent = s.log || "…";
       if (s.done) {
         if (installTimer) { clearInterval(installTimer); installTimer = null; }
-        out.textContent = (s.ok ? "✅ INSTALL COMPLETE — reboot into the installed system.\n\n" : "❌ INSTALL FAILED.\n\n") + (s.log || "");
+        out.textContent = (s.ok ? "Install finished. Reboot into the new system.\n\n" : "Install FAILED.\n\n") + (s.log || "");
         btn.disabled = false;
       }
     } catch (_) {}
@@ -420,7 +413,7 @@ async function installer(view) {
     installTimer = setInterval(poll, 2000); poll();
   });
 
-  // Resume polling if an install is already running (navigated away and back).
+  // pick the log back up if you navigated away mid-install
   const s0 = await getJSON("installer/status");
   if (s0.running || s0.done) {
     out.textContent = s0.log || "";
@@ -438,7 +431,6 @@ async function network(view) {
   view.append(table(["Interface", "MAC", "Addresses"], rows));
 }
 
-// ── shell / routing ───────────────────────────────────────────────────────────
 function buildNav() {
   const nav = document.getElementById("nav");
   nav.replaceChildren();
@@ -495,7 +487,7 @@ document.getElementById("login-form").addEventListener("submit", async (e) => {
   if (r.ok && data.session) { setTok(data.session); showApp(); }
   else {
     err.textContent = r.status === 429
-      ? "Too many attempts — try again shortly."
+      ? "Too many attempts, give it a few minutes."
       : "Invalid credentials, or account not permitted. (HTTP " + r.status + ")";
     err.hidden = false;
   }
@@ -506,7 +498,7 @@ document.getElementById("logout").addEventListener("click", async () => {
   setTok(); showLogin();
 });
 
-// Probe an existing session on load (only if we hold a token).
+// still have a token from earlier? see if it's alive
 (async () => {
   if (!tok()) return showLogin();
   try {

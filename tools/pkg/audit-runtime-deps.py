@@ -1,23 +1,19 @@
 #!/usr/bin/env python3
-"""audit-runtime-deps.py — find recipes that under-declare their runtime deps.
+"""audit-runtime-deps.py - find recipes that link libraries they never declared.
 
-Built in an Arch container where pacman resolved dependencies automatically, many
-recipes list only their "headline" libraries. Self-hosted builds (BASE=blueberry)
-install exactly a package's declared closure, so a package that links a library it
-never declared — or whose declared dep in turn under-declares — fails to build or
-run. This audits the actual ELF linkage of every built package against the store
-and reports the real, missing runtime dependencies.
+In the Arch container pacman pulled deps in for us, so lots of recipes only list
+the headline libs. Self-hosted builds (BASE=blueberry) install exactly the
+declared closure, so anything missing breaks there. This checks the real ELF
+linkage of every built package in the store against what's declared.
 
-Runs inside the builder image (needs readelf); expects the whole package store
-mounted at /deps and the recipe tree at /repo.
+Runs inside the builder image, store at /deps, recipes at /repo:
 
   podman run --rm -v $PWD:/repo:ro -v $PWD/obj/bpm-out:/deps:ro \\
       localhost/blueberry-builder:latest \\
       python3 /repo/tools/pkg/audit-runtime-deps.py [--toml]
 
-Output: one line per package with unsatisfied linkage:
-  <pkg>: <providerpkg> ...            # deps to add so the closure links
-With --toml, prints a ready-to-paste `depends` suggestion per package instead.
+Prints `<pkg>: <provider> ...` per package with missing deps, or with --toml a
+`depends = [...]` line ready to paste.
 """
 import glob
 import os
@@ -30,7 +26,7 @@ REPO = "/repo"
 STORE = "/deps"
 PKGDIR = os.path.join(REPO, "packages")
 
-# Sonames always present from the base image / toolchain — never a package dep.
+# always there from the base image / toolchain, never a package dep
 BASE_SONAMES = {
     "ld-linux-x86-64.so.2", "libc.so.6", "libm.so.6", "libdl.so.2",
     "librt.so.1", "libpthread.so.0", "libresolv.so.2", "libutil.so.1",
@@ -60,18 +56,16 @@ def load_recipes():
 
 
 def readelf_dyn(path):
-    """(soname, [needed]) for an ELF64 LE file, or (None, []) if not ELF.
-
-    Parsed in pure Python — readelf in the builder image itself links
-    libdebuginfod and may not run, so we cannot depend on it.
-    """
+    # (soname, [needed]) for an ELF64 LE file, (None, []) for anything else.
+    # hand-parsed because the builder image's readelf links libdebuginfod and
+    # may not even run there
     try:
         with open(path, "rb") as f:
             data = f.read()
     except OSError:
         return None, []
     if len(data) < 64 or data[:4] != b"\x7fELF" or data[4] != 2 or data[5] != 1:
-        return None, []          # not an ELF64 little-endian object
+        return None, []
     e_phoff = struct.unpack_from("<Q", data, 0x20)[0]
     e_phentsize = struct.unpack_from("<H", data, 0x36)[0]
     e_phnum = struct.unpack_from("<H", data, 0x38)[0]
@@ -126,15 +120,17 @@ def main():
     want_toml = "--toml" in sys.argv[1:]
     recipes = load_recipes()
 
-    # Extract every store .bpm into its own dir; learn which files/sonames it owns.
+    # unpack each package from the store into its own dir and see which sonames it owns
     work = "/tmp/audit-roots"
-    subprocess.run(["rm", "-rf", work]); os.makedirs(work)
+    subprocess.run(["rm", "-rf", work])
+    os.makedirs(work)
     pkg_dir, soname_of_pkg, elf_paths = {}, {}, {}
     for name in recipes:
         hits = sorted(glob.glob(os.path.join(STORE, f"{name}-[0-9]*.bpm")))
         if not hits:
             continue
-        d = os.path.join(work, name); os.makedirs(d, exist_ok=True)
+        d = os.path.join(work, name)
+        os.makedirs(d, exist_ok=True)
         subprocess.run(f"zstd -dcq '{hits[-1]}' | tar -x -C '{d}' --exclude=.BPM "
                        "2>/dev/null", shell=True)
         pkg_dir[name] = d
@@ -143,36 +139,33 @@ def main():
             for fn in files:
                 p = os.path.join(root, fn)
                 if os.path.islink(p):
-                    # A soname symlink (libfoo.so.1 -> libfoo.so.1.2) means this
-                    # package provides that soname; record the link name.
+                    # libfoo.so.1 -> libfoo.so.1.2: the link name is a soname we provide
                     if fn.endswith(".so") or ".so." in fn:
                         owns.add(fn)
                     continue
                 so, needed = readelf_dyn(p)
                 if so is None and not needed and not fn.endswith(".so") and ".so." not in fn:
                     continue
-                if so or needed:  # an ELF
+                if so or needed:
                     elfs.append((p, needed))
                     if so:
                         owns.add(so)
-                # also record bare filename sonames (some .so lack SONAME)
+                # some .so files have no SONAME, so count the filename too
                 if fn.endswith(".so") or ".so." in fn:
                     owns.add(fn)
         soname_of_pkg[name] = owns
         elf_paths[name] = elfs
 
-    # Global soname -> providing package.
+    # soname -> package, then recipe `provides` as a fallback
     provider = {}
     for name, owns in soname_of_pkg.items():
         for so in owns:
             provider.setdefault(so, name)
-
-    # provides map (recipe `provides` soname -> package) as a fallback resolver.
     for name, r in recipes.items():
         for p in r["provides"]:
             provider.setdefault(p, name)
 
-    # Runtime-closure of declared depends (what a build actually installs).
+    # what a self-hosted build would actually install
     def declared_closure(name):
         seen, stack = set(), [name]
         while stack:
@@ -181,7 +174,8 @@ def main():
                 d = d if d in recipes else next(
                     (pn for pn, rr in recipes.items() if d in rr["provides"]), d)
                 if d not in seen:
-                    seen.add(d); stack.append(d)
+                    seen.add(d)
+                    stack.append(d)
         return seen
 
     report = {}
@@ -194,9 +188,9 @@ def main():
                     continue
                 prov = provider.get(so)
                 if prov is None:
-                    prov = f"?{so}"           # nothing in the store provides it
+                    prov = f"?{so}"           # nobody in the store has it
                 elif prov in covered:
-                    continue                  # already reachable via declared deps
+                    continue
                 missing.add(prov)
         if missing:
             report[name] = sorted(missing)

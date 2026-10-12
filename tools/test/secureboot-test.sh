@@ -1,15 +1,14 @@
 #!/bin/bash
-# secureboot-test.sh — end-to-end UEFI Secure Boot test under QEMU + OVMF.
+# secureboot-test.sh - own-keys Secure Boot under QEMU + OVMF, end to end.
 #
-# Proves the own-keys boot chain: generate a Blueberry key set, build a signed
-# disk image (mkdisk with SECUREBOOT_KEYDIR), enroll the keys into an OVMF
-# varstore with Secure Boot ON, and assert:
-#   * the SIGNED image boots the kernel  (firmware->GRUB->kernel all verified)
-#   * an UNSIGNED image is REJECTED      (firmware refuses the unsigned GRUB)
+# Generates a Blueberry key set, builds a signed and an unsigned disk image,
+# enrolls the keys into an OVMF varstore with Secure Boot on, then checks:
+#   - the signed image boots the kernel (firmware -> GRUB -> kernel verified)
+#   - the unsigned one is refused by the firmware
 #
-# Signing runs in a throwaway container (needs Blueberry's sbsigntools .bpm, plus
-# gnupg/grub/mtools); enrollment + boot run on the host (needs qemu, an OVMF
-# secboot firmware, and virt-fw-vars — auto-installed into a venv if missing).
+# Signing happens in a throwaway container (sbsigntools .bpm, gnupg, grub,
+# mtools). Enrolling and booting happen on the host: qemu, OVMF secboot
+# firmware, and virt-fw-vars (pulled into a venv if it's missing).
 set -euo pipefail
 
 TOPDIR="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -22,13 +21,12 @@ export TMPDIR=${TMPDIR:-/tmp}
 skip() { echo "[sb-test] SKIP: $*"; exit 0; }
 fail() { echo "[sb-test] FAIL: $*"; exit 1; }
 
-# ── prerequisites ─────────────────────────────────────────────────────────────
 command -v qemu-system-x86_64 >/dev/null || skip "qemu-system-x86_64 not found"
 command -v "$ENGINE" >/dev/null || skip "$ENGINE not found"
 [ -f "$ROOTFS/boot/vmlinuz" ] || skip "no rootfs kernel at $ROOTFS/boot/vmlinuz (run 'make install')"
 ls "$OUT"/sbsigntools-*.bpm >/dev/null 2>&1 || skip "sbsigntools .bpm not built (bbdev build sbsigntools)"
 
-# OVMF secure-boot firmware (code + vars template).
+# OVMF secboot firmware, code + vars template
 CODE=""; for c in /usr/share/edk2/x64/OVMF_CODE.secboot.4m.fd \
                   /usr/share/edk2-ovmf/x64/OVMF_CODE.secboot.4m.fd \
                   /usr/share/OVMF/OVMF_CODE.secboot.fd \
@@ -42,7 +40,7 @@ VARS=""; for v in "${CODE%CODE*}VARS.4m.fd" "${CODE%CODE*}VARS.fd" \
 done
 [ -n "$VARS" ] || skip "no OVMF_VARS template found"
 
-# virt-fw-vars for scripted key enrollment (venv, auto-installed).
+# virt-fw-vars does the key enrollment
 VFW=$(command -v virt-fw-vars || true)
 if [ -z "$VFW" ]; then
     VENV="$WORK/vfw-venv"
@@ -56,8 +54,8 @@ fi
 rm -rf "$WORK"/keys "$WORK"/*.img "$WORK"/*.fd "$WORK"/*.log 2>/dev/null || true
 mkdir -p "$WORK"
 
-# ── 1. sign in a container: keygen + signed image + unsigned image ────────────
-echo "[sb-test] building signed + unsigned images (in $ENGINE)…"
+# 1. keygen + signed and unsigned images, in a container
+echo "[sb-test] building signed + unsigned images (in $ENGINE)..."
 "$ENGINE" run --rm --security-opt seccomp=unconfined \
     -v "$OUT:/o:ro,z" -v "$TOPDIR:/repo:ro,z" -v "$ROOTFS:/rootfs:ro,z" -v "$WORK:/work:z" \
     docker.io/library/archlinux:latest bash -c '
@@ -73,7 +71,7 @@ chmod -R a+rX /work
 ' || fail "image signing step failed"
 [ -f "$WORK/signed.img" ] && [ -f "$WORK/keys/db.crt" ] || fail "signing produced no image/keys"
 
-# ── 2. enroll the Blueberry keys into an OVMF varstore, Secure Boot ON ────────
+# 2. enroll our keys, Secure Boot on
 GUID=$(cat "$WORK/keys/GUID")
 "$VFW" -i "$VARS" \
     --set-pk  "$GUID" "$WORK/keys/PK.crt" \
@@ -93,16 +91,16 @@ boot() {  # boot <img> <varsfile> <logfile> <timeout>
 }
 booted() { sed 's/\x1b\[[0-9;]*[A-Za-z]//g' "$1" | tr -d '\000' | grep -qaiE 'Linux version [0-9]|kernel [0-9].*-blueberry'; }
 
-# ── 3. positive: signed image boots under Secure Boot ────────────────────────
-echo "[sb-test] booting SIGNED image (Secure Boot ON)…"
+# 3. signed image has to boot
+echo "[sb-test] booting SIGNED image (Secure Boot ON)..."
 boot "$WORK/signed.img" "$WORK/vars-signed.fd" "$WORK/signed.log" 120
 booted "$WORK/signed.log" || { echo "--- signed serial tail ---"; sed 's/\x1b\[[0-9;]*[A-Za-z]//g' "$WORK/signed.log" | tr -d '\000' | tail -15; fail "signed image did NOT boot the kernel under Secure Boot"; }
-echo "[sb-test]   PASS — signed image booted the kernel"
+echo "[sb-test]   PASS - signed image booted the kernel"
 
-# ── 4. negative: unsigned image is rejected ──────────────────────────────────
-echo "[sb-test] booting UNSIGNED image (must be rejected)…"
+# 4. unsigned image has to be refused
+echo "[sb-test] booting UNSIGNED image (must be rejected)..."
 boot "$WORK/unsigned.img" "$WORK/vars-unsigned.fd" "$WORK/unsigned.log" 60
 if booted "$WORK/unsigned.log"; then fail "unsigned image booted the kernel under Secure Boot (rejection failed)"; fi
-echo "[sb-test]   PASS — unsigned image was rejected by Secure Boot"
+echo "[sb-test]   PASS - unsigned image was rejected by Secure Boot"
 
-echo "[sb-test] PASS — own-keys Secure Boot verified: signed boots, unsigned rejected"
+echo "[sb-test] PASS - own-keys Secure Boot verified: signed boots, unsigned rejected"

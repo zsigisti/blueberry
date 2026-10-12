@@ -1,28 +1,23 @@
 #!/bin/sh
-# mk-builder-image.sh — bake a pre-warmed Arch build image for tools/pkg/build-bpm-pkg.sh.
-#
-# Each package build otherwise runs `pacman -Syu base-devel + makedeps` from
-# scratch in a fresh container (minutes of download+install per build). This bakes
-# base-devel plus the recurring heavy toolchain into one image so builds only need
-# the few package-specific makedeps. Use it with:
+# Pre-warmed Arch build image, so each package build doesn't spend minutes on
+# `pacman -Syu base-devel ...` first. Then:
 #
 #   ENGINE=podman IMAGE=localhost/blueberry-builder tools/pkg/build-bpm-pkg.sh <out> <pkg>...
 #
-# Re-run occasionally to refresh against current Arch (the package recipes still
-# pin their own source versions; this only affects the *build* toolchain).
+# Re-run now and then to pick up newer Arch. Only the build toolchain changes;
+# recipes pin their own sources.
 set -eu
 ENGINE=${ENGINE:-podman}
 TAG=${TAG:-localhost/blueberry-builder}
 
-# `podman commit` writes a multi-GB temp blob to $TMPDIR (default /var/tmp). On
-# hosts where / is small, point it at the podman store's filesystem instead.
+# commit writes a multi-GB temp blob to $TMPDIR (/var/tmp by default), which
+# doesn't fit on a small /. Use the podman store's filesystem
 if [ -z "${TMPDIR:-}" ]; then
     store=$($ENGINE info --format '{{.Store.GraphRoot}}' 2>/dev/null || echo "")
     [ -n "$store" ] && { TMPDIR="$store/tmp"; mkdir -p "$TMPDIR"; export TMPDIR; }
 fi
 
-# Recurring makedeps across the tree (toolchains, Qt6/KF6 build tooling, glib +
-# its split-out codegen, doc/introspection tooling, common -devel libs).
+# makedeps that keep coming up across the tree
 PKGS="base-devel git python python-gobject python-setuptools python-packaging \
 zstd fakeroot curl meson ninja cmake pkgconf \
 glib2 glib2-devel gobject-introspection vala gettext intltool \

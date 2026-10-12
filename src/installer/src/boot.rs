@@ -1,8 +1,7 @@
-//! Bootloader installation. GRUB is installed with the real `grub-install`
-//! (Blueberry ships both the i386-pc and x86_64-efi module trees). The kernel,
-//! initramfs and grub.cfg all live on the *root* filesystem under /boot, and
-//! grub.cfg locates it by UUID with `search` — so the exact same config works
-//! whether GRUB was set up for BIOS or UEFI.
+//! GRUB, kernel, fstab and the passwd/shadow bits.
+//!
+//! Kernel, initramfs and grub.cfg all sit on the root fs under /boot and grub.cfg
+//! finds it by UUID, so the same config works for BIOS and UEFI.
 
 use crate::run::{check, R};
 use std::fs;
@@ -14,7 +13,6 @@ pub enum Firmware {
     Uefi,
 }
 
-/// UEFI if the firmware exposes efivars, else legacy BIOS.
 pub fn detect_firmware() -> Firmware {
     if Path::new("/sys/firmware/efi").exists() {
         Firmware::Uefi
@@ -23,8 +21,7 @@ pub fn detect_firmware() -> Firmware {
     }
 }
 
-/// Locate the GRUB module directory for a platform ("i386-pc"/"x86_64-efi"),
-/// searching the live system first, then a bundled install payload.
+/// Module dir for "i386-pc" / "x86_64-efi": live system first, then the payload.
 fn grub_modules(platform: &str, payload: &str) -> Option<String> {
     let candidates = [
         format!("/usr/lib/grub/{platform}"),
@@ -34,8 +31,7 @@ fn grub_modules(platform: &str, payload: &str) -> Option<String> {
     candidates.into_iter().find(|p| Path::new(p).join("normal.mod").exists())
 }
 
-/// Install GRUB for BIOS (i386-pc) onto the whole disk. /mnt is the mounted root,
-/// core.img is embedded in the BIOS-boot partition.
+/// core.img lands in the ef02 BIOS-boot partition.
 pub fn install_grub_bios(disk_dev: &str, mnt: &str, payload: &str) -> R<()> {
     let modules = grub_modules("i386-pc", payload)
         .ok_or("GRUB i386-pc modules not found in the live system or payload")?;
@@ -50,8 +46,7 @@ pub fn install_grub_bios(disk_dev: &str, mnt: &str, payload: &str) -> R<()> {
     ])
 }
 
-/// Install GRUB for UEFI (x86_64-efi). `esp` is the mounted ESP. --removable
-/// writes /EFI/BOOT/BOOTX64.EFI so it boots without an NVRAM entry (efibootmgr).
+/// --removable writes /EFI/BOOT/BOOTX64.EFI, so it boots without an NVRAM entry.
 pub fn install_grub_uefi(mnt: &str, esp: &str, payload: &str) -> R<()> {
     let modules = grub_modules("x86_64-efi", payload)
         .ok_or("GRUB x86_64-efi modules not found in the live system or payload")?;
@@ -68,17 +63,14 @@ pub fn install_grub_uefi(mnt: &str, esp: &str, payload: &str) -> R<()> {
     ])
 }
 
-/// Write /boot/grub/grub.cfg. `root_uuid` is the root filesystem's UUID;
-/// `cryptarg` is an optional `cryptdevice=…` prefix for encrypted installs.
+/// `cryptarg` is either empty or a `cryptdevice=... ` prefix for LUKS installs.
 pub fn write_grub_cfg(mnt: &str, root_uuid: &str, root_spec: &str, cryptarg: &str, btrfs: bool) -> R<()> {
     let dir = format!("{mnt}/boot/grub");
     fs::create_dir_all(&dir).map_err(|e| format!("mkdir {dir}: {e}"))?;
-    // On btrfs the rootfs lives in the @ subvolume: GRUB reads the top-level
-    // subvolume, so the kernel/initramfs are at /@/boot/…, and the kernel needs
-    // rootflags=subvol=@ so it mounts @ (not the empty top-level) as /.
+    // btrfs: GRUB sees the top-level subvolume, so the kernel is at /@/boot/...,
+    // and the kernel needs subvol=@ or it mounts the empty top level as /.
     let (boot, rootflags) = if btrfs { ("/@/boot", "rootflags=subvol=@ ") } else { ("/boot", "") };
-    // On btrfs, pull in the snapshot rollback menu (grub-btrfs-style entries that
-    // blueberry-snapshot generates before each upgrade), if present.
+    // rollback entries that blueberry-snapshot writes before each upgrade
     let snapshots = if btrfs {
         "if [ -f /@/boot/grub/snapshots.cfg ]; then source /@/boot/grub/snapshots.cfg; fi\n"
     } else {
@@ -105,7 +97,6 @@ pub fn write_grub_cfg(mnt: &str, root_uuid: &str, root_spec: &str, cryptarg: &st
     fs::write(format!("{dir}/grub.cfg"), cfg).map_err(|e| format!("write grub.cfg: {e}"))
 }
 
-/// Copy the kernel + initramfs from the payload into the target /boot.
 pub fn install_kernel(mnt: &str, payload: &str) -> R<()> {
     fs::create_dir_all(format!("{mnt}/boot")).ok();
     check(&["cp", &format!("{payload}/vmlinuz"), &format!("{mnt}/boot/vmlinuz")])?;
@@ -116,22 +107,21 @@ pub fn install_kernel(mnt: &str, payload: &str) -> R<()> {
     ])
 }
 
-/// Write /etc/fstab (and, for UEFI, mount the ESP under /boot/efi).
 pub fn write_fstab(mnt: &str, root_spec: &str, rootfs: &str, esp_uuid: Option<&str>) -> R<()> {
-    // xfs/btrfs have no fsck pass; ext4 gets pass 1. (fsck.xfs is a no-op and
-    // btrfs is checked online, so a non-zero pass would just log a warning.)
+    // only ext4 gets an fsck pass: fsck.xfs is a no-op and btrfs checks online,
+    // so a non-zero pass there just logs a warning every boot
     let pass = if rootfs == "ext4" { 1 } else { 0 };
-    // btrfs root is the @ subvolume; /home is @home so a root rollback keeps user
-    // data. Both pin subvol= to match the boot chain (grub /@, rootflags=subvol=@).
+    // @home is separate so rolling back @ doesn't eat anyone's files. subvol= is
+    // pinned to match grub (/@) and rootflags=subvol=@.
     let root_opts = if rootfs == "btrfs" { "rw,relatime,subvol=@" } else { "rw,relatime" };
     let mut fstab = format!("{root_spec}  /      {rootfs}  {root_opts}  0 {pass}\n");
     if rootfs == "btrfs" {
         fstab.push_str(&format!("{root_spec}  /home  btrfs  rw,relatime,subvol=@home  0 0\n"));
-        // nofail: a missing/broken @snapshots must never drop boot to emergency.
+        // nofail: a broken @snapshots must never drop us into emergency mode
         fstab.push_str(&format!(
             "{root_spec}  /.snapshots  btrfs  rw,relatime,subvol=@snapshots,nofail  0 0\n"
         ));
-        // the /.snapshots mountpoint must exist inside @ for the mount to attach
+        // the mountpoint has to exist inside @
         let _ = fs::create_dir_all(format!("{mnt}/.snapshots"));
     }
     if let Some(u) = esp_uuid {
@@ -140,7 +130,6 @@ pub fn write_fstab(mnt: &str, root_spec: &str, rootfs: &str, esp_uuid: Option<&s
     fs::write(format!("{mnt}/etc/fstab"), fstab).map_err(|e| format!("write fstab: {e}"))
 }
 
-/// True if the payload/live system can actually do UEFI (has the module tree).
 pub fn uefi_available(payload: &str) -> bool {
     grub_modules("x86_64-efi", payload).is_some()
 }
@@ -148,9 +137,8 @@ pub fn bios_available(payload: &str) -> bool {
     grub_modules("i386-pc", payload).is_some()
 }
 
-/// Set `user`'s password by writing a SHA-512 crypt hash straight into the
-/// target's /etc/shadow — no chpasswd/PAM needed in the target, so a scripted
-/// install works against a minimal base. Adds an entry if the user is new.
+/// Writes a SHA-512 hash straight into the target's /etc/shadow, so we don't
+/// need chpasswd/PAM working inside the target. Adds the line if it's missing.
 pub fn set_password(mnt: &str, user: &str, pw: &str) -> R<()> {
     use sha_crypt::{sha512_simple, Sha512Params};
     let params = Sha512Params::new(5000).map_err(|_| "crypt params".to_string())?;
@@ -163,8 +151,8 @@ pub fn set_password(mnt: &str, user: &str, pw: &str) -> R<()> {
     let mut found = false;
     for line in content.lines() {
         if let Some(rest) = line.strip_prefix(&prefix) {
-            // rest = "<oldhash>:<lastchange>:<...>"; keep everything after the hash.
-            let tail = rest.splitn(2, ':').nth(1).unwrap_or("20000:0:99999:7:::");
+            // rest is "<oldhash>:<lastchange>:...", keep everything after the hash
+            let tail = rest.split_once(':').map_or("20000:0:99999:7:::", |(_, t)| t);
             out.push_str(&format!("{user}:{hash}:{tail}\n"));
             found = true;
         } else {
@@ -178,8 +166,7 @@ pub fn set_password(mnt: &str, user: &str, pw: &str) -> R<()> {
     fs::write(&path, out).map_err(|e| format!("write shadow: {e}"))
 }
 
-/// Create a login user by appending to /etc/passwd, /etc/group and /etc/shadow
-/// (locked until set_password), then making the home directory. Returns the UID.
+/// Appends to passwd/group/shadow (locked until set_password) and makes $HOME.
 pub fn create_user(mnt: &str, name: &str) -> R<u32> {
     let uid = next_uid(mnt);
     append(&format!("{mnt}/etc/passwd"), &format!("{name}:x:{uid}:{uid}:{name}:/home/{name}:/bin/bash\n"))?;
@@ -193,7 +180,7 @@ pub fn create_user(mnt: &str, name: &str) -> R<u32> {
     Ok(uid)
 }
 
-/// Lowest free UID/GID at or above 1000 in the target's /etc/passwd.
+/// Lowest free uid >= 1000. Also used as the gid.
 fn next_uid(mnt: &str) -> u32 {
     let content = fs::read_to_string(format!("{mnt}/etc/passwd")).unwrap_or_default();
     let mut uid = 1000u32;

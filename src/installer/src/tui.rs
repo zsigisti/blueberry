@@ -1,7 +1,6 @@
-//! Full-screen TUI installer (ratatui). One form screen with every setting,
-//! Enter-to-edit, a confirm dialog, then a live progress view driven by the
-//! engine running on a worker thread. Works on the Linux console (TERM=linux)
-//! and over serial.
+//! The ratatui front-end: one form with every setting, a confirm popup, then a
+//! progress view while the engine runs on a worker thread. Works on the linux
+//! console and over serial.
 
 use crate::boot::Firmware;
 use crate::disk::Disk;
@@ -18,7 +17,7 @@ use std::io;
 use std::sync::mpsc;
 use std::time::Duration;
 
-const ACCENT: Color = Color::Magenta; // blueberry-ish
+const ACCENT: Color = Color::Magenta; // closest thing to blueberry in 16 colors
 
 #[derive(Clone, Copy, PartialEq)]
 enum Row {
@@ -59,7 +58,7 @@ struct Form {
     luks_pw: String,
     lvm: bool,
     sel: usize,
-    editing: Option<String>, // edit buffer when editing the selected row
+    editing: Option<String>, // edit buffer for the selected row
     error: Option<String>,
 }
 
@@ -81,7 +80,7 @@ enum Msg {
     Done(Result<(), String>),
 }
 
-/// Run the interactive TUI. Ok(true) = install finished (caller reboots).
+/// Ok(true) means it installed and the caller should reboot.
 pub fn run(payload: Payload, disks: Vec<Disk>, detected: Firmware) -> io::Result<bool> {
     let mut fw_options = Vec::new();
     if crate::boot::uefi_available(&payload.dir) {
@@ -128,7 +127,6 @@ pub fn run(payload: Payload, disks: Vec<Disk>, detected: Firmware) -> io::Result
     let mut installed_ok = false;
 
     'outer: loop {
-        // Drain engine events when installing.
         if let Phase::Progress { rx, steps_done, current, log, result, .. } = &mut phase {
             while let Ok(m) = rx.try_recv() {
                 match m {
@@ -151,10 +149,10 @@ pub fn run(payload: Payload, disks: Vec<Disk>, detected: Firmware) -> io::Result
             }
         }
 
-        // Full redraw every ~5s: stray console writes (kernel printk) desync the
-        // diff renderer; a periodic clear self-heals any ghost cells.
+        // stray printk output desyncs ratatui's diffing and leaves ghost cells,
+        // so do a full clear every ~5s and let it heal itself
         frame_n += 1;
-        if frame_n % 40 == 0 {
+        if frame_n.is_multiple_of(40) {
             term.clear()?;
         }
         term.draw(|f| draw(f, &payload, &form, &phase))?;
@@ -166,7 +164,7 @@ pub fn run(payload: Payload, disks: Vec<Disk>, detected: Firmware) -> io::Result
         if key.kind != KeyEventKind::Press {
             continue;
         }
-        // Ctrl-C always exits (to the rescue shell).
+        // ctrl-c always bails out to the rescue shell
         if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
             break 'outer;
         }
@@ -286,7 +284,7 @@ impl Form {
             Row::Keymap => {
                 let n = engine::KEYMAPS.len();
                 self.km_idx = (self.km_idx + if fwd { 1 } else { n - 1 }) % n;
-                // apply immediately so the passwords you type match the layout
+                // apply right away so the passwords get typed in this layout
                 let _ = crate::run::out(&["loadkeys", engine::KEYMAPS[self.km_idx].0]);
             }
             Row::Luks => self.luks = !self.luks,
@@ -368,7 +366,6 @@ fn draw(f: &mut ratatui::Frame, payload: &Payload, form: &Form, phase: &Phase) {
         .constraints([Constraint::Length(3), Constraint::Min(8), Constraint::Length(2)])
         .split(area);
 
-    // Header
     let title = format!("  Blueberry Installer — {}", payload.name);
     f.render_widget(
         Paragraph::new(title)
@@ -384,7 +381,6 @@ fn draw(f: &mut ratatui::Frame, payload: &Payload, form: &Form, phase: &Phase) {
         }
     }
 
-    // Footer
     let help = match phase {
         Phase::Form if form.editing.is_some() => "Enter apply · Esc cancel",
         Phase::Form => "↑/↓ move · Enter edit/toggle · ←/→ cycle · q quit · Ctrl-C shell",
@@ -517,7 +513,6 @@ fn draw_form(f: &mut ratatui::Frame, area: Rect, form: &Form) {
     }
     f.render_widget(List::new(items).block(block), area);
 
-    // Context help for the selected row.
     let info = match ROWS[form.sel] {
         Row::Disk => "The disk Blueberry is installed to.\n\nEverything on it is erased during the install. ←/→ cycles through the detected disks.",
         Row::Bootloader => "How the system boots.\n\nUEFI for modern machines (an EFI system partition is created), BIOS for legacy machines and simple VMs. The detected firmware is pre-selected.",
