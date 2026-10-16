@@ -1,6 +1,6 @@
 [package]
 name     = "aardvark-dns"
-version  = "2.0.0"
+version  = "2.1.0"
 release  = 1
 summary  = "Authoritative DNS server for container names (netavark companion)"
 homepage = "https://github.com/containers/aardvark-dns"
@@ -11,8 +11,8 @@ depends     = ["glibc", "gcc-libs"]
 makedepends = ["rust", "git"]
 
 [[source]]
-url    = "https://github.com/containers/aardvark-dns/archive/v2.0.0/aardvark-dns-2.0.0.tar.gz"
-sha256 = "d3f5d6b3be3c2d80e8257fb9467e34ff104f299474427979454034dca6dc88cc"
+url    = "https://github.com/containers/aardvark-dns/archive/v2.1.0/aardvark-dns-2.1.0.tar.gz"
+sha256 = "daf871488603e659b0501224cf0731ac317809b1d1701fc061cb4f6ae39a894f"
 
 [steps]
 build = '''
